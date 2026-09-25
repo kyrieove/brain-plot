@@ -28,8 +28,14 @@ fix is logged in `docs/review-log.md`. Regression checks pass.
 | `docs/astra-review-*.md`, `docs/review-log.md` | reviews and every change |
 
 ## Next (start here in the new session)
-1. astra round 5 fixed 2026-09-26 (see `docs/review-log.md`). Round 6 review → `docs/astra-review-round6.md`;
-   read it, show the user, fix.
+Plan agreed 2026-09-26: `docs/plan-2026-09-26.md`. Repo: https://github.com/kyrieove/brain-plot (public; commit +
+push after every tested change set).
+- Done: step 1 (repo), step 2 (output layout O1–O3, `_history/`, metaphor outputs migrated to
+  `D:-python_datasets\metaphor production\derivativesrain-plot\`, specs in its `specs/`, re-rendered as v01).
+- Next: step 3 — `localize` (collapsed localizer, plan items 11–14; verify every built-in component window with
+  `paper-lookup` first), merge `explore` into it, rebuild `kind: "erp"` by channel (single/all, grid, ROI mean),
+  `data_log.md`. Then step 4: astra review (codex exec failed: 401, then timeouts — ask the user to fix first).
+- `_run.json` `qa` of the re-rendered metaphor v01 figures is still PENDING.
 
 ## Rejected by the user (don't redo)
 - Explore: core-channel page + 4/6/8/9 electrode pages (replaced by one 3 × 3); legend as a right-hand column.
