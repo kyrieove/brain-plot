@@ -23,7 +23,7 @@ fix is logged in `docs/review-log.md`. Regression checks pass.
 | `brain-plot/references/spec.md` | spec keys |
 | `brain-plot/erp_plot.py` | all computing and drawing |
 | `brain-plot/test/fig_main.json` | example spec (synthetic paths, Go/NoGo layout) |
-| `D:\1-python_datasets\metaphor production\derivatives\figures\brain-plot\` | N400 main + P200/N300/LPC supplementary (specs, PNG/PDF/SVG, `_run.json`) |
+| `D:\1-python_datasets\metaphor production\derivatives\brain-plot\` | N400 main + P200/N300/LPC supplementary in `ERP_topo/`, explore in `ERP/` + `topo/`, specs in `specs/`, old versions in `_history/` |
 | `research/exemplars.md`, `research/erp-gallery.html` | design sources |
 | `docs/astra-review-*.md`, `docs/review-log.md` | reviews and every change |
 
