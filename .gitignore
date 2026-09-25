@@ -1,0 +1,12 @@
+# outputs, caches, real-data runs (plan 2026-09-26)
+agent-test/
+brain-plot/test/out/
+.cache/
+__pycache__/
+*.npz
+*.png
+*.svg
+*.pdf
+*_run.json
+*-epo.fif
+*-ave.fif
