@@ -1,6 +1,12 @@
 # Spec format (erp_plot.py v1)
 
-A JSON object. Unknown keys stop the script. Example: `test/fig_main.json`.
+A JSON object. Unknown keys stop the script (an old spec with `out` stops too: delete the key). Example:
+`test/fig_main.json`. Keep specs in `brain-plot/specs/`.
+
+Outputs go to `brain-plot/` next to the data folder (rules O1–O3): `ERP_topo/ERP-topo_<component>_<channels>_<window>_<comparison>_vNN`,
+`topo/topo_<component>_<window>_<comparison>_vNN`, `ERP/ERP-ROI_<channels>_<component>-<window>_<comparison>_vNN`; each as
+`.png .svg`, `_caption.md`, `_run.json`. `<comparison>` is `groups-by-condition` (`overlay: "groups"`) or
+`conditions-by-group`.
 
 ## Required
 
@@ -13,7 +19,6 @@ A JSON object. Unknown keys stop the script. Example: `test/fig_main.json`.
 | `key_comparison` | The comparison the layout serves (e.g. "groups within each condition"). |
 | `time_locked_to` | Event at 0 ms, as it should read in the caption (non-empty). |
 | `reference` | Reference scheme for the caption (non-empty; files often don't store it). |
-| `out` | Output prefix; files are `<out>_<component>.png/.svg`, `<out>_<component>_caption.md`, `<out>_<component>_run.json`. |
 
 ## Optional
 
@@ -42,7 +47,7 @@ Difference waves, lateralised components (N2pc, LRP), CSD or source data, time�
 ## Explore spec (`python erp_plot.py explore <spec.json>`)
 
 Overview figures for choosing components and windows — not paper figures, no window bands, no interview needed.
-Required: `data`, `conditions`, `out`. Also accepted from above: `groups`, `group_by`, `exclude`, `query`, `colors`,
+Required: `data`, `conditions`. Also accepted from above: `groups`, `group_by`, `exclude`, `query`, `colors`,
 `linestyles`, `ordered`, `xlim_ms`, `polarity`, `width_mm`/`height_mm`, `cmap`.
 
 | Key | Default | Meaning |
@@ -52,5 +57,6 @@ Required: `data`, `conditions`, `out`. Also accepted from above: `groups`, `grou
 | `differences` | none | `[[A, B], …]` condition keys; adds A − B difference-map rows (within subject, then averaged; own colour scale). |
 | `topo_scale` | `"global"` | One colour scale for all condition maps; `"component"` = one per column (horizontal µV bar under it). |
 
-Outputs per group: `<out>_<group>_waves` (all conditions overlaid per channel, shared y-range, legend centred
-under the grid) and `<out>_<group>_topo` (rows = conditions + differences, columns = components), `.png/.svg`.
+Outputs per group: `ERP/ERP-grid-<rows>x<cols>_conditions_<group>_vNN` (all conditions overlaid per channel, shared
+y-range, legend centred under the grid) and `topo/topo-table_<components>_<group>_vNN` (rows = conditions +
+differences, columns = components), `.png/.svg`.

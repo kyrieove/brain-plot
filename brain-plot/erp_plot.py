@@ -3,11 +3,13 @@
     python erp_plot.py inspect <data_dir>      # facts the agent needs before the interview
     python erp_plot.py windows <spec.json>     # candidate windows from the waveform collapsed over groups and conditions
     python erp_plot.py plot    <spec.json>     # one figure per component: .png/.svg + _caption.md + _run.json
+    python erp_plot.py explore <spec.json>     # overview before windows are known
 
 <data_dir> holds one *-epo.fif or *-ave.fif per subject; sub-folders are groups. The subject ID is the file
 name up to the first "_" or "-". Input must be preprocessed EEG potentials (no bad channels left, one common
 channel set, time grid, baseline, filter and reference); the loader stops on any mismatch. The spec format and
-the rules this script enforces are in references/spec.md and references/rules.md.
+the rules this script enforces are in references/spec.md and references/rules.md. Outputs go to brain-plot/ next to
+the data folder (rules O1–O3).
 """
 import hashlib
 import json
@@ -36,7 +38,7 @@ STYLE = {
     "ytick.major.width": 0.6, "xtick.major.size": 2.5, "ytick.major.size": 2.5, "lines.linewidth": 1.0,
     "axes.spines.top": False, "axes.spines.right": False, "pdf.fonttype": 42, "svg.fonttype": "none",
 }
-REQUIRED = {"data", "conditions", "components", "claim", "key_comparison", "time_locked_to", "reference", "out"}
+REQUIRED = {"data", "conditions", "components", "claim", "key_comparison", "time_locked_to", "reference"}
 OPTIONAL = {"kind", "groups", "exclude", "query", "overlay", "ordered", "colors", "xlim_ms", "polarity", "width_mm",
             "height_mm", "cmap", "stats_note", "group_by", "linestyles", "error"}
 COMPONENT_KEYS = {"name", "channels", "tmin_ms", "tmax_ms", "window_source"}
@@ -96,6 +98,39 @@ def check_spec(spec):
 
 def text(x):
     return isinstance(x, str) and bool(x.strip())
+
+
+# ---------- output layout (plan 2026-09-26) ----------
+KIND_DIR = {"erp": "ERP", "topo": "topo", "combo": "ERP_topo"}
+
+
+def out_root(spec):
+    """Rule O1: every output goes to brain-plot/ next to the data folder."""
+    return Path(spec["data"]).resolve().parent / "brain-plot"
+
+
+def comparison(spec):
+    """File-name part: what the lines are, then what the panels are."""
+    return "conditions-by-group" if spec.get("overlay", "groups") == "conditions" else "groups-by-condition"
+
+
+def safe(x):
+    return re.sub(r'[\\/:*?"<>|\s]+', "", str(x))
+
+
+def versioned(folder, stem):
+    """Rule O2: path prefix of the next version of `stem` (…_v01, _v02, …). Files of the previous versions move to
+    folder/_history/; nothing is overwritten. Call only once the figure has passed its checks."""
+    hist = folder / "_history"
+    pat = re.compile(re.escape(stem) + r"_v(\d+)(?![\d])")
+    old = [f for d in (folder, hist) if d.exists() for f in d.iterdir() if pat.match(f.name)]
+    n = max((int(pat.match(f.name).group(1)) for f in old), default=0) + 1
+    for f in old:
+        if f.parent == folder:
+            hist.mkdir(parents=True, exist_ok=True)
+            f.rename(hist / f.name)
+    folder.mkdir(parents=True, exist_ok=True)
+    return folder / f"{stem}_v{n:02d}"
 
 
 # ---------- data ----------
@@ -199,7 +234,7 @@ def load(spec):
     files = [f for fs in groups.values() for f in fs]
     stamp = [[str(f), f.stat().st_size, f.stat().st_mtime_ns] for f in files]
     key = json.dumps([LOADER_VERSION, list(groups), stamp, conds, spec.get("query")])
-    cache = Path(spec["out"]).parent / ".cache" / (hashlib.md5(key.encode()).hexdigest() + ".npz")
+    cache = out_root(spec) / ".cache" / (hashlib.md5(key.encode()).hexdigest() + ".npz")
     if cache.exists():
         z = np.load(cache, allow_pickle=True)
         meta = json.loads(str(z["meta"]))
@@ -769,8 +804,10 @@ def plot(spec):
         want = len(panels) * len(lines)
         if (n_lines, n_maps) != (0 if kind == "topo" else want, 0 if kind == "erp" else want):
             die(f"drew {n_lines} lines / {n_maps} maps for kind {kind!r}, expected {want} of each drawn element")
-        out = Path(f"{spec['out']}_{comp['name']}")
-        out.parent.mkdir(parents=True, exist_ok=True)
+        chans, win = "-".join(map(safe, comp["channels"])), f"{comp['tmin_ms']:g}-{comp['tmax_ms']:g}ms"
+        stem = {"combo": f"ERP-topo_{comp['name']}_{chans}_{win}", "topo": f"topo_{comp['name']}_{win}",
+                "erp": f"ERP-ROI_{chans}_{comp['name']}-{win}"}[kind] + f"_{comparison(spec)}"  # rule O3
+        out = versioned(out_root(spec) / KIND_DIR[kind], stem)
         for ext in ("svg", "png"):  # rule T5: PNG to view, SVG with editable text to adjust
             fig.savefig(f"{out}.{ext}", dpi=600 if ext == "png" else None)
         plt.close(fig)
@@ -830,7 +867,7 @@ def caption(spec, comp, meta, groups, conds, out, actual, v, sphere, kind):
 
 
 # ---------- explore: overview figures before windows are known (not paper figures) ----------
-EXPLORE_REQUIRED = {"data", "conditions", "out"}
+EXPLORE_REQUIRED = {"data", "conditions"}
 EXPLORE_OPTIONAL = {"width_mm", "height_mm", "group_by", "groups", "exclude", "query", "colors", "linestyles", "ordered", "xlim_ms", "polarity",
                     "channels", "components", "differences", "topo_scale", "cmap"}
 EXPLORE_CHANNELS = [["F3", "Fz", "F4"], ["C3", "Cz", "C4"], ["P3", "Pz", "P4"]]  # rows front to back, left to right
@@ -986,15 +1023,16 @@ def explore(spec):
         die(f"channels {missing} are not in the data")
     grid = [[info.ch_names.index(c) for c in r] for r in rows]
     sphere = common_sphere(info)
-    out = Path(spec["out"])
-    out.parent.mkdir(parents=True, exist_ok=True)
-    for g in groups:
-        tag = f"{out}_{g}"
-        wave_grid(spec, "Waveforms", grid, info, data[g], conds, labels, colors, styles, ms, t, lo, hi, neg, g,
-                  f"{tag}_waves")
+    root, shape = out_root(spec), f"{len(rows)}x{max(len(r) for r in rows)}"
+    outs = []
+    for g in groups:  # rule O3
+        outs.append(versioned(root / "ERP", f"ERP-grid-{shape}_conditions_{safe(g)}"))
+        wave_grid(spec, "Waveforms", grid, info, data[g], conds, labels, colors, styles, ms, t, lo, hi, neg, g, outs[-1])
         if spec.get("components"):
-            topo_table(spec, data[g], conds, labels, spec["components"], info, ms, sphere, g, f"{tag}_topo")
-    print("wrote", f"{out}_<group>_waves / _topo .png/.svg")
+            names = "-".join(c["name"] for c in spec["components"])
+            outs.append(versioned(root / "topo", f"topo-table_{safe(names)}_{safe(g)}"))
+            topo_table(spec, data[g], conds, labels, spec["components"], info, ms, sphere, g, outs[-1])
+    print("wrote", *[f"{o}.png/.svg" for o in outs], sep="\n  ")
 
 
 if __name__ == "__main__":

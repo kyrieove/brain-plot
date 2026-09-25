@@ -27,8 +27,7 @@ def make_subject(path, conds, tmin=-0.2, n_t=301, seed=0, bads=()):
 def spec(root, **kw):
     s = dict(data=str(root), conditions={"A": "Low", "B": "Mid", "C": "High"},
              components=[dict(name="P3", channels=["Cz", "Pz"], tmin_ms=250, tmax_ms=350, window_source="test")],
-             claim="test", key_comparison="test", time_locked_to="stimulus onset", reference="average",
-             out=str(root / "out" / "fig"))
+             claim="test", key_comparison="test", time_locked_to="stimulus onset", reference="average")
     s.update(kw)
     return s
 
@@ -50,6 +49,11 @@ def inside_canvas(fig):
     boxes = texts_of(fig) + [("axes", a.get_tightbbox(R)) for a in fig.axes]
     out = [(n, b) for n, b in boxes if b.x0 < -0.5 or b.y0 < -0.5 or b.x1 > W + 0.5 or b.y1 > H + 0.5]
     assert not out, f"outside the canvas: {out[:3]}"
+
+
+def latest(root, sub, pattern):
+    """Newest output matching pattern in <data folder's parent>/brain-plot/<sub>/ (rule O1)."""
+    return max((root.parent / "brain-plot" / sub).glob(pattern), key=lambda f: f.stat().st_mtime_ns)
 
 
 def fails(s, text):
@@ -93,13 +97,13 @@ with tempfile.TemporaryDirectory() as d:
 
     # 1. groups overlaid, 3 conditions, short display range, single-subject group (no SEM)
     ep.plot(spec(root, xlim_ms=[-100, 400], error="sem"))
-    run = json.loads((root / "out" / "fig_P3_run.json").read_text(encoding="utf8"))
+    run = json.loads(latest(root, "ERP_topo", "ERP-topo_P3_*_run.json").read_text(encoding="utf8"))
     assert run["lines"] == run["maps"] == 3 * 2
     assert run["legend"] in ("between panels", "widened gap"), run["legend"]  # default legend path (rule L7)
     assert run["open_items"] == []
-    svg = (root / "out" / "fig_P3.svg").read_text(encoding="utf8")
+    svg = latest(root, "ERP_topo", "ERP-topo_P3_*.svg").read_text(encoding="utf8")
     assert 'width="510.23622pt"' in svg, "SVG is not 180 mm wide"
-    assert "n < 2 have no shading" in (root / "out" / "fig_P3_caption.md").read_text(encoding="utf8")
+    assert "n < 2 have no shading" in latest(root, "ERP_topo", "ERP-topo_P3_*_caption.md").read_text(encoding="utf8")
     marks = [l for a in SAVED[-1].axes for l in a.lines if l.get_marker() not in ("None", None, "", " ")]
     assert not marks, "topomaps carry electrode marks (rule L11)"
 
@@ -107,9 +111,9 @@ with tempfile.TemporaryDirectory() as d:
     early = [dict(name="P3", channels=["Cz", "Pz"], tmin_ms=100, tmax_ms=200, window_source="test")]
     ep.plot(spec(root, groups=["G1"], overlay="conditions", ordered=True, polarity="negative_up", components=early,
                  time_locked_to="TO BE CONFIRMED"))
-    run = json.loads((root / "out" / "fig_P3_run.json").read_text(encoding="utf8"))
+    run = json.loads(latest(root, "ERP_topo", "ERP-topo_P3_*_run.json").read_text(encoding="utf8"))
     assert run["legend"] == "inside panel" and run["open_items"] == ["time_locked_to"]
-    assert "OPEN (not confirmed): time_locked_to" in (root / "out" / "fig_P3_caption.md").read_text(encoding="utf8")
+    assert "OPEN (not confirmed): time_locked_to" in latest(root, "ERP_topo", "ERP-topo_P3_*_caption.md").read_text(encoding="utf8")
 
     # 3. spec and input errors stop the script
     fails(spec(root, difference=["A", "B"]), "unsupported spec keys")
@@ -152,10 +156,10 @@ with tempfile.TemporaryDirectory() as d:
     #     one waveform panel keeps its letter inside the canvas
     late = [dict(name="N4", channels=["Cz", "Pz"], tmin_ms=350, tmax_ms=390, window_source="test")]
     ep.plot(spec(root, groups=["G1"], overlay="conditions", kind="topo", components=late))
-    cap = (root / "out" / "fig_N4_caption.md").read_text(encoding="utf8")
+    cap = latest(root, "topo", "topo_N4_350-390ms_conditions-by-group_v01_caption.md").read_text(encoding="utf8")
     assert "Lines:" not in cap and "gray band" not in cap and "polarity" not in cap and "Topographies" in cap
     ep.plot(spec(root, groups=["G1"], overlay="conditions", kind="erp", components=early))
-    cap = (root / "out" / "fig_P3_caption.md").read_text(encoding="utf8")
+    cap = latest(root, "ERP", "ERP-ROI_Cz-Pz_P3-100-200ms_conditions-by-group_v01_caption.md").read_text(encoding="utf8")
     assert "Topographies" not in cap and "topography window" not in cap and "Lines:" in cap
     inside_canvas(SAVED[-1])
     assert any(t == "a" for t, _ in texts_of(SAVED[-1]))
@@ -183,13 +187,20 @@ with tempfile.TemporaryDirectory() as d:
         epo.save(root / f"s{i}-epo.fif", verbose="error")
     s = spec(root, conditions={"A": "A", "B": "B"}, group_by="WM", groups=["HI", "LO"], overlay="conditions")
     ep.plot(s)
-    assert json.loads((root / "out" / "fig_P3_run.json").read_text(encoding="utf8"))["ids"] == {"HI": ["s0", "s1"], "LO": ["s2"]}
+    assert json.loads(latest(root, "ERP_topo", "ERP-topo_P3_*_run.json").read_text(encoding="utf8"))["ids"] == {"HI": ["s0", "s1"], "LO": ["s2"]}
 
     # 7. explore: 3 × 3 waveforms + topomap table per group; unknown channel stops
-    ex = dict(data=str(root), conditions={"A": "A", "B": "B"}, group_by="WM", out=str(root / "ex" / "x"),
+    ex = dict(data=str(root), conditions={"A": "A", "B": "B"}, group_by="WM",
               components=[dict(name="P3", tmin_ms=250, tmax_ms=350)], differences=[["A", "B"]])
     ep.explore(ex)
-    assert all((root / "ex" / f"x_{g}_{k}.png").exists() for g in ("HI", "LO") for k in ("waves", "topo"))
+    out = root.parent / "brain-plot"
+    assert all((out / f).exists() for g in ("HI", "LO")
+               for f in (f"ERP/ERP-grid-3x3_conditions_{g}_v01.png", f"topo/topo-table_P3_{g}_v01.png"))
+    ep.explore(ex)  # rule O2: a second run is v02; v01 moves to _history, nothing is overwritten
+    assert (out / "ERP/ERP-grid-3x3_conditions_HI_v02.svg").exists()
+    assert not (out / "ERP/ERP-grid-3x3_conditions_HI_v01.png").exists()
+    assert {"ERP-grid-3x3_conditions_HI_v01.png", "ERP-grid-3x3_conditions_HI_v01.svg"} <= {
+        f.name for f in (out / "ERP/_history").iterdir()}
     try:
         ep.explore(dict(ex, channels=[["Fz", "FCz"]]))
         raise AssertionError("explore accepted a channel that is not in the data")
@@ -210,7 +221,7 @@ with tempfile.TemporaryDirectory() as d:
     assert not hit, f"overlapping texts: {hit}"
 
     # 9. explore preflight (round 5): window past the data, too few colours; zero difference maps; component bars
-    ex = dict(data=str(root), conditions={"A": "A", "B": "B"}, out=str(root / "ex" / "x"),
+    ex = dict(data=str(root), conditions={"A": "A", "B": "B"},
               components=[dict(name="P3", tmin_ms=250, tmax_ms=350)])
     for bad, text in ((dict(components=[dict(name="L", tmin_ms=350, tmax_ms=500)]), "outside the data"),
                       (dict(colors=["red"]), "one colour each"),

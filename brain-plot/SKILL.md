@@ -63,7 +63,8 @@ rules need no re-confirmation.
 python erp_plot.py plot <spec.json>
 ```
 The script validates the spec and every input file and stops with a message on any problem — fix the cause,
-never work around it. Outputs per component: `.png .svg` (fixed physical size; SVG text stays editable), `_caption.md` (facts for
+never work around it. Outputs go to `brain-plot/` next to the data folder, one sub-folder per kind, named and
+versioned by rules O1–O3 (old versions move to `_history/`). Outputs per component: `.png .svg` (fixed physical size; SVG text stays editable), `_caption.md` (facts for
 the caption), `_run.json` (spec, subject IDs, versions, sample bounds, line/map counts). The first run reads
 every file; later runs use a cache that is invalidated when any input file changes.
 

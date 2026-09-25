@@ -55,6 +55,14 @@ The only valid rule list; each rule is stated once. Type: **U** = the user's bin
 | E2 | Topomap table: rows = conditions (+ difference rows if asked), columns = components; windows must lie inside the data. Default one global scale for the condition maps and one for the difference rows; `topo_scale: "component"` = one scale per column (and block), each with a horizontal µV bar under it inside the canvas. Every scale covers its interpolated maps. (User rule, 2026-09-25.) | U | Code |
 | E3 | Explore figures are candidates for choosing windows, not paper figures: no `_run.json`, no QA record; a window read off them still needs its source stated in the `plot` spec (S3). | M | Interview |
 
+## Output files
+
+| # | Rule | Type | Enforced |
+|---|---|---|---|
+| O1 | Every output goes to `brain-plot/` next to the data folder: `ERP/`, `topo/`, `ERP_topo/` (and `localizer/`, `specs/`, `data_log.md` when used); the spec has no output path. (User rule, 2026-09-26.) | U | Code |
+| O2 | Nothing is overwritten: a new render of the same figure gets the next version `_vNN`; every file of the previous versions (figure, caption, run) moves to that folder's `_history/`. (User rule, 2026-09-26.) | U | Code |
+| O3 | File names say what the figure is: kind, component, channels and/or window, comparison (`groups-by-condition` or `conditions-by-group`) or group, version; e.g. `ERP-topo_N400_Pz-CPz_350-500ms_conditions-by-group_v01`. (User rule, 2026-09-26.) | U | Code |
+
 ## QA after every `plot` render (agent looks at the PNG)
 
 1. Nothing overlaps: legend vs lines, SEM shading, gray band and its label; tick labels vs lines; titles vs letters.
