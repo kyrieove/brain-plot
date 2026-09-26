@@ -13,6 +13,8 @@ scripts also run on their own from the command line.
 |---|---|
 | ![ERP](docs/images/example-erp.png) | ![microstate](docs/images/example-microstate.png) |
 
+![Microstate templates + butterfly + segmentation ribbon](docs/images/example-microstate-butterfly.png)
+
 *Figures from the author's metaphor-production study (unpublished data — please don't reuse them).*
 
 This is a personal tool shared with a few colleagues for testing; expect changes.

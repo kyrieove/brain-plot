@@ -12,6 +12,8 @@ brain-plot 是一个 [Claude Code](https://claude.com/claude-code) 技能，外�
 |---|---|
 | ![ERP](docs/images/example-erp.png) | ![microstate](docs/images/example-microstate.png) |
 
+![微状态模板 + 蝴蝶图 + 分段色带](docs/images/example-microstate-butterfly.png)
+
 *示例图来自作者的隐喻产出研究（未发表数据，请勿转用）。*
 
 这是个人工具，目前只分享给几位同学试用，后续还会改动。
