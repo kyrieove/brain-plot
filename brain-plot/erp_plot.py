@@ -163,6 +163,32 @@ def find_groups(data_dir):
     return groups or {"all": pat(root)}
 
 
+def split_layout(root, conds):
+    """Data stored as <condition>/<group>/<subject>*-ave.fif (one file per subject and condition): returns
+    {group: [{condition: file}, …]} with every subject present in every condition, or None for the other layouts."""
+    root = Path(root)
+    if not all((root / c).is_dir() for c in conds):
+        return None
+    by = {}
+    for c in conds:
+        for d in sorted(x for x in (root / c).iterdir() if x.is_dir()):
+            for f in sorted(d.glob("*-ave.fif")):
+                by.setdefault(d.name, {}).setdefault(subject_id(f), {})[c] = f
+    gaps = sorted(f"{g}/{i}" for g, ss in by.items() for i, fs in ss.items() if len(fs) != len(conds))
+    if gaps:
+        die(f"subjects missing a condition file: {gaps}")
+    return {g: [ss[i] for i in sorted(ss)] for g, ss in sorted(by.items())}
+
+
+def uid(unit):
+    """Subject ID of one subject's input: a file, or {condition: file} in the split layout."""
+    return subject_id(next(iter(unit.values())) if isinstance(unit, dict) else unit)
+
+
+def unit_files(unit):
+    return list(unit.values()) if isinstance(unit, dict) else [unit]
+
+
 def groups_from_metadata(found, col):
     """Split a flat folder of epochs files into groups by a between-subject metadata column (constant per file)."""
     if list(found) != ["all"]:
@@ -182,28 +208,40 @@ def groups_from_metadata(found, col):
 
 
 def select_files(spec):
-    found = find_groups(spec["data"])
+    found = split_layout(spec["data"], list(spec["conditions"]))
+    if found and spec.get("group_by"):
+        die("group_by needs one flat folder of epochs files, not <condition>/<group>/ folders")
+    found = found or find_groups(spec["data"])
     if spec.get("group_by"):
         found = groups_from_metadata(found, spec["group_by"])
     order = spec.get("groups") or list(found)
     if [g for g in order if g not in found]:
         die(f"groups not found in {spec['data']}: {[g for g in order if g not in found]}")
     excl = spec.get("exclude", {})
-    all_ids = [subject_id(f) for g in order for f in found[g]]
+    all_ids = [uid(f) for g in order for f in found[g]]
     dup = sorted({i for i in all_ids if all_ids.count(i) > 1})
     if dup:
         die(f"subject IDs appear more than once: {dup}")
     if [i for i in excl if i not in all_ids]:
         die(f"excluded IDs not found: {[i for i in excl if i not in all_ids]}")
-    groups = {g: [f for f in found[g] if subject_id(f) not in excl] for g in order}
+    groups = {g: [f for f in found[g] if uid(f) not in excl] for g in order}
     if [g for g, fs in groups.items() if not fs]:
         die(f"groups left empty: {[g for g, fs in groups.items() if not fs]}")
     return groups
 
 
 def read_conditions(f, conditions, query):
-    """Evoked per condition and trial counts for one subject file."""
-    if f.name.endswith("-epo.fif"):
+    """Evoked per condition and trial counts for one subject (a file, or {condition: file})."""
+    if isinstance(f, dict):  # split layout: the folder names the condition; one averaged Evoked per file
+        if query:
+            die(f"{uid(f)}: 'query' cannot be applied to averaged (-ave.fif) files")
+        evs = []
+        for c in conditions:
+            e = mne.read_evokeds(f[c], proj=False, verbose="error")
+            if len(e) != 1 or e[0].kind != "average":
+                die(f"{f[c].name}: needs exactly one Evoked of kind 'average'")
+            evs.append(e[0])
+    elif f.name.endswith("-epo.fif"):
         ep = mne.read_epochs(f, proj=False, verbose="error")
         if query:
             ep = ep[query]
@@ -247,7 +285,7 @@ def load(spec):
     """Validated arrays per group: (n_subj, n_cond, n_ch, n_t) in µV; cache keyed on the exact input files."""
     groups = select_files(spec)
     conds = list(spec["conditions"])
-    files = [f for fs in groups.values() for f in fs]
+    files = [p for fs in groups.values() for f in fs for p in unit_files(f)]
     stamp = [[str(f), f.stat().st_size, f.stat().st_mtime_ns] for f in files]
     key = json.dumps([LOADER_VERSION, list(groups), stamp, conds, spec.get("query")])
     cache = out_root(spec) / ".cache" / (hashlib.md5(key.encode()).hexdigest() + ".npz")
@@ -260,8 +298,9 @@ def load(spec):
     data, nave, ids, ref = {}, {}, {}, None
     for g, fs in groups.items():
         arrs, counts = [], []
-        for f in fs:
-            evs, n = read_conditions(f, conds, spec.get("query"))
+        for u in fs:
+            f = unit_files(u)[0]  # names the subject in messages
+            evs, n = read_conditions(u, conds, spec.get("query"))
             for c, ev in zip(conds, evs):
                 if ev.info["bads"]:
                     die(f"{f.name} [{c}]: bad channels {ev.info['bads']} are still marked; resolve them before plotting")
@@ -283,7 +322,7 @@ def load(spec):
                 die(f"{f.name}: non-finite values in the data")
             arrs.append(x)
             counts.append(n)
-        data[g], nave[g], ids[g] = np.array(arrs), [list(map(int, c)) for c in counts], [subject_id(f) for f in fs]
+        data[g], nave[g], ids[g] = np.array(arrs), [list(map(int, c)) for c in counts], [uid(f) for f in fs]
         print(f"loaded {g}: {len(fs)} subjects")
     meta = dict(contract=ref, nave=nave, ids=ids, inputs=stamp, loader_version=LOADER_VERSION)
     cache.parent.mkdir(parents=True, exist_ok=True)
