@@ -185,3 +185,9 @@ checks were confirmed to fail on the old code. Re-rendered N400 main, supplement
 - 2026-09-26, user: template maps looked too small next to the butterfly plot. The map column now takes 1–3 columns,
   whichever gives the largest maps (≤ 22 mm) while the time panels keep half the canvas (K = 5: 10 → 22 mm, two
   columns). User: "还不错".
+
+- 2026-09-26, user on the 6-condition metaphor test: the figure was 180 × 230 mm (my suggestion, panels ~130 × 27 mm,
+  5 : 1) and stacked six conditions, which the user never asked for. Fixed: `grid` (MS9, rows × columns of conditions;
+  more than 2 rows without it stops), template row above multi-column grids, panel shape check 1.8–3.5 : 1 (MS10)
+  that stops with the working `height_mm` range. The grid default height is 100 mm, not the 130 mm I proposed: 130 gives
+  1.3 : 1 panels for a 2 × 3 grid (valid range 84–110 mm at 180 mm width).

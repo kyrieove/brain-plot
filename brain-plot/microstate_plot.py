@@ -22,7 +22,7 @@ from matplotlib.patches import FancyBboxPatch, Rectangle
 import erp_plot as ep
 
 REQUIRED = {"data", "conditions", "templates", "k", "templates_source"}
-OPTIONAL = {"figure", "blocks", "groups", "exclude", "per_group", "window_ms", "min_segment_ms", "polarity", "width_mm",
+OPTIONAL = {"figure", "blocks", "groups", "exclude", "per_group", "grid", "window_ms", "min_segment_ms", "polarity", "width_mm",
             "height_mm", "identity_threshold", "cmap", "reference", "time_locked_to"}
 BLOCKS = {"topo": "topo", "butterfly": "butterfly", "gfp": "GFP", "ribbon": "ribbon"}  # block → file-name part
 STATE_COLOURS = ["#00468B", "#ED0000", "#42B540", "#0099B4", "#925E9F", "#FDAF91", "#AD002A", "#7A8A8A", "#1B1919",
@@ -54,6 +54,10 @@ def check(spec):
     lo, hi = spec.get("window_ms", [0, 800])
     if not lo < hi:
         ep.die("window_ms needs start < end")
+    g = spec.get("grid")
+    if g is not None and (spec.get("per_group") or not isinstance(g, list) or not all(isinstance(r, list) and r for r in g)
+                          or sorted(sum(g, [])) != sorted(spec["conditions"])):
+        ep.die("grid: rows of condition keys using every condition exactly once (not with per_group) — rule MS9")
     if not ep.text(spec["templates_source"]):
         ep.die("templates_source must say which analysis made the templates")
 
@@ -227,88 +231,110 @@ def plot_states(spec, data, info, meta, ms, sphere):
     col = {s: STATE_COLOURS[pos[s] % len(STATE_COLOURS)] for s in range(k)}
     t = ms[w]
 
-    W, H = ep.canvas_size(dict(width_mm=spec.get("width_mm", 180), height_mm=spec.get("height_mm", 110)))
-    fig = plt.figure(figsize=(W * MM, H * MM))
-    top, bottom, side = 6.0, 9.0, 4.0
-    x_right = side
-    if "topo" in blocks:  # rule MS6: template column at the left, one or two columns of framed maps
-        n_sub = len(cells) if len(cells) <= 4 else 0  # per-cell time ranges only while they stay legible
-        extra = 3.5 + 2.3 * n_sub + 1.0  # mm: state label above, one range line per cell below, spacing
-        cgap = 5.0
-
-        def size(nc):  # map side for nc columns; the time panels keep at least half the canvas width
-            nr = -(-k // nc)
-            return min((H - top - bottom) / nr - extra, MAP_MAX_MM, (W / 2 - side - 6 - (nc - 1) * cgap) / nc)
-        ncol = max(range(1, 4), key=lambda nc: (round(size(nc), 1), -nc))  # rule MS6: largest maps, fewest columns
-        nrow, s = -(-k // ncol), size(ncol)
-        zone = ncol * s + (ncol - 1) * cgap
-        y_top = H - top - (H - top - bottom - nrow * (s + extra)) / 2
-        vmax = float(np.abs(centers).max())
-        short = {c: c.split(" · ")[0] if len(cells) > 1 else "" for c in cells}
-        for i, st in enumerate(order):
-            r, cc = i % nrow, i // nrow
-            sub = "\n".join(f"{short[c]} {spans[c][st][0]:.0f}–{spans[c][st][1]:.0f}".strip() if st in spans[c]
-                            else f"{short[c]} —".strip() for c in cells) if n_sub else ""  # rule MS7a
-            framed_map(fig, W, H, side + cc * (s + cgap), y_top - r * (s + extra) - 3.5 - s, s,
-                       centers[st], info, sphere, vmax, col[st], f"S{i + 1}", sub, spec.get("cmap", "RdBu_r"))
-        x_right = side + zone + 6
+    names = list(cells)
+    if spec.get("grid"):  # rule MS9: the user's rows × columns of conditions (e.g. a 2 × 3 design)
+        grid = [[spec["conditions"][c] for c in row] for row in spec["grid"]]
+    elif len(names) <= 2:
+        grid = [[c] for c in names]
+    else:
+        ep.die(f"{len(names)} rows of time panels would be stacked; give 'grid' (rows × columns of condition keys, "
+               "e.g. [[\"Hmet\",\"Hlit\",\"Hrep\"],[\"Lmet\",\"Llit\",\"Lrep\"]]) — rule MS9")
+    R, C = len(grid), max(len(r) for r in grid)
     panels = [b for b in ("butterfly", "gfp") if b in blocks]
-    ylab = 11.0  # room for the y label and ticks of each time panel
-    avail = W - x_right - side - ylab * len(panels) - 2
-    widths = [avail * (1.3 if p == "butterfly" and len(panels) == 2 else 1.0) / (2.3 if len(panels) == 2 else 1)
-              for p in panels]
-    n = len(cells)
     rib = 3.2 if "ribbon" in blocks else 0.0
-    gap = 9.0
-    row_h = (H - top - bottom - (n - 1) * gap) / n
+    top, bottom, side, gap, cgap, ylab = 6.0, 9.0, 4.0, 9.0, 4.0, 11.0
+    maps_on_top = "topo" in blocks and C > 1  # rule MS6: a map row above a multi-column grid
+    n_sub = len(cells) if len(cells) <= 4 and not maps_on_top else 0  # rule MS7a: ranges only while legible
+    extra = 3.5 + 2.3 * n_sub + 1.0  # mm around a map: state label above, range lines below, spacing
+
+    def layout(W, H):
+        """Map positions and time-panel geometry for a W × H mm canvas."""
+        maps, x_right, y_grid = [], side, H - top
+        if maps_on_top:
+            s = min(MAP_MAX_MM, (W - 2 * side) / (k * 1.25), 0.22 * H)
+            x0 = (W - k * s * 1.25 + 0.25 * s) / 2
+            maps = [(x0 + i * s * 1.25, H - top - 3.5 - s, s) for i in range(k)]
+            y_grid = H - top - 3.5 - s - 4.0
+        elif "topo" in blocks:
+            def size(nc):  # map side for nc columns; the time panels keep at least half the canvas width
+                return min((H - top - bottom) / -(-k // nc) - extra, MAP_MAX_MM, (W / 2 - side - 6 - (nc - 1) * 5) / nc)
+            nc = max(range(1, 4), key=lambda n: (round(size(n), 1), -n))  # largest maps, fewest columns
+            nr, s = -(-k // nc), size(nc)
+            y_top = H - top - (H - top - bottom - nr * (s + extra)) / 2
+            maps = [(side + (i // nr) * (s + 5), y_top - (i % nr) * (s + extra) - 3.5 - s, s) for i in range(k)]
+            x_right = side + nc * s + (nc - 1) * 5 + 6
+        cell_w = (W - x_right - side - (C - 1) * cgap) / C
+        avail = cell_w - ylab * len(panels)
+        share = [1.3 if p == "butterfly" and len(panels) == 2 else 1.0 for p in panels]  # butterfly wider than GFP
+        widths = [avail * x / sum(share) for x in share]
+        row_h = (y_grid - bottom - (R - 1) * gap) / R
+        return maps, x_right, y_grid, cell_w, widths, row_h, row_h - rib - (1.0 if rib else 0)
+
+    W, H = ep.canvas_size(dict(width_mm=spec.get("width_mm", 180), height_mm=spec.get("height_mm", 100 if C > 1 else 110)))
+    maps, x_right, y_grid, cell_w, widths, row_h, ph = layout(W, H)
+    ratio = widths[0] / ph
+    if not 1.8 <= ratio <= 3.5:  # rule MS10: time panels keep a readable shape
+        ok = [h for h in range(60, 301) if 1.8 <= (lambda g: g[4][0] / g[6])(layout(W, h)) <= 3.5]
+        ep.die(f"time panels would be {widths[0]:.0f} × {ph:.0f} mm (width:height {ratio:.1f}); keep 1.8–3.5 with "
+               + (f"height_mm {ok[0]}–{ok[-1]} at width_mm {W:g}" if ok else "another width_mm or grid") + " (rule MS10)")
+    fig = plt.figure(figsize=(W * MM, H * MM))
+    vmax = float(np.abs(centers).max())
+    short = {c: c.split(" · ")[0] if len(cells) > 1 else "" for c in cells}
+    for i, (st, (mx, my, ms_)) in enumerate(zip(order, maps)):
+        sub = "\n".join(f"{short[c]} {spans[c][st][0]:.0f}–{spans[c][st][1]:.0f}".strip() if st in spans[c]
+                        else f"{short[c]} —".strip() for c in cells) if n_sub else ""  # rule MS7a
+        framed_map(fig, W, H, mx, my, ms_, centers[st], info, sphere, vmax, col[st], f"S{i + 1}", sub,
+                   spec.get("cmap", "RdBu_r"))
     amp = max(np.abs(x[:, w]).max() for x, _ in cells.values()) * 1.08
     gmax = max(x[:, w].std(0).max() for x, _ in cells.values()) * 1.10
-    for r, (cell, (x, n_subj)) in enumerate(cells.items()):
-        y0 = H - top - (r + 1) * row_h - r * gap
-        lab, low = labels[cell], lows[cell]
-        gfp = x[:, w].std(0)
-        bounds = [t[a] for a, _, _ in runs(lab)[1:]]
-        xx = x_right + ylab
-        for p, pw in zip(panels, widths):
-            ax = mm_axes(fig, W, H, xx, y0 + rib + (1.0 if rib else 0), pw, row_h - rib - (1.0 if rib else 0))
-            if p == "butterfly":
-                ax.plot(t, x[:, w].T, color=TRACE, alpha=0.42, lw=0.28, zorder=2)
-                ax.plot(t, gfp, color=TRACE, lw=1.0, zorder=3)
-                ax.annotate("GFP", (t[-1], gfp[-1]), xytext=(0, 2), textcoords="offset points", fontsize=6,
-                            ha="right", va="bottom", color=TRACE)  # rule MS7c: inside the panel
-                ax.set_ylim(-amp, amp)
-                ax.set_ylabel("Amplitude (µV)", fontsize=7, labelpad=1)
-                ax.set_title(f"{cell} | N = {n_subj}", fontsize=7, fontweight="bold", pad=2.5)
-                for b in bounds:
-                    ax.axvline(b, color=SOFT, lw=0.5, ls=":", zorder=1)
-            else:
-                ax.plot(t, gfp, color=TRACE, lw=0.8, zorder=3)
-                for a, b, st in runs(lab):
-                    ax.fill_between(t[a:b + 1], 0, gfp[a:b + 1], color=col[st], lw=0, zorder=2)
-                hatch(ax, t, low, 0, gmax)
-                ax.set_ylim(0, gmax)
-                ax.set_ylabel("GFP (µV)", fontsize=7, labelpad=1)
-                ax.set_title(f"{cell} | GFP", fontsize=7, fontweight="bold", pad=2.5)
-            ax.tick_params(labelsize=6, length=2, pad=1.5)
-            time_axis(ax, t[0], t[-1] + (t[1] - t[0]), labelled=False)
-            if rib and p == "butterfly":  # rule MS7b: ribbon under the butterfly, labelled S1, S2, …
-                ax.tick_params(axis="x", labelbottom=False)
-                rax = mm_axes(fig, W, H, xx, y0, pw, rib)
-                step = t[1] - t[0]
-                for a, b, st in runs(lab):
-                    rax.add_patch(Rectangle((t[a], 0), t[b - 1] - t[a] + step, 1, color=col[st], lw=0))
-                    if (t[b - 1] - t[a]) > 0.045 * (t[-1] - t[0]):
-                        rax.text((t[a] + t[b - 1] + step) / 2, 0.5, f"S{pos[st] + 1}", ha="center", va="center",
-                                 fontsize=5.5, color="white", fontweight="bold", zorder=5)
-                hatch(rax, t, low, 0, 1)
-                rax.set_ylim(0, 1)
-                rax.set_yticks([])
-                for sp in ("left", "right", "top"):
-                    rax.spines[sp].set_visible(False)
-                time_axis(rax, t[0], t[-1] + step, labelled=r == n - 1)
-            elif r == n - 1:
-                ax.set_xlabel("Time (ms)", fontsize=7, labelpad=1)
-            xx += pw + ylab
+    for r, row in enumerate(grid):
+        for c_i, cell in enumerate(row):
+            x, n_subj = cells[cell]
+            y0 = y_grid - (r + 1) * row_h - r * gap
+            lab, low = labels[cell], lows[cell]
+            gfp = x[:, w].std(0)
+            bounds = [t[a] for a, _, _ in runs(lab)[1:]]
+            xx = x_right + c_i * (cell_w + cgap) + ylab
+            for p, pw in zip(panels, widths):
+                ax = mm_axes(fig, W, H, xx, y0 + rib + (1.0 if rib else 0), pw, ph)
+                if p == "butterfly":
+                    ax.plot(t, x[:, w].T, color=TRACE, alpha=0.42, lw=0.28, zorder=2)
+                    ax.plot(t, gfp, color=TRACE, lw=1.0, zorder=3)
+                    ax.annotate("GFP", (t[-1], gfp[-1]), xytext=(0, 2), textcoords="offset points", fontsize=6,
+                                ha="right", va="bottom", color=TRACE)  # rule MS7c: inside the panel
+                    ax.set_ylim(-amp, amp)
+                    ax.set_title(f"{cell} | N = {n_subj}", fontsize=7, fontweight="bold", pad=2.5)
+                    for b in bounds:
+                        ax.axvline(b, color=SOFT, lw=0.5, ls=":", zorder=1)
+                else:
+                    ax.plot(t, gfp, color=TRACE, lw=0.8, zorder=3)
+                    for a, b, st in runs(lab):
+                        ax.fill_between(t[a:b + 1], 0, gfp[a:b + 1], color=col[st], lw=0, zorder=2)
+                    hatch(ax, t, low, 0, gmax)
+                    ax.set_ylim(0, gmax)
+                    ax.set_title(f"{cell} | GFP", fontsize=7, fontweight="bold", pad=2.5)
+                if c_i == 0 or len(panels) > 1:  # y label once per row of a grid (shared ranges)
+                    ax.set_ylabel("Amplitude (µV)" if p == "butterfly" else "GFP (µV)", fontsize=7, labelpad=1)
+                ax.tick_params(labelsize=6, length=2, pad=1.5)
+                time_axis(ax, t[0], t[-1] + (t[1] - t[0]), labelled=False)
+                if rib and p == "butterfly":  # rule MS7b: ribbon under the butterfly, labelled S1, S2, …
+                    ax.tick_params(axis="x", labelbottom=False)
+                    rax = mm_axes(fig, W, H, xx, y0, pw, rib)
+                    step = t[1] - t[0]
+                    for a, b, st in runs(lab):
+                        rax.add_patch(Rectangle((t[a], 0), t[b - 1] - t[a] + step, 1, color=col[st], lw=0))
+                        if (t[b - 1] - t[a]) > 0.045 * (t[-1] - t[0]) * C:
+                            rax.text((t[a] + t[b - 1] + step) / 2, 0.5, f"S{pos[st] + 1}", ha="center", va="center",
+                                     fontsize=5.5, color="white", fontweight="bold", zorder=5)
+                    hatch(rax, t, low, 0, 1)
+                    rax.set_ylim(0, 1)
+                    rax.set_yticks([])
+                    for sp in ("left", "right", "top"):
+                        rax.spines[sp].set_visible(False)
+                    time_axis(rax, t[0], t[-1] + step, labelled=r == R - 1)
+                elif r == R - 1:
+                    ax.set_xlabel("Time (ms)", fontsize=7, labelpad=1)
+                xx += pw + ylab
     stem = f"{'-'.join(BLOCKS[b] for b in blocks)}_K{k}_{'-'.join(map(ep.safe, spec['conditions']))}" \
            + ("_by-group" if spec.get("per_group") else "")  # rule O3
     extra = dict(order_by_display=[int(s) for s in order], labels_ms={c: [[float(t[a]), float(t[b - 1]), f"S{pos[st] + 1}"]

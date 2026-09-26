@@ -101,8 +101,21 @@ with tempfile.TemporaryDirectory() as d:
     assert json.loads(Path(f"{out2}_run.json").read_text(encoding="utf8"))["labels_ms"] == run["labels_ms"]
 
     # 3. GFP block, per-group rows, across-K identity colours (K=2's templates are K=3's T2 and T1)
-    msp.plot(spec(root, blocks=["topo", "butterfly", "gfp", "ribbon"], per_group=True, width_mm=254, height_mm=143))
+    msp.plot(spec(root, blocks=["topo", "butterfly", "gfp", "ribbon"], per_group=True, groups=["G1"], width_mm=254,
+                  height_mm=143))
     inside_canvas(SAVED[-1])
+    # rule MS9: more than two rows need a grid; a 1 × 2 grid puts the maps in a row above it
+    fails(spec(root, per_group=True), "give 'grid'")
+    out4 = msp.plot(spec(root, grid=[["A", "B"]], height_mm=75))
+    fig = SAVED[-1]
+    inside_canvas(fig)
+    heads = [a for a in fig.axes if a.get_title() == "" and not a.get_xticks().size]  # template maps
+    panels = [a for a in fig.axes if "N = " in a.get_title()]
+    assert len(panels) == 2 and min(h.get_position().y0 for h in heads) > max(p.get_position().y1 for p in panels)
+    assert panels[0].get_position().y0 == panels[1].get_position().y0  # side by side
+    fails(spec(root, grid=[["A"]]), "every condition exactly once")
+    # rule MS10: panel shape; the message proposes heights that work
+    fails(spec(root, height_mm=300), "height_mm")
     out3 = msp.plot(spec(root, figure="by-K", k=[2, 3]))
     fam = json.loads(Path(f"{out3}_run.json").read_text(encoding="utf8"))["families"]
     assert out3.name == "topo-by-K_K2-3_v01" and sorted(fam["K2"]) == sorted(fam["K3"][i] for i in (0, 2)), fam

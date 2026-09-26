@@ -59,7 +59,8 @@ Required: `data` (any loader layout, including `<condition>/<group>/<subject>*-a
 | `window_ms` | `[0, 800]` | Segmented and drawn range (as in the analysis). |
 | `min_segment_ms` | 30 | Shorter runs merge into the better-fitting neighbour. |
 | `polarity` | `"sensitive"` | `"insensitive"` if the analysis ignored map polarity. |
-| `per_group` | false | One row per condition × group instead of per condition. |
+| `per_group` | false | One row per condition × group instead of per condition (at most 2 rows without a grid). |
+| `grid` | none | Rows × columns of condition keys, e.g. `[["Hmet","Hlit","Hrep"],["Lmet","Llit","Lrep"]]`; required for more than 2 conditions (rule MS9). |
 | `identity_threshold` | 0.9 | by-K: signed r at which two templates count as the same map. |
 | `groups`, `exclude`, `width_mm`/`height_mm` (180 × 110), `cmap`, `reference`, `time_locked_to` | | As above; the last two only feed the caption facts. |
 
