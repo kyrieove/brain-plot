@@ -256,3 +256,7 @@ The GN slide spec (254 × 143 mm, butterfly + GFP) now fails MS10; its height wa
   figure-reading checks (baseline hidden by the display range, one map dominating the shared scale); window source,
   claim vs statistics, trial and sample balance, filter, source language and K choice are not the figure's concern
   (S3/S9 still record what the user states).
+
+## Optional caption fields (2026-09-26, local session, commit 29b50c7)
+- `claim`, `key_comparison`, `time_locked_to`, `reference` are optional in the ERP spec (they only feed the caption);
+  omitted → no caption line. CLAUDE.md: user-facing text in Chinese. Rules S1/S9 wording synced in the cloud session.
