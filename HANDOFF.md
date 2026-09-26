@@ -20,8 +20,8 @@ Two branches, both working, tests pass, everything committed and pushed
 1. ~~Palette decision~~ done 2026-09-26: Lancet palette kept; T7 warns on normal vision only (see review log).
 2. ~~Offered 3–5~~ done 2026-09-26 in the cloud session (per-panel caption facts S9, flat-channel stop S10, reviewer
    risks QA 6); verified locally (N400 v02, K5 v04). Follow-up fix: GFP label placement (MS7c), caption tidy —
-   re-draw K5 (v05) locally to confirm. Open for the user: reviewer risks (a) post-hoc N400 window, (b) claim vs FDR,
-   (i) how K = 5 was chosen; possible noisy left-temporal channel in the Repetition maps.
+   re-draw K5 (v05) locally to confirm. Reviewer-risk list dropped (user: a writing concern, not a figure one); QA 6
+   keeps only baseline visibility and a dominated map scale.
 3. Round 6 (Codex) is fully fixed (table at the end of `docs/review-log.md`); optional round 7 on the fixes with the same
    brief `docs/review-request-round6.md`.
 4. Run the agent-level eval cases `brain-plot/evals/cases.md` once in fresh sessions (manual).
@@ -60,6 +60,8 @@ Two branches, both working, tests pass, everything committed and pushed
 - Microstate: never stack more than 2 conditions (use `grid`); butterfly and GFP not both in a multi-column grid;
   panel width:height 1.8–3.5; hatch low-GFP samples, no text note; resting-state figures beyond the template row are
   not wanted for now.
+- Figure QA stays about the figure: no reviewer-risk / manuscript-level checks (window justification, claim vs
+  statistics, K choice) — user, 2026-09-26.
 - Rejected earlier: explore paging, right-hand legend column, topo "grid"/compact layouts, 8-mm colour bar, 89-mm
   waveform-only figure.
 

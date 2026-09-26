@@ -75,7 +75,7 @@ every file; later runs use a cache that is invalidated when any input file chang
 ## 5. Check the PNG, then report
 
 Open each PNG and go through the QA list at the end of `references/rules.md` (items scoped by `kind`). Fix via the spec or report the
-problem; do not edit images. Write the QA result into the `qa` field of each `_run.json`, and list every `open_items` field to the user as still open. Report the reviewer risks (QA item 6) separately, one line each — they are for the user to weigh, not for you to fix. Tell the user what you checked, what is still open, and where the files are.
+problem; do not edit images. Write the QA result into the `qa` field of each `_run.json`, and list every `open_items` field to the user as still open. Tell the user what you checked, what is still open, and where the files are.
 Hand the caption facts over as facts to write a caption from, not as a finished caption: `## Whole figure`, then `## Panels` by the letters on the figure.
 
 If the script stops on flat channels (rule S10), ask whether they are the reference electrode (then add them to `flat_channels`) or broken channels to fix upstream; never add them to `flat_channels` without that answer.
@@ -86,8 +86,7 @@ For microstate figures use `microstate_plot.py` (rules MS1–MS8, spec section "
 docs, locked config and model files first: templates path, subjects and exclusions, window, polarity mode, minimum
 segment length. Ask only: which K (or which K range for `by-K`), the figure's role, which conditions (and groups), which
 blocks. Confirm the spec, run `python microstate_plot.py plot <spec.json>`, check the PNG (maps framed and numbered
-in time order, ribbon and map labels agree, hatching only where GFP is at baseline level), report reviewer risks (QA item
-6: a, b, d, h, i), record `qa` in `_run.json`.
+in time order, ribbon and map labels agree, hatching only where GFP is at baseline level), record `qa` in `_run.json`.
 
 Agent-level eval cases (trigger and behaviour): `evals/cases.md`.
 

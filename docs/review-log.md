@@ -252,3 +252,7 @@ The GN slide spec (254 × 143 mm, butterfly + GFP) now fails MS10; its height wa
   the SND effect "differs in direction" while no simple contrast survived FDR (b); K5 `templates_source` does not say
   how K was chosen (i). Also noted by the local agent: Repetition maps with red extremes at the left temporal edge
   (FT9/T7), possibly a noisy channel.
+- User on the reviewer risks: "这些都不是画图该考虑的问题，是写文章考虑的问题". QA item 6 reduced to the two
+  figure-reading checks (baseline hidden by the display range, one map dominating the shared scale); window source,
+  claim vs statistics, trial and sample balance, filter, source language and K choice are not the figure's concern
+  (S3/S9 still record what the user states).

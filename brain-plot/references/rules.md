@@ -89,14 +89,5 @@ Rules S1 (input contract), S9 (caption structure), S10 (flat channels), T5 (PNG 
 3. combo/topo: no dots or other electrode marks on the maps (rule L11).
 4. `open_items` in `_run.json` is empty, or every listed field (marked "to be confirmed" / "not recorded") is reported to the user as open; `stats_note` matches what the user said.
 5. Colour warnings (T7): report a normal-vision `colour_distinctness` below 10 to the user with the two colours (deutan/protan values are not reported).
-6. Reviewer risks — what a reviewer is likely to question. Check each against the spec, `_caption.md` and `_run.json`; report every hit to the user in one line with its reason; never change the figure or spec because of it on your own. Microstate figures: (a), (b), (d), (h), (i).
-   - (a) Window source (S3) circular or vague: chosen from the displayed comparison ("peak of the grand average", "where the conditions differ", "visual inspection") or not traceable to a paper, a localizer or independent data.
-   - (b) Claim vs statistics: the claim states an effect or difference but `stats_note` is missing, or it reports no reliable effect (e.g. not significant after correction).
-   - (c) Trial counts: mean trials per subject of lines compared in one panel differ by more than 1.5 × (`## Panels`): unequal noise, peak measures biased.
-   - (d) Sample size: a compared group has n < 10, or compared groups differ in n by more than 2 ×.
-   - (e) High-pass above 0.1 Hz with slow or late components (P3, N400, LPC, CNV, sustained potentials): possible distortion of amplitude and latency.
-   - (f) The display range (`xlim_ms`) hides part of the baseline interval, or the baseline is shorter than 100 ms.
-   - (g) Shared map scale dominated by one map, so the others look near-white: correct by rule S5, but say so, since readers may read it as no activity.
-   - (h) Source language: claim, `stats_note` or `templates_source` speak of generators, sources or brain regions (S7).
-   - (i) Microstate: a panel is more than 50 % hatched (segmentation mostly over baseline-level GFP); `templates_source` does not say how K was chosen.
-7. `_run.json`: `lines`/`maps` fit the kind (combo: both = expected; erp: maps 0; topo: lines 0); `size_mm` equals the spec canvas; `legend` says where the legend went; then replace its `qa` field with the result ("passed" or the open problems; reviewer risks are listed there too, as "risk: …").
+6. Readability (report to the user, don't change the figure on your own): the display range (`xlim_ms`) hides part of the baseline interval; or one map dominates the shared scale (rule S5) so the others look near-white — correct, but readers may read it as no activity.
+7. `_run.json`: `lines`/`maps` fit the kind (combo: both = expected; erp: maps 0; topo: lines 0); `size_mm` equals the spec canvas; `legend` says where the legend went; then replace its `qa` field with the result ("passed" or the open problems).
