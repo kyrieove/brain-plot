@@ -17,6 +17,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import mne
 import numpy as np
+from matplotlib import patheffects
 from matplotlib.patches import FancyBboxPatch, Rectangle
 
 import erp_plot as ep
@@ -30,6 +31,7 @@ STATE_COLOURS = ["#00468B", "#ED0000", "#42B540", "#0099B4", "#925E9F", "#FDAF91
 IDENTITY_COLOURS = STATE_COLOURS + ["#B8860B", "#E75480", "#2E8B7A", "#6B4C9A", "#8B5A2B", "#5B8FF9"]
 TRACE, SOFT = "#171b21", "#5a626d"
 MAP_MAX_MM = 22.0  # largest template map on the states figure
+GFP_LABEL_MM = (4.6, 2.3)  # "GFP" at 6 pt: width, height (rule MS7c placement)
 MM = ep.MM
 
 
@@ -204,6 +206,27 @@ def framed_map(fig, W, H, x, y, s, vec, info, sphere, vmax, colour, label, sub, 
     return ax
 
 
+def gfp_label_spot(t, x, gfp, amp, pw, ph):
+    """Rule MS7c: sample at which the "GFP" label (right-aligned, 2 pt above the curve) crosses the fewest channel
+    samples; ties go to the latest time. Returns (index, whether no channel crosses it)."""
+    w_ms = GFP_LABEL_MM[0] / pw * (t[-1] - t[0])  # label box in data units of the panel
+    h_uv, off = GFP_LABEL_MM[1] / ph * 2 * amp, 0.7 / ph * 2 * amp
+    best = None
+    for i in range(len(t) - 1, -1, -1):
+        s = (t >= t[i] - w_ms) & (t <= t[i])
+        if t[i] - w_ms < t[0]:
+            break
+        y0 = gfp[i] + off
+        if y0 + h_uv > amp:  # the label would leave the panel
+            continue
+        hits = int(((x[:, s] > y0) & (x[:, s] < y0 + h_uv)).sum() + (gfp[s] > y0).sum())
+        if best is None or hits < best[1]:
+            best = (i, hits)
+        if hits == 0:
+            break
+    return (best[0], best[1] == 0) if best else (len(t) - 1, False)
+
+
 def hatch(ax, ms, mask, y0, y1):
     """Rule MS3: diagonal white hatch over low-GFP runs; the state colour stays visible underneath."""
     for a, b, v in runs(mask.astype(int)):
@@ -331,8 +354,10 @@ def plot_states(spec, data, info, meta, ms, sphere):
                 if p == "butterfly":
                     ax.plot(t, x[:, w].T, color=TRACE, alpha=0.42, lw=0.28, zorder=2)
                     ax.plot(t, gfp, color=TRACE, lw=1.0, zorder=3)
-                    ax.annotate("GFP", (t[-1], gfp[-1]), xytext=(0, 2), textcoords="offset points", fontsize=6,
-                                ha="right", va="bottom", color=TRACE)  # rule MS7c: inside the panel
+                    i, clear = gfp_label_spot(t, x[:, w], gfp, amp, pw, ph)
+                    ax.annotate("GFP", (t[i], gfp[i]), xytext=(0, 2), textcoords="offset points", fontsize=6,
+                                ha="right", va="bottom", color=TRACE,  # rule MS7c: inside the panel, off the traces
+                                path_effects=[] if clear else [patheffects.withStroke(linewidth=1.5, foreground="white")])
                     ax.set_ylim(-amp, amp)
                     ax.set_title(cell, fontsize=7, fontweight="bold", pad=2.5)  # rule MS7d: condition only, n in the caption
                     for b in bounds:
@@ -443,7 +468,7 @@ def caption(spec, meta, out, paths, facts):
     if spec.get("exclude"):
         L.append("- Excluded: " + "; ".join(f"{i} ({r})" for i, r in spec["exclude"].items()))
     L.append(f"- Grand average: each subject's condition average, subjects weighted equally; baseline {k['baseline']} s, "
-             f"filter {k['filter'][0]}–{k['filter'][1]} Hz" + (f", reference: {spec['reference']}" if spec.get("reference") else "")
+             f"filter {k['filter'][0]:g}–{k['filter'][1]:g} Hz" + (f", reference: {spec['reference']}" if spec.get("reference") else "")
              + " (identical in every panel, rule S1)")
     if spec.get("flat_channels"):
         L.append(f"- Flat channels kept (spec flat_channels, e.g. the reference electrode): {', '.join(spec['flat_channels'])}")

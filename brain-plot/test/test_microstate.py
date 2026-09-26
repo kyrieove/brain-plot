@@ -63,6 +63,21 @@ def inside_canvas(fig):
     assert not out, f"outside the canvas: {out[:2]}"
 
 
+def gfp_label_clear(fig):
+    """Rule MS7c: no channel trace (nor the GFP curve) passes through the "GFP" label box, measured on the drawn figure."""
+    R, n = fig.canvas.get_renderer(), 0
+    for ax in fig.axes:
+        for tx in [t for t in ax.texts if t.get_text() == "GFP"]:
+            b, n = tx.get_window_extent(R), n + 1
+            for ln in ax.lines:
+                xy = ax.transData.transform(ln.get_xydata())
+                xs = np.linspace(xy[0, 0], xy[-1, 0], 20 * len(xy))  # densify: segments between samples count too
+                ys = np.interp(xs, xy[:, 0], xy[:, 1])
+                inside = (xs > b.x0 + 0.5) & (xs < b.x1 - 0.5) & (ys > b.y0 + 0.5) & (ys < b.y1 - 0.5)
+                assert not inside.any(), f"a trace crosses the GFP label at {b}"
+    assert n, "no GFP label drawn"
+
+
 # 0a. round 6: run edges sit half-way between samples, so no sample is drawn in two states (MS2)
 tt = np.array([0.0, 4.0, 8.0, 12.0])
 assert msp.edges(tt, 0, 2) == (0.0, 6.0) and msp.edges(tt, 2, 4) == (6.0, 14.0)
@@ -121,6 +136,7 @@ with tempfile.TemporaryDirectory() as d:
     assert "signed" in cap and "Hatched" in cap and "synthetic" in cap
     assert "## Panels (no letters; by title)" in cap and "- NoGo: n = " in cap and "S2" not in cap.split("- NoGo")[1].split("hatched")[0]
     inside_canvas(SAVED[-1])
+    gfp_label_clear(SAVED[-1])
 
     # 2. templates named by channel are aligned by name; the result is identical
     order = list(reversed(CH))

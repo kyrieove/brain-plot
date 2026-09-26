@@ -1044,7 +1044,7 @@ def caption(spec, comp, meta, groups, conds, out, ms, v, sphere, kind, level=Non
         L.append(f"- {spec['conditions'][c]}: trials per subject mean {per.mean():.1f} (range {per.min()}–{per.max()})")
     L.append(f"- Trial selection: {spec.get('query') or 'as stored in the files (no further selection)'}")
     L.append(f"- Time-locked to: {spec['time_locked_to']}; baseline {k['baseline']} s; "
-             f"filter {k['filter'][0]}–{k['filter'][1]} Hz; reference: {spec['reference']} (identical in every panel, rule S1)")
+             f"filter {k['filter'][0]:g}–{k['filter'][1]:g} Hz; reference: {spec['reference']} (identical in every panel, rule S1)")
     if spec.get("flat_channels"):
         L.append(f"- Flat channels kept (spec flat_channels, e.g. the reference electrode): {', '.join(spec['flat_channels'])}")
     if kind == "erp":
@@ -1082,7 +1082,7 @@ def caption(spec, comp, meta, groups, conds, out, ms, v, sphere, kind, level=Non
         pairs = [(g, p, g) for g in groups] if by_groups else [(p, c, spec["conditions"][c]) for c in conds]
         return "; ".join(f"{lab} ({trials(meta, g, conds.index(c))})" for g, c, lab in pairs)
 
-    bands = "; ".join(f"{b['name']} {b['tmin_ms']:g}–{b['tmax_ms']:g} ms (source: {b['window_source']})" for b in comp["bands"])
+    bands = "; ".join(f"{b['name']} {b['tmin_ms']:g}–{b['tmax_ms']:g} ms" for b in comp["bands"])  # source: Whole figure
     where = {"single": f"channel {', '.join(comp['channels'])}", "roi": f"mean of {', '.join(comp['channels'])}",
              "grid": ""}.get(spec.get("layout", "roi")) if kind == "erp" else f"mean of {', '.join(comp['channels'])}"
     for r, (p, plabel) in enumerate(panels):

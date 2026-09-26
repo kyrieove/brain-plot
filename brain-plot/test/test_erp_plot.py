@@ -110,7 +110,7 @@ with tempfile.TemporaryDirectory() as d:
     # caption per panel (a, b, …) under the letters drawn: combo waveform 2r, maps 2r + 1; n and trials per line
     assert cap.index("## Whole figure") < cap.index("## Panels")
     assert "- (a) Low — waveforms, mean of Cz, Pz; lines: G1 (n = 3, trials per subject mean 30.0 (range 30–30)); G2 (n = 1" in cap
-    assert "- (b) Low — topographies, P3 250–350 ms (source: test); one map per line" in cap and "- (f) High — topographies" in cap
+    assert "- (b) Low — topographies, P3 250–350 ms; one map per line" in cap and cap.count("source: test") == 1 and "- (f) High — topographies" in cap
     marks = [l for a in SAVED[-1].axes for l in a.lines if l.get_marker() not in ("None", None, "", " ")]
     assert not marks, "topomaps carry electrode marks (rule L11)"
 
@@ -175,7 +175,7 @@ with tempfile.TemporaryDirectory() as d:
     ep.plot(spec(root, groups=["G1"], overlay="conditions", kind="topo", components=late))
     cap = latest(root, "topo", "topo_N4_350-390ms_conditions-by-group_v01_caption.md").read_text(encoding="utf8")
     assert "Lines:" not in cap and "gray band" not in cap and "polarity" not in cap and "Topographies" in cap
-    assert "- (a) G1 — topographies, N4 350–390 ms (source: test); one map per line: Low (n = 3" in cap
+    assert "- (a) G1 — topographies, N4 350–390 ms; one map per line: Low (n = 3" in cap
     band = [dict(name="P3", tmin_ms=100, tmax_ms=200, window_source="test")]  # erp bands carry no channels
     ep.plot(spec(root, groups=["G1"], overlay="conditions", kind="erp", channels=["Cz", "Pz"], components=band))
     cap = latest(root, "ERP", "ERP-ROI_Cz-Pz_P3-100-200ms_conditions-by-group_v01_caption.md").read_text(encoding="utf8")

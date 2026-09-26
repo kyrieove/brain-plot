@@ -240,3 +240,15 @@ The GN slide spec (254 × 143 mm, butterfly + GFP) now fails MS10; its height wa
 | 3 | `_caption.md` in two parts (rule S9): `## Whole figure` (shared facts; filter/baseline/reference stated once, identical in every panel by S1) and `## Panels` under the letters drawn (combo a/c… waveforms, b/d… maps; erp and topo a, b, …; grid and microstate by title, no letters), each with its lines' n and trials per subject, channels, window source | ERP tests 1, 4b, 4c; microstate test 1 |
 | 4 | Rule S10: a channel constant over the epoch (ptp < 1e-6 µV) in any subject × condition stops the script with subject, condition and channels; spec `flat_channels` allows a reference electrode kept at 0 µV (named in the caption); checked on cached data too; for plot, explore and microstate | ERP test 4a (mutation: disabled check fails the test) |
 | 5 | QA item 6 "reviewer risks" (a–i): circular window source, claim vs statistics, trial imbalance > 1.5 ×, n < 10 or 2 × n imbalance, high-pass > 0.1 Hz with late components, baseline hidden, one map dominating the shared scale, source language, microstate > 50 % hatched / K choice unstated. Reported to the user, never fixed silently. QA items renumbered 1–7 (were 1, 2, 3, 4, 6, 5). | — (agent QA) |
+
+## First local run of S9/S10/QA 6 (2026-09-26, metaphor N400 v02, GN K5 v04)
+- Both suites OK on Windows; no flat-channel stop on either data set.
+- Microstate NoGO: the "GFP" label (anchored at the last sample) sat on a channel trace. Now placed by
+  `gfp_label_spot()` at the latest sample where no trace crosses its box (MS7c); test measures the drawn label against
+  every trace (fails with the old placement).
+- Captions: the window source was repeated in every panel entry → stated once under Whole figure; filter printed as
+  0.10000000149 (float32) → 6 significant digits.
+- Reviewer risks reported to the user (not changed): N400 window chosen post hoc from the grand average (a); claim says
+  the SND effect "differs in direction" while no simple contrast survived FDR (b); K5 `templates_source` does not say
+  how K was chosen (i). Also noted by the local agent: Repetition maps with red extremes at the left temporal edge
+  (FT9/T7), possibly a noisy channel.
