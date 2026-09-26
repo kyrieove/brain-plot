@@ -48,6 +48,7 @@ cd brain-plot
 pip install -r requirements.txt          # mne, matplotlib, numpy, scipy, pandas
 ```
 
+Check the environment (works even before MNE is installed): `python brain-plot/check_env.py` → versions, fonts, "OK".
 Arial or Helvetica gives the intended typography; without them matplotlib falls back to DejaVu Sans.
 
 To use it as a Claude Code skill, make the `brain-plot/` folder available under `~/.claude/skills/`:
@@ -131,16 +132,19 @@ Relative `data` and `templates` paths are taken from the spec file's folder. All
 ## Outputs
 
 Everything goes to `brain-plot/` **next to the data folder**, one sub-folder per kind, with names that say what the
-figure is, e.g. `ERP_topo/ERP-topo_P3_CPz-Pz_300-460ms_groups-by-condition_v01.png`. Nothing is overwritten: a
-re-render becomes `_v02` and older versions move to `_history/`. A cache (`brain-plot/.cache/`, can be tens of MB)
-makes later runs fast and is rebuilt when an input file changes.
+figure is, e.g. `ERP_topo/ERP-topo_P3_CPz-Pz_300-460ms_groups-by-condition_v01.png`; a figure of only some groups or
+conditions adds `_grp-…` / `_cond-…`. Nothing is overwritten: a re-render becomes `_v02` and older versions move to
+`_history/`. Every figure's layout is checked in code (overlapping texts, text or legend on a line, text off the
+canvas): warnings are printed and listed in `_run.json` (`layout_issues`). A cache (`brain-plot/.cache/`, the 6 most
+recently used, each can be tens of MB) makes later runs fast and is rebuilt when an input file changes.
 
 ## Rules and tests
 
 - [`brain-plot/references/rules.md`](brain-plot/references/rules.md): the complete rule list (science, layout, style,
   outputs, microstate, QA checklist).
-- Tests on synthetic data: `python brain-plot/test/test_erp_plot.py` and `python brain-plot/test/test_microstate.py`
-  (each prints `OK`; tested with MNE 1.13 and matplotlib 3.10/3.11).
+- Tests on synthetic data: `python brain-plot/test/test_erp_plot.py`, `python brain-plot/test/test_microstate.py` and
+  `python brain-plot/test/test_layout.py` (realistic density: 64 channels, 7 conditions, 3 groups; each prints `OK`;
+  tested with MNE 1.13 and matplotlib 3.10/3.11).
 - `docs/`, `HANDOFF.md` and `research/` are the project's development notes and review history.
 
 ## License

@@ -6,7 +6,7 @@
     python erp_plot.py explore <spec.json>     # overview before windows are known
 
 <data_dir> holds one *-epo.fif or *-ave.fif per subject; sub-folders are groups. The subject ID is the file
-name up to the first "_" or "-". Input must be preprocessed EEG potentials (no bad channels left, one common
+name up to the first "_", "-" or "." (BIDS: sub-01_… → sub-01). Input must be preprocessed EEG potentials (no bad channels left, one common
 channel set, time grid, baseline, filter and reference); the loader stops on any mismatch. The spec format and
 the rules this script enforces are in references/spec.md and references/rules.md. Outputs go to brain-plot/ next to
 the data folder (rules O1–O3).
@@ -22,11 +22,13 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import mne
 import numpy as np
+from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.gridspec import GridSpec
 from matplotlib.ticker import MaxNLocator
 from scipy.signal import find_peaks, peak_widths
 
-LOADER_VERSION = 3
+LOADER_VERSION = 4  # 4: meta records every group and condition in the data (rule O3 names a subset)
+CACHE_KEEP = 6  # most recently used caches kept in brain-plot/.cache/ (each can be tens of MB; rule O1)
 FLAT_UV = 1e-6  # µV: a channel whose peak-to-peak range stays below this is flat (rule S10)
 MM = 1 / 25.4
 TWO_COLORS = ["#1b7f79", "#e0533d"]
@@ -106,6 +108,88 @@ def ink(colour):
     colours such as apricot or mustard); near the WCAG tie (~0.18) white reads better on saturated colours."""
     lum = float(np.array([0.2126, 0.7152, 0.0722]) @ linear_rgb(colour))
     return "black" if lum > 0.3 else "white"
+
+
+# ---------- layout self-check (QA item 1) ----------
+def drawn_texts(fig):
+    """Every visible, non-empty text the figure draws: figure and axes texts, titles, axis labels, tick labels inside
+    the view limits (matplotlib also reports ticks it does not draw), legend texts."""
+    out = list(fig.texts)
+    for a in fig.axes:
+        out += list(a.texts) + [a.title, a.xaxis.label, a.yaxis.label]
+        for labels, locs, lim in ((a.get_xticklabels(), a.get_xticks(), a.get_xlim()),
+                                  (a.get_yticklabels(), a.get_yticks(), a.get_ylim())):
+            lo, hi = sorted(lim)
+            out += [t for t, v in zip(labels, locs) if lo - 1e-9 <= v <= hi + 1e-9]
+    for leg in fig.legends + [a.get_legend() for a in fig.axes if a.get_legend()]:
+        out += list(leg.get_texts())
+    return [t for t in out if t.get_visible() and t.get_text().strip()]
+
+
+def path_points(xy, step=1.0):
+    """Points along a polyline in display pixels, at most `step` apart (segments between vertices count too)."""
+    xy = xy[np.isfinite(xy).all(1)]
+    if len(xy) < 2:
+        return xy
+    seg = np.diff(xy, axis=0)
+    n = np.maximum(1, np.ceil(np.hypot(*seg.T) / step).astype(int))
+    f = np.concatenate([np.arange(k) / k for k in n])
+    i = np.repeat(np.arange(len(seg)), n)
+    return np.vstack([xy[i] + seg[i] * f[:, None], xy[-1:]])
+
+
+def legible_over_lines(t):
+    """A text drawn with a white halo or on an opaque white box stays readable where lines pass under it."""
+    box = t.get_bbox_patch()
+    return any(type(e).__name__ == "withStroke" for e in t.get_path_effects()) or (
+        box is not None and tuple(box.get_facecolor()) == (1.0, 1.0, 1.0, 1.0))
+
+
+def layout_issues(fig):
+    """QA item 1 in code: texts that overlap, leave the canvas, or sit on a data line (curves of ≥ 3 points: waveforms,
+    GFP, butterfly traces, head outlines), and legends on a data line. Text boxes are shrunk a little (glyph boxes
+    include line spacing), and a text drawn with a white halo or a white box (deliberate fallbacks, e.g. MASK) is not
+    tested against lines.
+    Returns short descriptions; empty when the layout is clean."""
+    if not hasattr(fig.canvas, "get_renderer"):  # matplotlib ≥ 3.11 detaches a closed pyplot figure from its canvas
+        FigureCanvasAgg(fig)
+    fig.canvas.draw()
+    R = fig.canvas.get_renderer()
+    W, H = fig.bbox.width, fig.bbox.height
+    boxes = [(t, t.get_window_extent(R).shrunk(0.9, 0.8)) for t in drawn_texts(fig)]
+    out = []
+    for t, b in boxes:
+        if b.x0 < -0.5 or b.y0 < -0.5 or b.x1 > W + 0.5 or b.y1 > H + 0.5:
+            out.append(f"text outside the canvas: {t.get_text()!r}")
+    for i, (t0, b0) in enumerate(boxes):
+        for t1, b1 in boxes[i + 1:]:
+            if b0.overlaps(b1):
+                out.append(f"texts overlap: {t0.get_text()!r} × {t1.get_text()!r}")
+    legends = [(leg, leg.get_window_extent(R).shrunk(0.97, 0.97))
+               for leg in fig.legends + [a.get_legend() for a in fig.axes if a.get_legend()]]
+    for a in fig.axes:
+        ab = a.get_window_extent(R)
+        curves = [ln for ln in a.lines if ln.get_visible() and len(ln.get_xdata()) >= 3]
+        near = [(f"text {t.get_text()!r}", b) for t, b in boxes if b.overlaps(ab) and not legible_over_lines(t)]
+        near += [("the legend", b) for _, b in legends if b.overlaps(ab)]
+        if not curves or not near:
+            continue
+        pts = np.vstack([path_points(a.transData.transform(ln.get_xydata())) for ln in curves])
+        pts = pts[(pts[:, 0] >= ab.x0) & (pts[:, 0] <= ab.x1) & (pts[:, 1] >= ab.y0) & (pts[:, 1] <= ab.y1)]  # clipped
+        for name, b in near:
+            if ((pts[:, 0] > b.x0) & (pts[:, 0] < b.x1) & (pts[:, 1] > b.y0) & (pts[:, 1] < b.y1)).any():
+                out.append(f"a data line runs under {name}")
+    return sorted(set(out))
+
+
+def report_layout(fig, what):
+    """Print the layout issues of a finished figure (rule QA 1) and return them for _run.json."""
+    issues = layout_issues(fig)
+    for x in issues[:12]:
+        print(f"WARNING: layout ({what}): {x}")
+    if len(issues) > 12:
+        print(f"WARNING: layout ({what}): … {len(issues) - 12} more in _run.json")
+    return issues
 
 
 # ---------- spec ----------
@@ -310,7 +394,32 @@ def select_files(spec):
     groups = {g: [f for f in found[g] if uid(f) not in excl] for g in order}
     if [g for g, fs in groups.items() if not fs]:
         die(f"groups left empty: {[g for g, fs in groups.items() if not fs]}")
-    return groups
+    return groups, list(found)
+
+
+def available_conditions(spec, unit):
+    """Every condition the data offer (rule O3 names a subset): the condition folders of the split layout, the event
+    names of an epochs file, or the comments of an averaged file."""
+    if isinstance(unit, dict):
+        return sorted(d.name for d in Path(spec["data"]).iterdir() if d.is_dir() and any(d.glob("*/*-ave.fif")))
+    if unit.name.endswith("-epo.fif"):
+        return list(mne.read_epochs(unit, preload=False, proj=False, verbose="error").event_id)
+    return [e.comment for e in mne.read_evokeds(unit, proj=False, verbose="error")]
+
+
+def subset_part(spec, meta, parts=("groups", "conditions")):
+    """Rule O3: file-name part for a selection that is not everything in the data, so that different figures never
+    share a name (and never archive each other as versions): _grp-<groups> when only some groups are drawn,
+    _cond-<condition keys> when only some conditions are, _query-<6 hex> when trials are selected. Empty for a figure of
+    all groups and all conditions, so its name stays as before."""
+    part = ""
+    if "groups" in parts and set(meta["ids"]) != set(meta["groups_all"]):
+        part += "_grp-" + "-".join(map(safe, meta["ids"]))
+    if "conditions" in parts and set(spec["conditions"]) != set(meta["conditions_all"]):
+        part += "_cond-" + "-".join(map(safe, spec["conditions"]))
+    if spec.get("query"):
+        part += "_query-" + hashlib.md5(spec["query"].encode()).hexdigest()[:6]
+    return part
 
 
 def read_conditions(f, conditions, query):
@@ -366,13 +475,14 @@ def contract(ev):
 
 def load(spec):
     """Validated arrays per group: (n_subj, n_cond, n_ch, n_t) in µV; cache keyed on the exact input files."""
-    groups = select_files(spec)
+    groups, groups_all = select_files(spec)
     conds = list(spec["conditions"])
     files = [p for fs in groups.values() for f in fs for p in unit_files(f)]
     stamp = [[str(f), f.stat().st_size, f.stat().st_mtime_ns] for f in files]
-    key = json.dumps([LOADER_VERSION, list(groups), stamp, conds, spec.get("query")])
+    key = json.dumps([LOADER_VERSION, list(groups), groups_all, stamp, conds, spec.get("query")])
     cache = out_root(spec) / ".cache" / (hashlib.md5(key.encode()).hexdigest() + ".npz")
     if cache.exists():
+        cache.touch()  # most recently used: kept by prune_cache()
         z = np.load(cache, allow_pickle=True)
         meta = json.loads(str(z["meta"]))
         info = mne.io.read_info(files[0], verbose="error")
@@ -409,11 +519,20 @@ def load(spec):
             counts.append(n)
         data[g], nave[g], ids[g] = np.array(arrs), [list(map(int, c)) for c in counts], [uid(f) for f in fs]
         print(f"loaded {g}: {len(fs)} subjects")
-    meta = dict(contract=ref, nave=nave, ids=ids, inputs=stamp, loader_version=LOADER_VERSION)
+    meta = dict(contract=ref, nave=nave, ids=ids, inputs=stamp, loader_version=LOADER_VERSION, groups_all=groups_all,
+                conditions_all=available_conditions(spec, next(iter(groups.values()))[0]))
     flat_check(spec, data, info.ch_names, meta)
     cache.parent.mkdir(parents=True, exist_ok=True)
     np.savez(cache, times=times, meta=json.dumps(meta), **data)
+    prune_cache(cache.parent)
     return data, times, info, meta
+
+
+def prune_cache(folder):
+    """Rule O1: keep the CACHE_KEEP most recently used caches (a hit touches its file); older ones are rebuilt when
+    needed, so deleting them loses nothing but time."""
+    for f in sorted(folder.glob("*.npz"), key=lambda f: f.stat().st_mtime_ns, reverse=True)[CACHE_KEEP:]:
+        f.unlink(missing_ok=True)
 
 
 def flat_check(spec, data, ch_names, meta):
@@ -526,22 +645,31 @@ def letter(ax, i, x=-0.02, y=None):
                 fontsize=8, fontweight="bold", va="bottom", ha="right")
 
 
-def nice_ticks(ylim):
+MIN_TICK_GAP_PT = 9.0  # y tick labels are 6 pt tall: at least 3 pt between neighbours (rule T1)
+MASK = dict(boxstyle="square,pad=0.15", fc="white", ec="none")  # behind a label that would otherwise sit on a line
+
+
+def nice_ticks(ylim, height_pt=None):
     """Rule T1: y ticks (0 excluded) with at least one tick on every side of 0 that the axis extends to by more
-    than 15 % of its range; tries finer steps (up to 10 bins) first. Returns (ticks, needs_extension)."""
+    than 15 % of its range; on a panel height_pt tall, neighbouring ticks keep MIN_TICK_GAP_PT (fewer ticks on short
+    panels). Tries 5–10 bins first, then fewer. Returns (ticks, step, needs_extension): needs_extension means no
+    legible step labels every side, and data_ylim() extends that side to its next tick."""
     span = ylim[1] - ylim[0]
     need_neg, need_pos = ylim[0] < -0.15 * span, ylim[1] > 0.15 * span
-    for nbins in range(5, 11):
-        yt = [v for v in MaxNLocator(nbins=nbins, steps=[1, 2, 5, 10]).tick_values(*ylim)
-              if v != 0 and ylim[0] <= v <= ylim[1]]
+    first = None
+    for nbins in (5, 6, 7, 8, 9, 10, 4, 3, 2, 1):
+        locs = MaxNLocator(nbins=nbins, steps=[1, 2, 5, 10]).tick_values(*ylim)
+        step = float(locs[1] - locs[0])
+        if height_pt is not None and step / span * height_pt < MIN_TICK_GAP_PT:
+            continue
+        yt = [float(v) for v in locs if v != 0 and ylim[0] <= v <= ylim[1]]
         if (not need_neg or min(yt, default=0) < 0) and (not need_pos or max(yt, default=0) > 0):
-            return yt, False
-    return yt, True
-
-
-def set_yticks(ax, ylim):
-    yt, _ = nice_ticks(ylim)
-    ax.set_yticks(yt, [f"{v:g}".replace("-", "−") for v in yt])
+            return yt, step, False
+        first = first or (yt, step)
+    if first is None:  # not even one bin is legible (the panel-height checks stop such figures before this)
+        locs = MaxNLocator(nbins=1, steps=[1, 2, 5, 10]).tick_values(*ylim)
+        first = [float(v) for v in locs if v != 0 and ylim[0] <= v <= ylim[1]], float(locs[1] - locs[0])
+    return first[0], first[1], True
 
 
 def sample_mask(ms, lo, hi):
@@ -558,17 +686,33 @@ def line_stats(x, idx, t, w):
     return roi.mean(0), sem, x[:, :, w].mean(axis=(0, 2))
 
 
+def curve_points(ax):
+    """Display points along every curve of ax (lines of ≥ 3 points), for label-on-line tests."""
+    pts = [path_points(ax.transData.transform(ln.get_xydata())) for ln in ax.lines
+           if ln.get_visible() and len(ln.get_xdata()) >= 3]
+    return np.vstack(pts) if pts else np.empty((0, 2))
+
+
+def on_curve(pts, bb):
+    return bool(((pts[:, 0] > bb.x0) & (pts[:, 0] < bb.x1) & (pts[:, 1] > bb.y0) & (pts[:, 1] < bb.y1)).any())
+
+
 def cross_axes(ax, fig, lo, hi, ylim, negative_up, x, low_env, high_env):
-    """Spines through the origin (x-axis at 0 µV, y-axis at 0 ms). Each x tick label is measured and placed on the
-    side of the axis where the visible lines (low_env/high_env) leave the most room over the label's own width; if
-    they reach into the label on that side too, the label moves just past them."""
+    """Spines through the origin (x-axis at 0 µV, y-axis at 0 ms), rule T1. y tick labels keep MIN_TICK_GAP_PT between
+    neighbours (fewer ticks on short panels). Each x tick label is measured and placed on the side of the axis where the
+    visible lines (low_env/high_env) leave the most room over the label's own width, and inside the panel (clear of the
+    band name above and the facet name below); if lines reach into it on that side too, it moves just past them. "µV"
+    sits right of the top of the y-axis, or left of it when lines pass there. A label that would still sit on a line
+    gets a white background (MASK), so it stays legible; SVG text stays editable."""
     ax.set_xlim(lo, hi)
     ax.set_ylim(*(ylim[::-1] if negative_up else ylim))
     ax.spines["left"].set_position(("data", 0))
     ax.spines["bottom"].set_position(("data", 0))
-    set_yticks(ax, ylim)
-    ax.text(0, 1.0, "  µV", transform=ax.get_xaxis_transform(), fontsize=6, va="top", ha="left")
+    yt, _, _ = nice_ticks(ylim, ax.get_position().height * fig.get_figheight() * 72)
+    ax.set_yticks(yt, [])
     ax.tick_params(direction="inout", length=3, pad=1.5)
+    ylabels = [ax.annotate(f"{v:g}".replace("-", "−"), (0, v), xytext=(-3, 0), textcoords="offset points",
+                           fontsize=6, ha="right", va="center") for v in yt]  # 1.5-pt tick half + 1.5-pt pad
     span = hi - lo
     step = 200 if span >= 600 else 100 if span >= 300 else 50
     fig.canvas.draw()
@@ -589,10 +733,13 @@ def cross_axes(ax, fig, lo, hi, ylim, negative_up, x, low_env, high_env):
     ax.set_xticks(xt, [])
     ax.annotate("ms", (hi, 0), xytext=(3, 0), textcoords="offset points", fontsize=6, ha="left", va="center",
                 annotation_clip=False)  # unit at the end of the x-axis, like µV at the top of the y-axis
+    ab = ax.get_window_extent(renderer)
+    y0 = ax.transData.transform((0, 0))[1]
+    room_up, room_dn = (ab.y1 - y0) / pt, (y0 - ab.y0) / pt  # panel above / below the x-axis, in points
+    xlabels = []
     for v, lab, bb in zip(xt, labs, boxes):
         (x0, _), (x1, _) = inv.transform([(bb.x0, 0), (bb.x1, 0)])
         s = (x >= min(x0, x1) - 2) & (x <= max(x0, x1) + 2)
-        y0 = ax.transData.transform((0, 0))[1]
         to_pt = lambda y: (ax.transData.transform(np.c_[x[s], y])[:, 1] - y0) / pt  # display offset from the axis
         a, b = np.minimum(to_pt(low_env[s]), to_pt(high_env[s])), np.maximum(to_pt(low_env[s]), to_pt(high_env[s]))
         text_h = bb.height / pt
@@ -603,9 +750,28 @@ def cross_axes(ax, fig, lo, hi, ylim, negative_up, x, low_env, high_env):
         off_up = offset(np.maximum(a[up], 0).min() if up.any() else np.inf, b[up].max() if up.any() else 0)
         off_dn = offset(np.maximum(-b[dn], 0).min() if dn.any() else np.inf, (-a[dn]).max() if dn.any() else 0)
         go_up = off_up <= off_dn
+        fits_up, fits_dn = off_up + text_h <= room_up, off_dn + text_h <= room_dn
+        if (fits_dn and not fits_up) if go_up else (fits_up and not fits_dn):
+            go_up = not go_up  # keep the label inside the panel
         off = off_up if go_up else -off_dn
-        ax.annotate(lab, (v, 0), xytext=(0, off), textcoords="offset points", fontsize=6,
-                    ha="center", va="bottom" if go_up else "top")
+        xlabels.append(ax.annotate(lab, (v, 0), xytext=(0, off), textcoords="offset points", fontsize=6,
+                                   ha="center", va="bottom" if go_up else "top"))
+    unit = ax.annotate("µV", (0, 1.0), xycoords=ax.get_xaxis_transform(), xytext=(3.5, 0), textcoords="offset points",
+                       fontsize=6, va="top", ha="left")
+    fig.canvas.draw()
+    pts = curve_points(ax)
+    if on_curve(pts, unit.get_window_extent(renderer)):  # lines pass right of the axis top: try its left
+        unit.xyann = (-3.5, 0)
+        unit.set_ha("right")
+        fig.canvas.draw()
+        ub = unit.get_window_extent(renderer)
+        if on_curve(pts, ub) or any(ub.overlaps(t.get_window_extent(renderer)) for t in ylabels):
+            unit.xyann = (3.5, 0)
+            unit.set_ha("left")
+    fig.canvas.draw()
+    for t in ylabels + xlabels + [unit]:
+        if on_curve(pts, t.get_window_extent(renderer).shrunk(0.9, 0.8)):
+            t.set_bbox(MASK)
 
 
 def canvas_size(spec):
@@ -617,20 +783,32 @@ LEGEND_KW = dict(handlelength=1.2, labelspacing=0.3, borderaxespad=0.3)
 GAP_MM, CBAR_MM, CBAR_PAD_MM = 8.0, 4.0, 4.0  # rule L4: waveform-map gap, colour bar width and its spacer
 
 
-def data_ylim(stats):
-    """Shared y-range of a figure from every visible line (mean, plus SEM only if drawn), 8 % padding, 0 inside."""
+UNIT_ROOM_PT = 10.0  # the y-axis reaches at least this far above the x-axis: room for "µV" at its top (rule T1)
+
+
+def data_ylim(stats, height_pt=None, negative_up=False):
+    """Shared y-range of a figure from every visible line (mean, plus SEM only if drawn), 8 % padding, 0 inside. On a
+    panel height_pt tall, the side drawn on top reaches UNIT_ROOM_PT above the x-axis, and a side without a legible
+    tick is extended to its next tick (rule T1)."""
     env = [(m, np.zeros_like(m) if e is None else e) for m, e in stats.values()]
     ymin, ymax = min((m - e).min() for m, e in env), max((m + e).max() for m, e in env)
     pad = 0.08 * max(ymax - ymin, 1e-6)
     ylim = [min(ymin - pad, -pad), max(ymax + pad, pad)]
-    yt, short = nice_ticks(ylim)
-    if short:  # even 10 bins leave a side unlabelled: extend that side to its next tick
-        step = np.diff(MaxNLocator(nbins=5, steps=[1, 2, 5, 10]).tick_values(*ylim))[0]
+    if height_pt:  # top side ≥ k of the span: s ≥ k·(s + other) ⇔ s ≥ k·other / (1 − k)
+        k = min(UNIT_ROOM_PT / height_pt, 0.45)
+        if negative_up:
+            ylim[0] = min(ylim[0], -k * ylim[1] / (1 - k))
+        else:
+            ylim[1] = max(ylim[1], k * -ylim[0] / (1 - k))
+    for _ in range(3):
+        yt, step, short = nice_ticks(ylim, height_pt)
+        if not short:
+            break
         span = ylim[1] - ylim[0]
         if ylim[0] < -0.15 * span and not any(v < 0 for v in yt):
-            ylim[0] = -step
+            ylim[0] = min(ylim[0], -step)
         if ylim[1] > 0.15 * span and not any(v > 0 for v in yt):
-            ylim[1] = step
+            ylim[1] = max(ylim[1], step)
     return ylim
 
 
@@ -676,15 +854,44 @@ def legend_size(spec, n, labels, colors):
     return bb.width, bb.height, axis_frac, win.width / fig.dpi * 25.4
 
 
+MAP_GAP_MM = 3.0  # between rows of maps: the 6-pt label under a map must clear the head (nose) of the map below
+
+
+def map_hspace(block_mm, nrow, floor):
+    """GridSpec hspace for nrow rows of maps in a block_mm-tall block, so that rows keep at least MAP_GAP_MM."""
+    if nrow < 2:
+        return floor
+    return max(floor, MAP_GAP_MM / ((block_mm - (nrow - 1) * MAP_GAP_MM) / nrow))
+
+
 def topo_grid(n_lines):
     ncol = int(np.ceil(np.sqrt(n_lines)))
     return int(np.ceil(n_lines / ncol)), ncol
 
 
+MIN_WAVE_MM = 15.0  # a waveform panel shorter than this cannot hold legible ticks, labels and lines (rule L3)
+
+
+def wave_panel_mm(H, n):
+    """Height of each of n stacked waveform panels on an H-mm canvas (the geometry of canvas())."""
+    avail, need = H - 18, 13.0
+    if n < 2 or 0.55 * avail / (n + 0.55 * (n - 1)) >= need:
+        return avail / (n + 0.55 * (n - 1))
+    return (avail - (n - 1) * need) / n
+
+
 def canvas(spec, n, n_lines, gap=GAP_MM, maps=True):
     """Fixed physical canvas, all widths in mm (wspace 0): waveforms | gap (8 mm, widened for the legend by rule L7)
-    | topomaps (~19 mm per head column, at most 55 % of what is left) | spacer | colour bar."""
+    | topomaps (~19 mm per head column, at most 55 % of what is left) | spacer | colour bar. Stops when the stacked
+    panels would be shorter than MIN_WAVE_MM (rule L3), naming a height_mm that works."""
     W, H = canvas_size(spec)
+    if wave_panel_mm(H, n) < MIN_WAVE_MM:
+        need = next((h for h in range(int(H) + 1, 1001) if wave_panel_mm(h, n) >= MIN_WAVE_MM), None)
+        other = "conditions" if spec.get("overlay", "groups") == "groups" else "groups"
+        die(f"{n} stacked waveform panels would be {wave_panel_mm(H, n):.0f} mm tall each; at least {MIN_WAVE_MM:g} mm "
+            f"keep ticks and labels legible (rule L3): use height_mm {need} or more at width_mm {W:g}"
+            + (f", or overlay '{other}' ({n_lines} panel{'s' * (n_lines > 1)})"
+               if n_lines < n and wave_panel_mm(H, n_lines) >= MIN_WAVE_MM else "") + ", or fewer panels")
     fig = plt.figure(figsize=(W * MM, H * MM))
     tiny = 1e-3  # kind "erp": the map and colour-bar columns collapse to nothing
     pad, bar = (CBAR_PAD_MM, CBAR_MM) if maps else (tiny, tiny)
@@ -734,7 +941,7 @@ def draw(spec, comp, panels, lines, colors, stats, topo, v, info, ms, t, lo, hi,
     n = len(panels)
     maps = spec.get("kind", "combo") == "combo"
     fig, gs = canvas(spec, n, len(lines), gap_mm, maps)
-    ylim = data_ylim(stats)
+    ylim = data_ylim(stats, gs[0, 0].get_position(fig).height * fig.get_figheight() * 72, negative_up)
     levels = np.linspace(-v, v, TOPO["contours"] + 1)  # one set of contour levels for every map
     styles = line_styles(spec, len(lines))
     n_lines = n_maps = 0
@@ -773,7 +980,9 @@ def draw(spec, comp, panels, lines, colors, stats, topo, v, info, ms, t, lo, hi,
             continue
         # rule L4: topomaps to the right, one per line, near-square grid, black labels
         nrow_t, ncol_t = topo_grid(len(lines))
-        sub = gs[r_i, 2].subgridspec(nrow_t, ncol_t, wspace=0.02, hspace=0.25)
+        sub = gs[r_i, 2].subgridspec(nrow_t, ncol_t, wspace=0.02,
+                                     hspace=map_hspace(gs[r_i, 2].get_position(fig).height * canvas_size(spec)[1],
+                                                       nrow_t, 0.25))
         for j, (l, lab) in enumerate(lines):
             tax = fig.add_subplot(sub[j // ncol_t, j % ncol_t])
             if j == 0:
@@ -859,7 +1068,8 @@ def draw_topo(spec, comp, panels, lines, topo, v, info, sphere):
     levels = np.linspace(-v, v, TOPO["contours"] + 1)
     peak, n_maps = 0.0, 0
     for r_i, (p, plabel) in enumerate(panels):
-        sub = gs[r_i, 1].subgridspec(nrow_t, ncol_t, wspace=0.05, hspace=0.3)
+        sub = gs[r_i, 1].subgridspec(nrow_t, ncol_t, wspace=0.05,
+                                     hspace=map_hspace(gs[r_i, 1].get_position(fig).height * H, nrow_t, 0.3))
         for j, (l, lab) in enumerate(lines):
             tax = fig.add_subplot(sub[j // ncol_t, j % ncol_t])
             if j == 0:
@@ -967,8 +1177,9 @@ def plot(spec):
             [data_ylim(st) for _, _, st, _ in computed],
             [[(b["tmin_ms"], b["tmax_ms"]) for b in c["bands"]] for c, _, _, _ in computed], ms[t], lo, hi, leg_size)
     outs, batch = [], None
+    subset = subset_part(spec, meta)  # rule O3: a subset of groups/conditions or a trial query is part of the name
     if kind == "erp" and spec["channels"] == "all":  # rule O3: one file per channel, one versioned folder
-        batch = versioned(out_root(spec) / "ERP", f"ERP-all-channels_{comparison(spec)}")
+        batch = versioned(out_root(spec) / "ERP", f"ERP-all-channels_{comparison(spec)}{subset}")
         batch.mkdir()  # archived as a whole after its last file
     for comp, w, stats, topo in computed:
         v = v_sensor = max(max(np.abs(a).max() for a in topo.values()), 1e-6)
@@ -1000,18 +1211,20 @@ def plot(spec):
             die(f"drew {n_lines} lines / {n_maps} maps for kind {kind!r}, expected {want} of each drawn element")
         chans = "-".join(map(safe, comp["channels"]))
         if kind == "erp":  # rule O3
-            stem = f"{'ERP-ROI' if layout == 'roi' else 'ERP'}_{chans}{band_part(comps)}_{comparison(spec)}"
+            stem = f"{'ERP-ROI' if layout == 'roi' else 'ERP'}_{chans}{band_part(comps)}_{comparison(spec)}{subset}"
             out = batch / f"{stem}{batch.name[-4:]}" if batch else versioned(out_root(spec) / "ERP", stem)
         else:
             win = f"{comp['tmin_ms']:g}-{comp['tmax_ms']:g}ms"
             stem = {"combo": f"ERP-topo_{comp['name']}_{chans}_{win}",
-                    "topo": f"topo_{comp['name']}_{win}"}[kind] + f"_{comparison(spec)}"
+                    "topo": f"topo_{comp['name']}_{win}"}[kind] + f"_{comparison(spec)}{subset}"
             out = versioned(out_root(spec) / KIND_DIR[kind], stem)
+        issues = report_layout(fig, out.name)  # rule QA 1, in code
         for ext in ("svg", "png"):  # rule T5: PNG to view, SVG with editable text to adjust
             fig.savefig(f"{out}.{ext}", dpi=600 if ext == "png" else None)
         plt.close(fig)
         caption(spec, comp, meta, groups, conds, out, ms, v, sphere, kind)
         write_run(spec, meta, out, comp, ms, size, n_lines, n_maps, legend=placed, gap_mm=float(gap_mm),
+                  layout_issues=issues,
                   colour_distinctness=colour_check(colors[:len(lines)], "line colours", line_styles(spec, len(lines)))
                   if kind != "topo" else None,
                   colour_limit_uV=float(v), sensor_max_uV=float(v_sensor), interpolated_max_uV=float(peak),
@@ -1050,16 +1263,19 @@ def plot_grid(spec, data, info, meta, panels, lines, get, colors, labels, ms, t,
     grid = [[info.ch_names.index(c) for c in r] for r in rows]
     styles = line_styles(spec, len(lines))
     what = "conditions" if spec.get("overlay", "groups") == "conditions" else "groups"
+    chans = "-".join(safe(c) for r in rows for c in r)  # rule O3: grids of other channels are other figures
     outs = []
     for p, plabel in panels:
         x = np.array([get(p, l).mean(0) for l, _ in lines])  # (line, ch, t): subject mean
-        stem = f"ERP-grid-{len(rows)}x{max(len(r) for r in rows)}_{what}_{safe(plabel)}{band_part(comps)}"  # rule O3
+        stem = (f"ERP-grid-{len(rows)}x{max(len(r) for r in rows)}_{chans}_{what}_{safe(plabel)}{band_part(comps)}"
+                + subset_part(spec, meta, (what,)))  # rule O3: the facet level is named; a subset of the lines is too
         out = versioned(out_root(spec) / "ERP", stem)
-        n = wave_grid(spec, "", grid, info, x, labels, colors, styles, ms, t, lo, hi, negative_up, plabel, out,
-                      bands=comps, dpi=600)
+        n, issues = wave_grid(spec, "", grid, info, x, labels, colors, styles, ms, t, lo, hi, negative_up, plabel,
+                              out, bands=comps, dpi=600)
         comp = dict(channels=sum(rows, []), bands=comps)
         caption(spec, comp, meta, list(data), list(spec["conditions"]), out, ms, 0, None, "erp", level=p)
         write_run(spec, meta, out, comp, ms, list(canvas_size(spec)), n, 0, legend="under the grid",
+                  layout_issues=issues,
                   colour_distinctness=colour_check(colors[:len(lines)], "line colours", styles))
         archive(out)
         outs.append(out)
@@ -1181,17 +1397,25 @@ def wave_grid(spec, title, grid, info, x, labels, colors, styles, ms, t, lo, hi,
               dpi=300):
     """One figure: a panel per channel at its grid cell, every line of one facet overlaid (x: line × channel × time,
     subject means); gray bands only for given windows; one shared y-range; legend in one row centred under the grid.
-    Returns the number of lines drawn."""
+    With bands, each channel name sits higher (band name under it, rule L8). Stops when the panels would be shorter
+    than MIN_WAVE_MM, naming a height_mm that works. Returns the number of lines drawn and the layout issues."""
     nr, nc = len(grid), max(len(r) for r in grid)
     W, H = canvas_size(spec)  # rule T6
-    fig = plt.figure(figsize=(W * MM, H * MM))
     leg_cols = len(labels) if len(labels) <= 4 else -(-len(labels) // 2)  # one row, two rows if more than 4
     leg_mm = 4 + 4 * -(-len(labels) // leg_cols)
+    top_mm, bottom_mm = (14.0 if bands else 10.0), 6 + leg_mm
+    cell = (H - top_mm - bottom_mm) / (nr + 0.6 * (nr - 1))  # GridSpec rows with hspace 0.6
+    if cell < MIN_WAVE_MM:
+        need = int(np.ceil(MIN_WAVE_MM * (nr + 0.6 * (nr - 1)) + top_mm + bottom_mm))
+        die(f"{nr} rows of channel panels would be {cell:.0f} mm tall each; at least {MIN_WAVE_MM:g} mm keep ticks and "
+            f"labels legible: use height_mm {need} or more at width_mm {W:g}, or fewer rows")
+    fig = plt.figure(figsize=(W * MM, H * MM))
     gs = GridSpec(nr, nc, figure=fig, hspace=0.6, wspace=0.35,
-                  left=10 / W, right=1 - 6 / W, top=1 - 10 / H, bottom=(6 + leg_mm) / H)  # 6 mm: room for "ms" in any font
+                  left=10 / W, right=1 - 6 / W, top=1 - top_mm / H, bottom=bottom_mm / H)  # 6 mm: room for "ms"
     x = x[:, :, t]
     chans = [i for r in grid for i in r]
-    ylim = data_ylim({(c, i): (x[c, i], None) for c in range(len(x)) for i in chans})
+    ylim = data_ylim({(c, i): (x[c, i], None) for c in range(len(x)) for i in chans},
+                     gs[0, 0].get_position(fig).height * fig.get_figheight() * 72, negative_up)
     first, n = None, 0
     for r, row in enumerate(grid):
         for c, ch in enumerate(row):
@@ -1203,7 +1427,7 @@ def wave_grid(spec, title, grid, info, x, labels, colors, styles, ms, t, lo, hi,
             for k, (col, ls, lab) in enumerate(zip(colors, styles, labels)):
                 ax.plot(ms[t], x[k, ch], color=col, ls=ls, lw=0.8, label=lab)
                 n += 1
-            ax.set_title(info.ch_names[ch], pad=6, fontsize=7, fontweight="bold")
+            ax.set_title(info.ch_names[ch], pad=11 if bands else 6, fontsize=7, fontweight="bold")  # above the band name
             cross_axes(ax, fig, lo, hi, ylim, negative_up, ms[t], x[:, ch].min(0), x[:, ch].max(0))
             first = first or ax
     h, lab = first.get_legend_handles_labels()
@@ -1212,10 +1436,11 @@ def wave_grid(spec, title, grid, info, x, labels, colors, styles, ms, t, lo, hi,
     fig.legend(h, lab, loc="lower center", bbox_to_anchor=(0.5, 1 / H), ncol=leg_cols, **LEGEND_KW)
     fig.text(0.5, 1 - 3 / H, f"{title} · {facet}" if title else facet, ha="center", va="top", fontsize=8,
              fontweight="bold")
+    issues = report_layout(fig, out.name)  # rule QA 1, in code
     fig.savefig(f"{out}.png", dpi=dpi)
     fig.savefig(f"{out}.svg")
     plt.close(fig)
-    return n
+    return n, issues
 
 
 def topo_table(spec, data, conds, labels, comps, info, ms, sphere, facet, out):
@@ -1286,6 +1511,7 @@ def topo_table(spec, data, conds, labels, comps, info, ms, sphere, facet, out):
         plt.close(fig)
         v = {k: max(v[k], peak[k]) for k in v}
         fig, peak = render(v)
+    report_layout(fig, out.name)  # explore writes no _run.json: warnings only
     fig.savefig(f"{out}.png", dpi=300)
     fig.savefig(f"{out}.svg")
     plt.close(fig)

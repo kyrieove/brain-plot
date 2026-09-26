@@ -128,8 +128,19 @@ roi = np.array([2.0, 2.5, 4.5])                 # per-subject ROI means outside 
 assert np.allclose(m[0], roi.mean()) and np.allclose(e[0], roi.std(ddof=1) / np.sqrt(3))
 assert np.allclose(tp, [3.0 + 10, 3.0 + 10])
 assert ep.line_stats(x[:1], [0], np.ones(5, bool), np.ones(5, bool))[1] is None  # n = 1: no SEM
-yt, _ = ep.nice_ticks([-1.9, 5.3])  # N400 case: negative side must be labelled
+yt = ep.nice_ticks([-1.9, 5.3])[0]  # N400 case: negative side must be labelled
 assert min(yt) < 0 and max(yt) > 0, yt
+# 2026-09-26 (rule T1): on a short panel the y labels keep 9 pt between neighbours (fewer ticks), both sides labelled
+for h in (40.0, 60.0, 120.0):
+    yt, step, short = ep.nice_ticks([-6.3, 6.1], h)
+    assert step / 12.4 * h >= 9 and min(yt) < 0 < max(yt) and not short, (h, yt, step)  # rule T1: 9 pt
+assert ep.nice_ticks([-2.3, 2.1])[0] == [-2.0, -1.0, 1.0, 2.0] and ep.nice_ticks([-2.3, 2.1], 20.0)[0] == [-2.0, 2.0]
+# the side drawn on top reaches 10 pt above the x-axis, so "µV" has room even when all data lie on the other side
+stats = {0: (np.linspace(0.2, 3.0, 50), None)}  # all positive
+for neg, h in ((False, 45.0), (True, 45.0), (True, 120.0)):
+    lo_, hi_ = ep.data_ylim(stats, h, neg)
+    top = -lo_ if neg else hi_
+    assert top / (hi_ - lo_) * h >= 10 - 1e-6, (neg, h, lo_, hi_)  # rule T1: 10 pt
 
 # 0a. topomap-only block shape adapts to line and panel count on the fixed 180 x 120 canvas; never an empty row
 assert [ep.topo_block(m, n, 180, 120) for m, n in [(3, 2), (6, 2), (7, 2), (4, 1), (6, 4)]] ==     [(1, 3), (2, 3), (2, 4), (2, 2), (1, 6)]
@@ -234,12 +245,12 @@ with tempfile.TemporaryDirectory() as d:
     #     one waveform panel keeps its letter inside the canvas
     late = [dict(name="N4", channels=["Cz", "Pz"], tmin_ms=350, tmax_ms=390, window_source="test")]
     ep.plot(spec(root, groups=["G1"], overlay="conditions", kind="topo", components=late))
-    cap = latest(root, "topo", "topo_N4_350-390ms_conditions-by-group_v01_caption.md").read_text(encoding="utf8")
+    cap = latest(root, "topo", "topo_N4_350-390ms_conditions-by-group_grp-G1_v01_caption.md").read_text(encoding="utf8")
     assert "Lines:" not in cap and "gray band" not in cap and "polarity" not in cap and "Topographies" in cap
     assert "- (a) G1 — topographies, N4 350–390 ms; one map per line: Low (n = 3" in cap
     band = [dict(name="P3", tmin_ms=100, tmax_ms=200, window_source="test")]  # erp bands carry no channels
     ep.plot(spec(root, groups=["G1"], overlay="conditions", kind="erp", channels=["Cz", "Pz"], components=band))
-    cap = latest(root, "ERP", "ERP-ROI_Cz-Pz_P3-100-200ms_conditions-by-group_v01_caption.md").read_text(encoding="utf8")
+    cap = latest(root, "ERP", "ERP-ROI_Cz-Pz_P3-100-200ms_conditions-by-group_grp-G1_v01_caption.md").read_text(encoding="utf8")
     assert "Topographies" not in cap and "topography window" not in cap and "Lines:" in cap
     assert "Waveforms: mean of Cz, Pz" in cap and "P3: window 100–200 ms" in cap
     inside_canvas(SAVED[-1])
@@ -248,16 +259,16 @@ with tempfile.TemporaryDirectory() as d:
     # 4c. kind "erp" by channel (rule K1): all channels one file each in one versioned folder; grid per facet level;
     #     no band unless components are given; spec errors
     ep.plot(spec(root, groups=["G1", "G2"], kind="erp", layout="single", channels="all", components=[]))
-    folder = root.parent / "brain-plot" / "ERP" / "ERP-all-channels_groups-by-condition_v01"
-    assert sorted(f.name for f in folder.glob("*.png")) == sorted(f"ERP_{c}_groups-by-condition_v01.png" for c in CH)
+    folder = root.parent / "brain-plot" / "ERP" / "ERP-all-channels_groups-by-condition_grp-G1-G2_v01"  # G1–G8 exist
+    assert sorted(f.name for f in folder.glob("*.png")) == sorted(f"ERP_{c}_groups-by-condition_grp-G1-G2_v01.png" for c in CH)
     assert len(list(folder.iterdir())) == 4 * len(CH)  # png, svg, caption, run per channel
     assert not any(t in ("P3",) for t, _ in texts_of(SAVED[-1]))  # no band label without components
     ep.plot(spec(root, groups=["G1", "G2"], kind="erp", layout="grid", channels=[["Fz", "Cz"], ["Pz", "Oz"]], overlay="conditions",
                  components=[]))
     for g in ("G1", "G2"):
-        run = json.loads(latest(root, "ERP", f"ERP-grid-2x2_conditions_{g}_v01_run.json").read_text(encoding="utf8"))
+        run = json.loads(latest(root, "ERP", f"ERP-grid-2x2_Fz-Cz-Pz-Oz_conditions_{g}_v01_run.json").read_text(encoding="utf8"))
         assert run["lines"] == 3 * 4 and run["maps"] == 0 and run["channels"] == ["Fz", "Cz", "Pz", "Oz"]
-        cap = latest(root, "ERP", f"ERP-grid-2x2_conditions_{g}_v01_caption.md").read_text(encoding="utf8")
+        cap = latest(root, "ERP", f"ERP-grid-2x2_Fz-Cz-Pz-Oz_conditions_{g}_v01_caption.md").read_text(encoding="utf8")
         assert f"- (no letters) {g}: one panel per channel (Fz, Cz / Pz, Oz); lines: Low (n = " in cap
         assert cap.count("- (no letters)") == 1  # one facet level per grid figure
     inside_canvas(SAVED[-2])
@@ -265,7 +276,7 @@ with tempfile.TemporaryDirectory() as d:
                  components=[dict(name="N4", tmin_ms=350, tmax_ms=390, window_source="t")]))
     assert sum(t == "N4" for t, _ in texts_of(SAVED[-2])) == 2  # round 6: band named in every grid panel (L8)
     # round 6: a render that fails after its version number was chosen leaves the previous version in place (O2)
-    g1 = "ERP-grid-1x2_conditions_G1_N4-350-390ms_v01.png"
+    g1 = "ERP-grid-1x2_Cz-Pz_conditions_G1_N4-350-390ms_v01.png"
     try:
         ep.plot(spec(root, groups=["G1", "G2"], kind="erp", layout="grid", channels=[["Cz", "Pz"]], overlay="conditions",
                      colors=["not-a-colour"] * 3,
@@ -287,12 +298,28 @@ with tempfile.TemporaryDirectory() as d:
     fails(spec(root, kind="erp", layout="grid", channels=[["Cz"]], error="sem", components=[]), "no SEM band")
     fails(spec(root, kind="erp", channels=["Cz"]), "needs exactly")  # a band with channels (spec() default component)
 
+    # 4d. review 2026-09-26 (rule O3): figures of other groups, conditions or trial selections never share a name, so
+    #     none is archived as an "older version" of another; a figure of everything keeps the plain name
+    names = set()
+    for kw in (dict(groups=["G1", "G2"]), dict(groups=["G2"]), dict(groups=["G1", "G2"], conditions={"A": "Low", "B": "Mid"})):
+        ep.plot(spec(root, **kw))
+        names.add(latest(root, "ERP_topo", "ERP-topo_P3_*.png").name)
+    assert names == {"ERP-topo_P3_Cz-Pz_250-350ms_groups-by-condition_grp-G1-G2_v01.png",
+                     "ERP-topo_P3_Cz-Pz_250-350ms_groups-by-condition_grp-G2_v01.png",
+                     "ERP-topo_P3_Cz-Pz_250-350ms_groups-by-condition_grp-G1-G2_cond-A-B_v01.png"}, names
+    ep.plot(spec(root, groups=["G1", "G2"]))  # the same figure again: a new version, the old one to _history
+    assert (root.parent / "brain-plot" / "ERP_topo" / "_history" /
+            "ERP-topo_P3_Cz-Pz_250-350ms_groups-by-condition_grp-G1-G2_v01.png").exists()
+
     # 5. cache is invalidated when an input file changes
     s = spec(root, groups=["G1"])
     before = ep.load(s)[0]["G1"].copy()
     make_subject(root / "G1" / "G1s0_x-ave.fif", "ABC", seed=999)
     after = ep.load(s)[0]["G1"]
     assert not np.allclose(before, after), "stale cache returned after an input file changed"
+    # rule O1: only the most recently used caches stay (this folder has seen many different selections)
+    kept = list((root.parent / "brain-plot" / ".cache").glob("*.npz"))
+    assert 0 < len(kept) <= ep.CACHE_KEEP, len(kept)
 
 # 6. groups from a metadata column in a flat folder of epochs files
 with tempfile.TemporaryDirectory() as d:
@@ -330,18 +357,21 @@ with tempfile.TemporaryDirectory() as d:
     except SystemExit as e:
         assert "FCz" in str(e)
 
-# 8. seven waveform panels on the default canvas: nothing leaves it, no two texts overlap (rule T6)
+# 8. seven waveform panels: the default canvas would make them 3 mm tall, so the script stops and names a height
+#    (rule L3, 2026-09-26); at that height nothing leaves the canvas and the layout self-check is clean (QA 1)
 with tempfile.TemporaryDirectory() as d:
     root = Path(d) / "seven"
     root.mkdir()
     for i in range(2):
         make_subject(root / f"s{i}_x-ave.fif", "ABCDEFG", seed=i)
-    ep.plot(spec(root, conditions={c: c for c in "ABCDEFG"}, kind="erp", channels=["Cz", "Pz"], components=[]))
+    seven = spec(root, conditions={c: c for c in "ABCDEFG"}, kind="erp", channels=["Cz", "Pz"], components=[])
+    fails(seven, "use height_mm 201 or more at width_mm 180, or overlay 'conditions' (1 panel)")
+    ep.plot(dict(seven, height_mm=201))
     fig = SAVED[-1]
     inside_canvas(fig)
-    ts = [(t, b) for t, b in texts_of(fig) if t in "ABCDEFG" or "," in t]  # facet labels and ROI titles
-    hit = [(t0, t1) for i, (t0, b0) in enumerate(ts) for t1, b1 in ts[i + 1:] if b0.overlaps(b1)]
-    assert not hit, f"overlapping texts: {hit}"
+    assert ep.layout_issues(fig) == [], ep.layout_issues(fig)
+    run = json.loads(latest(root, "ERP", "ERP-ROI_Cz-Pz_*_run.json").read_text(encoding="utf8"))
+    assert run["layout_issues"] == []
 
     # 9. explore preflight (round 5): window past the data, too few colours; zero difference maps; component bars
     ex = dict(data=str(root), conditions={"A": "A", "B": "B"},

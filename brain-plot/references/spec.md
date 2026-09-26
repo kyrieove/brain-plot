@@ -4,7 +4,7 @@ A JSON object. Unknown keys stop the script (an old spec with `out` stops too: d
 `examples/specs/` (synthetic data: `python examples/make_demo_data.py`). Relative `data` and `templates` paths are taken from the spec file's folder. Keep specs in `brain-plot/specs/`.
 
 Outputs go to `brain-plot/` next to the data folder (rules O1–O3): `ERP_topo/ERP-topo_<component>_<channels>_<window>_<comparison>_vNN`,
-`topo/topo_<component>_<window>_<comparison>_vNN`, `ERP/ERP-ROI_<channels>[_<band>-<window>]_<comparison>_vNN`, `ERP/ERP_<channel>_…` (single), `ERP/ERP-all-channels_<comparison>_vNN/` (single, all), `ERP/ERP-grid-<rows>x<cols>_<lines>_<facet level>_vNN` (grid); each as
+`topo/topo_<component>_<window>_<comparison>_vNN`, `ERP/ERP-ROI_<channels>[_<band>-<window>]_<comparison>_vNN`, `ERP/ERP_<channel>_…` (single), `ERP/ERP-all-channels_<comparison>_vNN/` (single, all), `ERP/ERP-grid-<rows>x<cols>_<channels>_<lines>_<facet level>_vNN` (grid); a figure of only some groups or conditions, or with a `query`, adds `_grp-…`, `_cond-…` or `_query-<hash>` before `_vNN` (rule O3); each as
 `.png .svg`, `_caption.md`, `_run.json`. `<comparison>` is `groups-by-condition` (`overlay: "groups"`) or
 `conditions-by-group`.
 
@@ -37,7 +37,7 @@ Outputs go to `brain-plot/` next to the data folder (rules O1–O3): `ERP_topo/E
 | `key_comparison` | none | Caption only: the comparison the layout serves (e.g. "groups within each condition"). |
 | `time_locked_to` | none | Caption only: event at 0 ms, as it should read in the caption. |
 | `reference` | none | Caption only: reference scheme (files often don't store it). |
-| `width_mm` / `height_mm` | 180 / 120 | Fixed final canvas (rule T6); content is fitted inside. |
+| `width_mm` / `height_mm` | 180 / 120 | Fixed final canvas (rule T6); content is fitted inside. Stacked waveform panels (and erp grid cells) need ≥ 15 mm each; the script stops and names the `height_mm` that works (rule L3). |
 | `cmap` | `"RdBu_r"` | Topomap colour map (a diverging map). |
 | `error` | `"none"` | `"sem"` adds a between-subject ± SEM band. |
 | `stats_note` | none | The author's statistical statement, copied into the caption facts. |
@@ -58,13 +58,13 @@ Required: `data` (any loader layout, including `<condition>/<group>/<subject>*-a
 | `blocks` | `["topo", "butterfly", "ribbon"]` | Any of `topo`, `butterfly`, `gfp`, `ribbon`, with `butterfly` and/or `gfp`; order sets the file name. |
 | `window_ms` | `[0, 800]` | Segmented and drawn range (as in the analysis). |
 | `min_segment_ms` | 30 | Shorter runs merge into the better-fitting neighbour. |
-| `polarity` | `"sensitive"` | `"insensitive"` if the analysis ignored map polarity. |
+| `polarity` | `"sensitive"` | `"insensitive"` if the analysis ignored map polarity (pycrostates' default): identity across K uses \|r\|, and maps are shown with a consistent sign (rule MS5). |
 | `per_group` | false | One row per condition × group instead of per condition (at most 2 rows without a grid). |
 | `grid` | none | Rows × columns of condition keys, e.g. `[["Hmet","Hlit","Hrep"],["Lmet","Llit","Lrep"]]`; required for more than 2 conditions (rule MS9). |
 | `hatch` | false | true: hatch samples whose GFP is below the pre-stimulus 95th percentile (rule MS3); needs pre-stimulus samples. |
 | `templates_source` | none | Caption only: which analysis made the templates. |
 | `identity_threshold` | 0.9 | by-K: signed r at which two templates count as the same map. |
-| `groups`, `exclude`, `flat_channels`, `width_mm`/`height_mm` (180 × 110), `cmap`, `reference`, `time_locked_to` | | As above; the last two only feed the caption facts. |
+| `groups`, `exclude`, `flat_channels`, `width_mm`/`height_mm` (180 × default by layout, rule MS10: 1 row 62 with maps / 80 without; 2 rows 110 / 140, with both panel types 70 / 90; grid 100), `cmap`, `reference`, `time_locked_to` | | As above; the last two only feed the caption facts. |
 
 ## Explore spec (`python erp_plot.py explore <spec.json>`)
 

@@ -7,11 +7,13 @@ description: Paper-ready ERP figures (waveforms + scalp topographies) from per-s
 
 Route first: ERP waveforms / topomaps / combo / overview → `erp_plot.py`; microstate figures from saved templates → `microstate_plot.py` (section "Microstate figures"). Statistics, preprocessing and clustering are out of scope.
 
-Side effects (tell the user before the first run): the scripts read every input file, write a cache (`brain-plot/.cache/`, can be tens of MB — mind synced folders like Dropbox) and all figures to `brain-plot/` next to the data folder, and move older versions of a re-drawn figure to `_history/` (never delete or overwrite). They need Python with MNE ≥ 1.6, matplotlib ≥ 3.8, scipy; run them on a trusted local copy of the data.
+Before the first run, check the interpreter: `python check_env.py` (next to this file, standard library only) prints the Python, package versions and fonts, and "OK" or what to install; use the interpreter that passes.
+
+Side effects (tell the user before the first run): the scripts read every input file, write a cache (`brain-plot/.cache/`, the 6 most recently used, each can be tens of MB — mind synced folders like Dropbox) and all figures to `brain-plot/` next to the data folder, and move older versions of a re-drawn figure to `_history/` (never delete or overwrite). They need Python with MNE ≥ 1.6, matplotlib ≥ 3.8, scipy; run them on a trusted local copy of the data.
 
 `erp_plot.py` (next to this file) does the ERP computing and drawing; the style is fixed in code. Never restyle a
 figure by hand or with ad-hoc matplotlib — change the spec instead.
-Needs Python ≥ 3.10 with mne ≥ 1.6, matplotlib ≥ 3.8, scipy (tested: MNE 1.13.dev, matplotlib 3.10).
+Needs Python ≥ 3.10 with mne ≥ 1.6, matplotlib ≥ 3.8, scipy (tested: MNE 1.13, matplotlib 3.10 and 3.11).
 Rules: `references/rules.md` (binding). Spec fields: `references/spec.md`. Worked specs: `../examples/specs/` (run `../examples/make_demo_data.py` first for synthetic data). Relative `data`/`templates` paths in a spec file are taken from the spec's folder.
 
 ## 0. Explore (optional, before windows are known)
@@ -67,26 +69,29 @@ rules need no re-confirmation.
 python erp_plot.py plot <spec.json>
 ```
 The script validates the spec and every input file and stops with a message on any problem — fix the cause,
-never work around it. Outputs go to `brain-plot/` next to the data folder, one sub-folder per kind, named and
-versioned by rules O1–O3 (old versions move to `_history/`). Outputs per component: `.png .svg` (fixed physical size; SVG text stays editable), `_caption.md` (facts for
+never work around it (e.g. stacked panels shorter than 15 mm: take the `height_mm` it names, or the other `overlay` it
+proposes, after telling the user). Outputs go to `brain-plot/` next to the data folder, one sub-folder per kind, named
+and versioned by rules O1–O3 (old versions move to `_history/`; a subset of groups/conditions is part of the name). Outputs per component: `.png .svg` (fixed physical size; SVG text stays editable), `_caption.md` (facts for
 the caption), `_run.json` (spec, subject IDs, versions, sample bounds, line/map counts). The first run reads
 every file; later runs use a cache that is invalidated when any input file changes.
 
 ## 5. Check the PNG, then report
 
-Open each PNG and go through the QA list at the end of `references/rules.md` (items scoped by `kind`). Fix via the spec or report the
-problem; do not edit images. Write the QA result into the `qa` field of each `_run.json`, and list every `open_items` field to the user as still open. Tell the user what you checked, what is still open, and where the files are.
+Open each PNG and go through the QA list at the end of `references/rules.md` (items scoped by `kind`). The script has
+already checked texts, legends and lines (`layout_issues` in `_run.json`, also printed): report each entry and fix what
+the spec can fix; your eyes cover what that check cannot see. Fix via the spec or report the problem; do not edit images. Write the QA result into the `qa` field of each `_run.json`, and list every `open_items` field to the user as still open. Tell the user what you checked, what is still open, and where the files are.
 Hand the caption facts over as facts to write a caption from, not as a finished caption: `## Whole figure`, then `## Panels` by the letters on the figure.
 
 If the script stops on flat channels (rule S10), ask whether they are the reference electrode (then add them to `flat_channels`) or broken channels to fix upstream; never add them to `flat_channels` without that answer.
 
 ## Microstate figures (branch)
 
-For microstate figures use `microstate_plot.py` (rules MS1–MS8, spec section "Microstate spec"). Read the analysis's
+For microstate figures use `microstate_plot.py` (rules MS1–MS10, spec section "Microstate spec"). Read the analysis's
 docs, locked config and model files first: templates path, subjects and exclusions, window, polarity mode, minimum
 segment length. Ask only: which K (or which K range for `by-K`), which conditions (and groups), which
 blocks. Confirm the spec, run `python microstate_plot.py plot <spec.json>`, check the PNG (maps framed and numbered
-in time order, ribbon and map labels agree; with `hatch`, hatching only where GFP is at baseline level), record `qa` in `_run.json`.
+in time order, ribbon and map labels agree; with `hatch`, hatching only where GFP is at baseline level; `layout_issues`
+empty), record `qa` in `_run.json`. If MS10 stops, it lists every `height_mm` that works: pick one from those ranges.
 
 Agent-level eval cases (trigger and behaviour): `evals/cases.md`.
 

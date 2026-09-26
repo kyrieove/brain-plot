@@ -5,7 +5,7 @@
 Draws only: the templates are read, never re-fitted. Each condition's subject-equal grand average is labelled sample by
 sample with its best-matching template (the reference figures' method), and the figure shows the templates, the
 butterfly plot, the GFP and the segmentation. Outputs go to brain-plot/microstate/ next to the data folder, versioned
-(rules O1–O3); the rules are MS1–MS8 in references/rules.md.
+(rules O1–O3); the rules are MS1–MS10 in references/rules.md.
 """
 import hashlib
 import json
@@ -31,6 +31,14 @@ STATE_COLOURS = ["#00468B", "#ED0000", "#42B540", "#0099B4", "#925E9F", "#FDAF91
 IDENTITY_COLOURS = STATE_COLOURS + ["#B8860B", "#E75480", "#2E8B7A", "#6B4C9A", "#8B5A2B", "#5B8FF9"]
 TRACE, SOFT = "#171b21", "#5a626d"
 MAP_MAX_MM = 22.0  # largest template map on the states figure
+# rule MS10: default height_mm by stacked rows, template maps (topo) and time panels, chosen so that the panels keep
+# width:height 1.8–3.5 at width 180 for as many K as possible (measured over K = 2–10: one row with maps works for all K
+# at 60–63 mm with a ribbon, for all but K = 3 without; two rows with both panel types for K = 2 and 4–9); a grid
+# defaults to 100. A spec height_mm wins; when the default does not fit, MS10 stops and lists the heights that do.
+DEFAULT_HEIGHT = {(1, True, "butterfly"): 62, (1, True, "gfp"): 62, (1, True, "both"): 62,
+                  (1, False, "butterfly"): 80, (1, False, "gfp"): 80, (1, False, "both"): 80,
+                  (2, True, "butterfly"): 110, (2, True, "gfp"): 110, (2, True, "both"): 70,
+                  (2, False, "butterfly"): 140, (2, False, "gfp"): 140, (2, False, "both"): 90}
 GFP_LABEL_MM = (4.6, 2.3)  # "GFP" at 6 pt: width, height (rule MS7c placement)
 MM = ep.MM
 
@@ -190,6 +198,27 @@ def low_gfp(x, ms, w):
 
 
 # ---------- drawing ----------
+def text_mm(s, size_pt):
+    """Width in mm of (the widest line of) a text at size_pt, measured with the figure style."""
+    fig = plt.figure()
+    t = fig.text(0, 0, s, fontsize=size_pt, linespacing=1.15)
+    fig.canvas.draw()
+    w = t.get_window_extent().width / fig.dpi * 25.4
+    plt.close(fig)
+    return w
+
+
+def spans_text(values):
+    """Consecutive integers as ranges: [60, 61, 62, 70, 71] → '60–62 or 70–71' (the map column can switch between 1
+    and 3 columns as the height changes, so the heights that work need not be one range)."""
+    out, start = [], values[0]
+    for a, b in zip(values, values[1:] + [None]):
+        if b != a + 1:
+            out.append(f"{start}–{a}" if a > start else f"{a}")
+            start = b
+    return " or ".join(out)
+
+
 def mm_axes(fig, W, H, x, y, w, h):
     """Axes placed in millimetres from the lower-left corner (rule T6: fixed physical layout)."""
     return fig.add_axes([x / W, y / H, w / W, h / H])
@@ -291,6 +320,7 @@ def plot_states(spec, data, info, meta, ms, sphere):
     pos = {s: i for i, s in enumerate(order)}
     col = {s: STATE_COLOURS[pos[s] % len(STATE_COLOURS)] for s in range(k)}
     t = ms[w]
+    shown = np.ones(k, int) if sens else data_signs(cells, labels, centers, w)  # rule MS5: display sign only
 
     names = list(cells)
     if spec.get("grid"):  # rule MS9: the user's rows × columns of conditions (e.g. a 2 × 3 design)
@@ -337,22 +367,28 @@ def plot_states(spec, data, info, meta, ms, sphere):
         row_h = (y_grid - bottom - (R - 1) * gap) / R
         return maps, x_right, y_grid, cell_w, widths, row_h, row_h - rib - (1.0 if rib else 0)
 
-    W, H = ep.canvas_size(dict(width_mm=spec.get("width_mm", 180), height_mm=spec.get("height_mm", 100 if C > 1 else 110)))
+    which = "both" if len(panels) == 2 else panels[0]
+    default_h = 100 if C > 1 else DEFAULT_HEIGHT[R, "topo" in blocks, which]
+    W, H = ep.canvas_size(dict(width_mm=spec.get("width_mm", 180), height_mm=spec.get("height_mm", default_h)))
+    short = {c: c.split(" · ")[0] if len(cells) > 1 else "" for c in cells}
+    subs = {st: "\n".join(f"{short[c]} {round(spans[c][st][0])}–{round(spans[c][st][1])}".strip() if st in spans[c]
+                          else f"{short[c]} —".strip() for c in cells) for st in order}
     maps, x_right, y_grid, cell_w, widths, row_h, ph = layout(W, H)
+    if n_sub and maps and text_mm(max(subs.values(), key=len), 5.5) > maps[0][2] + 4.5:
+        n_sub, extra = 0, 3.5 + 1.0  # rule MS7a: the ranges do not fit under maps this small (they are in the caption)
+        maps, x_right, y_grid, cell_w, widths, row_h, ph = layout(W, H)
     def shapes_ok(g):
         return all(1.8 <= pw / g[6] <= 3.5 for pw in g[4])
     if not shapes_ok((maps, x_right, y_grid, cell_w, widths, row_h, ph)):  # rule MS10: every time panel
         ok = [h for h in range(60, 301) if shapes_ok(layout(W, h))]
         ep.die(f"time panels would be {' and '.join(f'{pw:.0f} × {ph:.0f} mm ({pw / ph:.1f})' for pw in widths)}; "
                "keep width:height 1.8–3.5 with "
-               + (f"height_mm {ok[0]}–{ok[-1]} at width_mm {W:g}" if ok else "another width_mm or grid") + " (rule MS10)")
+               + (f"height_mm {spans_text(ok)} at width_mm {W:g}" if ok else "another width_mm or grid") + " (rule MS10)")
     fig = plt.figure(figsize=(W * MM, H * MM))
     vmax = float(np.abs(centers).max())
-    short = {c: c.split(" · ")[0] if len(cells) > 1 else "" for c in cells}
     for i, (st, (mx, my, ms_)) in enumerate(zip(order, maps)):
-        sub = "\n".join(f"{short[c]} {round(spans[c][st][0])}–{round(spans[c][st][1])}".strip() if st in spans[c]
-                        else f"{short[c]} —".strip() for c in cells) if n_sub else ""  # rule MS7a
-        framed_map(fig, W, H, mx, my, ms_, centers[st], info, sphere, vmax, col[st], f"S{i + 1}", sub,
+        sub = subs[st] if n_sub else ""  # rule MS7a
+        framed_map(fig, W, H, mx, my, ms_, centers[st] * shown[st], info, sphere, vmax, col[st], f"S{i + 1}", sub,
                    spec.get("cmap", "RdBu_r"))
     amp = max(np.abs(x[:, w]).max() for x, _ in cells.values()) * 1.08
     gmax = max(x[:, w].std(0).max() for x, _ in cells.values()) * 1.10
@@ -412,31 +448,51 @@ def plot_states(spec, data, info, meta, ms, sphere):
                     ax.set_xlabel("Time (ms)", fontsize=7, labelpad=1)
                 xx += pw + ylab
     stem = f"{'-'.join(BLOCKS[b] for b in blocks)}_K{k}_{'-'.join(map(ep.safe, spec['conditions']))}" \
-           + ("_by-group" if spec.get("per_group") else "")  # rule O3
+           + ep.subset_part(spec, meta, ("groups",)) + ("_by-group" if spec.get("per_group") else "")  # rule O3
     extra = dict(colour_distinctness=ep.colour_check([col[s] for s in order], "state colours"),
-                 order_by_display=[int(s) for s in order], labels_ms={c: [[float(t[a]), float(t[b - 1]), f"S{pos[st] + 1}"]
+                 order_by_display=[int(s) for s in order], shown_sign=[int(shown[s]) for s in order],
+                 ranges_under_maps=bool(n_sub), labels_ms={c: [[float(t[a]), float(t[b - 1]), f"S{pos[st] + 1}"]
                                                                       for a, b, st in runs(l)] for c, l in labels.items()},
                  **({"low_gfp_fraction": {c: float(v.mean()) for c, v in lows.items()}} if spec.get("hatch") else {}))
     return fig, stem, [tpath], dict(cells={c: n for c, (_, n) in cells.items()}, spans={
         c: {f"S{pos[s] + 1}": v for s, v in sp.items()} for c, sp in spans.items()}, **extra)
 
 
-def identity_families(rows, threshold):
-    """Across K: a template joins the first family whose founding template it matches at r ≥ threshold (signed) and that
-    its row has not used yet; otherwise it founds one (reference rule)."""
-    reps, fam = [], {}
+def identity_families(rows, threshold, sensitive=True):
+    """Across K: a template joins the family whose founding template it matches best at r ≥ threshold and that its row
+    has not used yet; otherwise it founds one (reference rule). r is signed, or |r| when the analysis ignored polarity
+    (rule MS5); then sign[k, s] = −1 marks a template that is its family's map with the opposite sign, so it can be shown
+    the same way. Returns (family, sign) per (k, state)."""
+    reps, fam, sign = [], {}, {}
     for k, centers, order in rows:
         taken = set()
         for s in order:
-            cand = [(float(centers[s] @ r), i) for i, r in enumerate(reps) if i not in taken and centers[s] @ r >= threshold]
+            cand = []
+            for i, rep in enumerate(reps):
+                r = float(centers[s] @ rep)
+                if i not in taken and (r if sensitive else abs(r)) >= threshold:
+                    cand.append((r if sensitive else abs(r), i, 1 if r >= 0 else -1))
             if cand:
-                f = max(cand)[1]
+                _, f, sg = max(cand)
             else:
                 reps.append(centers[s])
-                f = len(reps) - 1
+                f, sg = len(reps) - 1, 1
             taken.add(f)
-            fam[k, s] = f
-    return fam
+            fam[k, s], sign[k, s] = f, sg
+    return fam, sign
+
+
+def data_signs(cells, labels, centers, w):
+    """Polarity-insensitive templates (rule MS5): +1 or −1 per state, the sign under which the template matches the
+    grand averages where that state is labelled, so the map is shown the way the butterfly shows the data."""
+    total = np.zeros(len(centers))
+    for c, (x, _) in cells.items():
+        u = x[:, w].T - x[:, w].T.mean(1, keepdims=True)
+        u = u / np.maximum(np.linalg.norm(u, axis=1, keepdims=True), 1e-12)
+        dots = u @ centers.T
+        for s in range(len(centers)):
+            total[s] += dots[labels[c] == s, s].sum()
+    return np.where(total < 0, -1, 1)
 
 
 def plot_by_k(spec, data, info, meta, ms, sphere):
@@ -450,7 +506,7 @@ def plot_by_k(spec, data, info, meta, ms, sphere):
         labels = {c: segment(x[:, w], centers, info["sfreq"], spec.get("min_segment_ms", 30), sens) for c, (x, _) in cells.items()}
         rows.append((k, centers, display_order(longest_runs(labels, ms[w], k), k)))
         paths.append(p)
-    fam = identity_families(rows, spec.get("identity_threshold", 0.9))
+    fam, sign = identity_families(rows, spec.get("identity_threshold", 0.9), sens)
     if max(fam.values()) >= len(IDENTITY_COLOURS):
         ep.die(f"{max(fam.values()) + 1} distinct templates but {len(IDENTITY_COLOURS)} identity colours")
     W, H = ep.canvas_size(dict(width_mm=spec.get("width_mm", 180), height_mm=spec.get("height_mm", 110)))
@@ -464,11 +520,12 @@ def plot_by_k(spec, data, info, meta, ms, sphere):
         y = H - top - pad - r * (s + extra) - 3.5 - s
         fig.text(side / W, (y + s / 2) / H, f"K = {k}", fontsize=7.5, fontweight="bold", va="center")
         for i, st in enumerate(order):
-            framed_map(fig, W, H, side + lab_w + i * s * 1.18, y, s, centers[st], info, sphere, vmax,
+            framed_map(fig, W, H, side + lab_w + i * s * 1.18, y, s, centers[st] * sign[k, st], info, sphere, vmax,
                        IDENTITY_COLOURS[fam[k, st]], f"S{i + 1}", "", spec.get("cmap", "RdBu_r"))
     rng = f"{ks[0]}-{ks[-1]}" if len(ks) > 1 and ks == list(range(ks[0], ks[-1] + 1)) else "-".join(map(str, ks))
-    stem = f"topo-by-K_K{rng}"
+    stem = f"topo-by-K_K{rng}" + ep.subset_part(spec, meta)  # rule O3: numbering depends on the conditions and groups
     return fig, stem, paths, dict(families={f"K{k}": [fam[k, s] for s in o] for k, _, o in rows},
+                                  shown_sign={f"K{k}": [sign[k, s] for s in o] for k, _, o in rows},
                                   colour_distinctness=ep.colour_check([IDENTITY_COLOURS[f] for f in set(fam.values())],
                                                                       "identity colours"))
 
@@ -495,10 +552,16 @@ def caption(spec, meta, out, paths, facts):
     if "low_gfp_fraction" in facts:
         L.append("- Hatched: GFP below the 95th percentile of the same average's pre-stimulus GFP")
     if "spans" not in facts:
-        L.append(f"- Colours: one per template identity across K (signed r ≥ {spec.get('identity_threshold', 0.9)} with the "
+        r = "signed r" if spec.get("polarity", "sensitive") == "sensitive" else "|r|"
+        L.append(f"- Colours: one per template identity across K ({r} ≥ {spec.get('identity_threshold', 0.9)} with the "
                  "family's first template); numbers within a row by median latency")
     L.append(f"- Maps: templates after average reference and unit norm (unitless), symmetric colour scale, no electrode "
              f"marks; MNE {mne.__version__}")
+    if spec.get("polarity", "sensitive") == "insensitive":
+        L.append("- Polarity ignored (as in the analysis): " + (
+            "each map is shown with the sign that matches the grand averages where its state occurs"
+            if "spans" in facts else "maps count as one template at |r| ≥ the threshold; each map is shown with the sign "
+                                     "of its family's first template"))
     if any(not m["channel_order"].startswith("by name") for m in facts["templates_meta"]):
         L.append("- Template channels: no channel names stored; columns assumed to follow the data's channel order")
     L += ["", "## Panels (no letters; by title)", ""]
@@ -529,6 +592,7 @@ def plot(spec):
     draw = plot_states if spec.get("figure", "states") == "states" else plot_by_k
     fig, stem, paths, facts = draw(spec, data, info, meta, ms, sphere)
     out = ep.versioned(ep.out_root(spec) / "microstate", stem)  # rules O1–O3
+    facts["layout_issues"] = ep.report_layout(fig, out.name)  # rule QA 1, in code
     for ext in ("svg", "png"):  # rule T5
         fig.savefig(f"{out}.{ext}", dpi=600 if ext == "png" else None)
     plt.close(fig)

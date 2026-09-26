@@ -106,6 +106,16 @@ for bad, text in ((dict(conditions={"A": "a", "B": "b", "C": "c"}, grid=[["A"], 
 # 0b. longest runs use the drawn boundaries (half-way between samples), like the ribbon (MS2)
 assert msp.longest_runs({"c": np.array([0, 0, 1, 1])}, tt, 2) == {"c": {0: (0.0, 6.0), 1: (6.0, 14.0)}}
 
+# 0e. review 2026-09-26: polarity-insensitive templates (pycrostates default) — a sign-flipped map is the same template
+A, B = T[0], T[1]
+fam, sgn = msp.identity_families([(2, np.array([A, B]), [0, 1]), (3, np.array([-A, B, T[2]]), [0, 1, 2])], 0.9, False)
+assert fam[3, 0] == fam[2, 0] and sgn[3, 0] == -1 and sgn[3, 1] == 1  # same family, shown with the family's sign
+fam, sgn = msp.identity_families([(2, np.array([A, B]), [0, 1]), (3, np.array([-A, B, T[2]]), [0, 1, 2])], 0.9, True)
+assert fam[3, 0] != fam[2, 0]  # signed analysis: opposite maps are different templates
+xs = np.outer(-T[1], np.ones(10))  # data show T1 with the opposite sign
+lab = msp.segment(xs, T, SF, 1, sensitive=False)
+assert (lab == 1).all() and msp.data_signs({"c": (xs, 0)}, {"c": lab}, T, np.ones(10, bool))[1] == -1
+
 # 0c. colour checks: ribbon text by background (MS7b); CVD distinctness recorded, only normal vision warned (T7)
 assert [msp.ep.ink(c) for c in ("#00468B", "#ED0000", "#FDAF91", "#D4A017")] == ["white", "white", "black", "black"]
 with contextlib.redirect_stdout(io.StringIO()) as out:
@@ -199,6 +209,20 @@ with tempfile.TemporaryDirectory() as d:
     fam = json.loads(Path(f"{out3}_run.json").read_text(encoding="utf8"))["families"]
     assert out3.name == "topo-by-K_K2-3_v01" and sorted(fam["K2"]) == sorted(fam["K3"][i] for i in (0, 2)), fam
     inside_canvas(SAVED[-1])
+    # review 2026-09-26: one condition draws on the default canvas (MS10 height table), and its layout is clean
+    out5 = msp.plot(spec(root, conditions={"A": "Go"}))
+    run5 = json.loads(Path(f"{out5}_run.json").read_text(encoding="utf8"))
+    assert round(run5["size_mm"][1]) == 62 and run5["layout_issues"] == [], (run5["size_mm"], run5["layout_issues"])
+    # polarity ignored: the same map with the opposite sign is one template across K, shown with its family's sign
+    # (K2 founds the families; K3's T2 is K2's first map with the opposite sign)
+    np.savez(root / "k02.npz", centers=np.array([-T[2], T[1]]), ch_names=np.array(CH))
+    out6 = msp.plot(spec(root, figure="by-K", k=[2, 3], polarity="insensitive"))
+    run6 = json.loads(Path(f"{out6}_run.json").read_text(encoding="utf8"))
+    assert sorted(run6["families"]["K2"]) == sorted(run6["families"]["K3"][i] for i in (0, 2)), run6["families"]
+    assert -1 in run6["shown_sign"]["K3"] and "|r| ≥ 0.9" in Path(f"{out6}_caption.md").read_text(encoding="utf8")
+    out7 = msp.plot(spec(root, polarity="insensitive"))
+    assert "Polarity ignored" in Path(f"{out7}_caption.md").read_text(encoding="utf8")
+    assert set(json.loads(Path(f"{out7}_run.json").read_text(encoding="utf8"))["shown_sign"]) <= {1, -1}
 
     # 4. errors stop the script
     fails(spec(root, figure="by-K", k=[2, 3], window_ms=[0, 1000]), "must lie inside the data")  # round 6

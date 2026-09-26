@@ -17,6 +17,12 @@ Two branches, both working, tests pass, everything committed and pushed
   `microstate/`, `specs/`; names say what the figure is; re-renders get `_vNN+1`, old versions move to `_history/`.
 
 ## Next (start here)
+- 2026-09-26 (cloud, late): independent audit fixed — layout self-check (`layout_issues`), min panel height and y-tick
+  spacing, µV headroom, grid band/title, polarity-insensitive identity, subset file names (LOADER_VERSION 4: the
+  first run per dataset re-reads the files), microstate default heights, cache pruning, `check_env.py`, new
+  `test/test_layout.py` (table at the end of the review log). **Verify locally**: three suites, then re-render
+  metaphor N400 and GN K5 and read `layout_issues` in their `_run.json` (expected empty; names unchanged because they
+  use all groups/conditions — if a `_cond-` part appears, the epochs hold more event types than the spec uses).
 State at end of 2026-09-26: local `main` = GitHub `main` = cloud branch `claude/bold-gates-u9nx46` = `dfa1f7e` (plus this
 handoff). Both suites OK on Windows (mnedev) and in the cloud (matplotlib 3.10 and 3.11, no Arial).
 

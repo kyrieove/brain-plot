@@ -46,6 +46,7 @@ cd brain-plot
 pip install -r requirements.txt
 ```
 
+检查环境（没装 MNE 也能运行）：`python brain-plot/check_env.py`，会列出版本和字体，最后显示 "OK" 或缺什么。
 装有 Arial 或 Helvetica 字体时效果最好；没有的话 matplotlib 会用 DejaVu Sans 代替。
 
 作为 Claude Code 技能使用时，把 `brain-plot/` 文件夹链接到 `~/.claude/skills/`：
@@ -111,13 +112,16 @@ spec 里的相对路径（`data`、`templates`）按 spec 文件所在文件夹�
 
 ## 输出
 
-全部写到**数据文件夹旁边**的 `brain-plot/` 里，按类型分子文件夹，文件名说明图的内容。不会覆盖：重画生成
-`_v02`，旧版本移到 `_history/`。缓存（`brain-plot/.cache/`，可能几十 MB）让后续运行更快，输入文件变化时自动重建。
+全部写到**数据文件夹旁边**的 `brain-plot/` 里，按类型分子文件夹，文件名说明图的内容；只画部分组或条件时，文件名会加上
+`_grp-…` / `_cond-…`。不会覆盖：重画生成 `_v02`，旧版本移到 `_history/`。每张图的版面都由代码检查（文字互相重叠、文字或
+图例压线、文字超出画布），问题会打印出来并写进 `_run.json` 的 `layout_issues`。缓存（`brain-plot/.cache/`，保留最近用过的
+6 份，每份可能几十 MB）让后续运行更快，输入文件变化时自动重建。
 
 ## 规则和测试
 
 - [`brain-plot/references/rules.md`](brain-plot/references/rules.md)：完整规则（科学、版面、风格、输出、微状态、QA）。
-- 测试：`python brain-plot/test/test_erp_plot.py` 和 `python brain-plot/test/test_microstate.py`（都应输出 `OK`）。
+- 测试：`python brain-plot/test/test_erp_plot.py`、`python brain-plot/test/test_microstate.py` 和
+  `python brain-plot/test/test_layout.py`（接近真实规模：64 导、7 个条件、3 组；都应输出 `OK`）。
 - `docs/`、`HANDOFF.md`、`research/` 是开发笔记和审查记录。
 
 ## 许可

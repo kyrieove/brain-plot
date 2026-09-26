@@ -317,3 +317,26 @@ The GN slide spec (254 × 143 mm, butterfly + GFP) now fails MS10; its height wa
 - #5 checked locally (2026-09-26): code order = "median of midpoints" order on all 9 real specs (GN K5, metaphor
   K3–K8 incl. grids). Code kept; MS4 text now states the code's formula. GN K5 v07 accepted by the user (boundaries
   1 ms earlier from #4; numbering and colours unchanged).
+
+## Independent audit + fixes (2026-09-26, cloud session; user: "三处都按你的建议，确认存在的问题也都修正")
+Audit method: all code read; hypotheses tested one by one; 100 ERP and 55 microstate configurations rendered on a
+realistic synthetic set (64 ch incl. TP9/TP10, 7 conditions, 3 groups) and checked geometrically, flagged ones confirmed
+by eye. Refuted: bads in Epochs slip through (they stop), electrodes outside the head outline with TP9/TP10 (none).
+Before → after: ERP 89 clean / 11 with problems / 0 stopped → 94 clean / 0 / 6 stopped (the unreadable ones, with a
+height that works); microstate 23 clean / 2 false positives / 30 stopped → 39 clean / 0 / 16 stopped (MS9 by design,
+MS10 where no height fits at 180 mm).
+| # | Problem | Fix | Test |
+|---|---|---|---|
+| QA | layout checked only by eye | `layout_issues(fig)` in both scripts: overlapping texts, text/legend on a curve, text off the canvas; printed and written to `_run.json`; texts with a white halo/box count as legible | test_layout (every figure clean), erp 8 |
+| 1 | 5–7 stacked ERP panels 3–6 mm tall, y ticks piled up, "N400" on the "400" tick, no stop | panels ≥ 15 mm (stacked and grid cells) else stop naming `height_mm` (and the other `overlay`); y ticks keep 9 pt (fewer on short panels); x tick labels stay inside the panel | erp 0, 8; test_layout |
+| — | y tick labels / "µV" on baseline lines (noisy data) | y labels drawn as annotations; "µV" switches side when lines pass; y-axis reaches ≥ 10 pt above the x-axis; last resort white box (SVG text stays editable) | erp 0 (10 pt), test_layout (no box needed) |
+| 2 | polarity-insensitive templates: sign-flipped map = new identity colour | identity by |r| when `polarity: insensitive`; maps shown with the family's sign (by-K) or the data's sign (states); `shown_sign`; caption line | microstate 0e, 3; test_layout |
+| 3 | different figures (group/condition subsets, other grid channels) shared one name → archived as versions | `_grp-`, `_cond-`, `_query-<hash>` only for subsets; grid names list channels; LOADER_VERSION 4 records all groups/conditions (one re-read per dataset) | erp 4d; replay: 3 figures → 3 names |
+| 4 | erp grid: band name under the channel name | channel name raised (pad 11), top margin 14 mm with bands | test_layout |
+| 5 | one-condition microstate figure always stopped at the default 110 mm | default height table by layout (1 row 62/80, 2 rows 110/140, both panels 70/90, grid 100), measured over K 2–10 | microstate 3, test_layout |
+| — | MS10 message printed min–max although valid heights have holes (map column switches 1–3 columns): the suggested middle could fail | message lists every range ("60–63 or 73–78") | microstate 3 |
+| — | small maps: range labels wider than the map column overlapped | ranges left to the caption when they do not fit (`ranges_under_maps`) | test_layout |
+| 6 | 2 × 2 map blocks: label on the nose below; cache grew without bound; doc drift | map rows ≥ 3 mm apart; `.cache` keeps the 6 most recently used; SKILL/docstrings MS1–MS10, BIDS IDs | erp 5, test_layout |
+| env | no quick way to see if the interpreter can run the scripts | `check_env.py` (standard library only): versions, fonts, OK / what to install | manual (MNE hidden → PROBLEMS, exit 1) |
+Mutation check: undoing any one of 7 fixes makes a suite fail. Suites: test_erp_plot, test_microstate, test_layout, all
+OK on matplotlib 3.10.9 and 3.11.2 (Linux, DejaVu Sans).
