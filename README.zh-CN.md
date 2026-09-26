@@ -10,9 +10,11 @@ brain-plot 是一个 [Claude Code](https://claude.com/claude-code) 技能，外�
 
 | ERP 波形 + 地形图（`combo`） | 微状态模板 + 分段 |
 |---|---|
-| ![combo](docs/images/example-combo.png) | ![microstate](docs/images/example-microstate.png) |
+| ![ERP](docs/images/example-erp.png) | ![microstate](docs/images/example-microstate.png) |
 
-*示例图都来自 `examples/` 里的合成数据，不是真实记录。*
+*示例图来自作者的隐喻产出研究（未发表数据，请勿转用）。*
+
+这是个人工具，目前只分享给几位同学试用，后续还会改动。
 
 ## 能画什么
 
@@ -55,7 +57,7 @@ ln -s "$PWD/brain-plot" ~/.claude/skills/brain-plot
 mklink /J "%USERPROFILE%\.claude\skills\brain-plot" "%CD%\brain-plot"
 ```
 
-## 用合成数据试一下
+## 检查安装（合成数据）
 
 ```bash
 python examples/make_demo_data.py
@@ -64,7 +66,7 @@ python brain-plot/erp_plot.py plot examples/specs/grid_by_condition.json
 python brain-plot/microstate_plot.py plot examples/specs/microstate_k4.json
 ```
 
-图会出现在 `examples/brain-plot/` 下（`ERP_topo/`、`ERP/`、`microstate/`）。
+图会出现在 `examples/brain-plot/` 下（`ERP_topo/`、`ERP/`、`microstate/`）。数据是编造的，只用来确认能正常运行。
 
 ## 在 Claude Code 里使用
 

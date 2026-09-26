@@ -18,7 +18,8 @@ Two branches, both working, tests pass, everything committed and pushed
 
 ## Next (start here)
 - 2026-09-26 (cloud): README (en + zh-CN), synthetic demo (`examples/`), `requirements.txt`, spec-relative paths,
-  matplotlib 3.11 / no-Arial test fixes, grid right margin 6 mm (see review log). Open for the user before sharing:
+  matplotlib 3.11 / no-Arial test fixes, grid right margin 6 mm (see review log). README images = the user's own metaphor figures (`docs/images/example-erp.png`, `example-microstate.png`,
+  copied by a local session; user: shared with classmates for testing, not a public release). Open for the user:
   `CLAUDE.md` holds personal rules (Chinese replies, SendUserFile) that would apply to anyone opening the repo in
   Claude Code; `HANDOFF.md` and `agent-test-*.md` at the root carry personal paths; ribbon labels under `hatch` are hard
   to read.

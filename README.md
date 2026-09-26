@@ -11,13 +11,11 @@ scripts also run on their own from the command line.
 
 | ERP waveforms + topographies (`combo`) | Microstate templates + segmentation |
 |---|---|
-| ![combo](docs/images/example-combo.png) | ![microstate](docs/images/example-microstate.png) |
+| ![ERP](docs/images/example-erp.png) | ![microstate](docs/images/example-microstate.png) |
 
-| Waveform grid by channel (`erp`, `layout: "grid"`) |
-|---|
-| <img src="docs/images/example-grid.png" width="60%"> |
+*Figures from the author's metaphor-production study (unpublished data — please don't reuse them).*
 
-*All three are drawn from the synthetic demo data in `examples/` (not real recordings).*
+This is a personal tool shared with a few colleagues for testing; expect changes.
 
 ## What it draws
 
@@ -61,7 +59,7 @@ ln -s "$PWD/brain-plot" ~/.claude/skills/brain-plot
 mklink /J "%USERPROFILE%\.claude\skills\brain-plot" "%CD%\brain-plot"
 ```
 
-## Try it on synthetic data
+## Check the install (synthetic data)
 
 ```bash
 python examples/make_demo_data.py                                   # 2 groups × 12 subjects, standard/target
@@ -70,7 +68,7 @@ python brain-plot/erp_plot.py plot examples/specs/grid_by_condition.json
 python brain-plot/microstate_plot.py plot examples/specs/microstate_k4.json
 ```
 
-Figures appear in `examples/brain-plot/` (`ERP_topo/`, `ERP/`, `microstate/`).
+Figures appear in `examples/brain-plot/` (`ERP_topo/`, `ERP/`, `microstate/`). The data are made up and only show that everything runs.
 
 ## Use it with Claude Code
 
