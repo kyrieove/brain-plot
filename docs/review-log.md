@@ -264,3 +264,20 @@ The GN slide spec (254 × 143 mm, butterfly + GFP) now fails MS10; its height wa
   figure type, components, channels; key comparison → `overlay` and colour/line-style pairing); they stay optional in
   the spec. `time_locked_to` and `reference` only feed the caption: read from scripts/files, else left out, never
   asked. Display range = whole epoch, not asked (L9).
+
+## Caption-only and analysis-policing requirements removed (2026-09-26, local session, commits eb42f85, f058705)
+- User question: "统计结果对画图有任何影响吗？为什么一定要问" → audit of every interview question and every script stop
+  for things that do not change the drawing. Removed or made optional (user: "全改"):
+  `window_source` (optional, caption only); exclusion reasons (`exclude` may be a plain ID list); `templates_source`
+  (optional); interview no longer asks statistics (`stats_note` stays optional, written by the user), the figure's
+  role, the journal (asks width instead) or a window's source; Inspect no longer reads hypotheses/statistical results;
+  S3/E3 no longer police how a window was chosen; QA 4 no longer checks `stats_note`; unknown caption facts are left
+  out of the spec instead of "to be confirmed".
+- Microstate hatching (MS3) is opt-in (`hatch: true`, default off); without it no pre-stimulus baseline is needed
+  (the script used to stop). User looked at K5 v06 without hatching: "可以，不用加斜线".
+- Kept (they change what is drawn): `claim`/`key_comparison` questions, trial selection (`query`), data-contract stops
+  (S1, S10, bad channels, units, projectors, positions), layout stops, spec-syntax stops, the spec confirmation step.
+- Metaphor `n400_spec.json` (outside the repo): `time_locked_to` and `claim` deleted. Re-renders: N400 v04 (pixel-
+  identical to v03, `open_items` empty) and GN K5 v06 (only change: NoGO hatch at 0–16 ms gone); both QA passed.
+- CLAUDE.md: every new figure is sent into the chat (SendUserFile, render), not left in a folder.
+- Cloud branch `claude/bold-gates-u9nx46` fast-forwarded to main (f058705) by the local agent.

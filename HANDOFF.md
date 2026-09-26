@@ -17,20 +17,20 @@ Two branches, both working, tests pass, everything committed and pushed
   `microstate/`, `specs/`; names say what the figure is; re-renders get `_vNN+1`, old versions move to `_history/`.
 
 ## Next (start here)
+Everything is committed and pushed; `main` = cloud branch `claude/bold-gates-u9nx46` = f058705 (plus this handoff).
 Done on 2026-09-26 (details in `docs/review-log.md`, newest at the bottom): Lancet palette kept, T7 warns on normal
 vision only; per-panel caption facts (S9); flat-channel stop with `flat_channels` (S10); GFP label clear of traces
-(MS7c); reviewer-risk QA dropped (QA 6 = baseline visibility + dominated map scale only); caption fields optional
-(local commit 29b50c7); interview: always ask `claim`/`key_comparison`, never ask `time_locked_to`/`reference`/display
-range. Verified locally: both suites OK, GN K5 v05 and metaphor N400 v03 pass QA.
+(MS7c); reviewer-risk QA dropped (QA 6 = baseline visibility + dominated map scale only); every caption-only field
+optional (`claim`, `key_comparison`, `time_locked_to`, `reference`, `window_source`, exclusion reasons,
+`templates_source`); interview no longer asks statistics, figure role, journal or window source; S3/E3 no longer police
+window choice; microstate hatching opt-in (`hatch: true`, default off). Latest renders, QA passed: metaphor N400 v04
+(`open_items` empty), GN K5 v06 (no hatching, user approved).
 
-1. Done later on 2026-09-26 (local): everything that only feeds the caption or polices the analysis is optional or gone —
-   `window_source`, exclusion reasons (`exclude` may be a list), `templates_source`; no questions on statistics, the
-   figure's role, journal or window source; S3/E3 no longer police window choice; microstate hatching is opt-in
-   (`hatch: true`, MS3) and without it no baseline is needed. Metaphor `n400_spec.json`: `time_locked_to` and `claim`
-   deleted, so its next render should have no open items.
-2. Optional: round 7 review on the round-6 fixes (brief `docs/review-request-round6.md`); run `brain-plot/evals/cases.md`
-   in fresh sessions (manual); `qa` of the metaphor v01 figures still PENDING (superseded versions may not need it).
-3. Local commits show author `xburner23412`, not `kyrieove` — check `git config user.name/user.email` if unintended.
+Nothing is waiting on the user. Optional:
+1. Round 7 review of the round-6 fixes and today's opt-outs (brief `docs/review-request-round6.md`).
+2. Run `brain-plot/evals/cases.md` in fresh sessions (manual).
+3. `qa` of the metaphor v01 figures (P200/N300/LPC) is still PENDING; superseded versions may not need it.
+4. Local commits show author `xburner23412`, not `kyrieove` — check `git config user.name/user.email` if unintended.
 
 ## Use
 - Any session: `/brain-plot <data_dir>` (skill linked at `~/.claude/skills/brain-plot` → `C:\dev\brain-plot\brain-plot`).
@@ -38,9 +38,12 @@ range. Verified locally: both suites OK, GN K5 v05 and metaphor N400 v03 pass QA
   with `--no-deps` on 2026-09-26; MNE untouched).
 - Tests: `python brain-plot/test/test_erp_plot.py` and `python brain-plot/test/test_microstate.py` → both `OK`.
 - Commit + push after every tested change set (user rule); commit messages end with the Co-Authored-By line.
-- `CLAUDE.md`: all user-facing text in Chinese; files for agents stay English.
+- `CLAUDE.md` (binding): all user-facing text in Chinese (files for agents stay English); every new figure is sent into
+  the chat with SendUserFile (`display: "render"`), paths only as a footnote.
 - Cloud sessions work on a fresh clone (branch `claude/bold-gates-u9nx46`); the user merges it locally and runs
-  anything that needs the real data, pasting results back.
+  anything that needs the real data, pasting results back. After local commits, the local agent fast-forwards the cloud
+  branch itself (`git push origin main:claude/bold-gates-u9nx46`, only if it is an ancestor of main) — don't ask the
+  user to do it.
 
 ## Key files
 | File | What |
@@ -66,24 +69,30 @@ range. Verified locally: both suites OK, GN K5 v05 and metaphor N400 v03 pass QA
 - ERP: no localizer; `windows`/`explore` stay optional. Explore: one 3 × 3 page, legend under the grid.
   Topo-only: block layout, 4-mm colour bar.
 - Microstate: never stack more than 2 conditions (use `grid`); butterfly and GFP not both in a multi-column grid;
-  panel width:height 1.8–3.5; hatch low-GFP samples, no text note; resting-state figures beyond the template row are
-  not wanted for now.
+  panel width:height 1.8–3.5; no low-GFP hatching unless the spec says `hatch: true` (user saw K5 v06 without it and
+  approved); resting-state figures beyond the template row are not wanted for now.
 - Interview: always ask `claim` and `key_comparison` (they decide type, components, overlay, line pairing); never ask
-  `time_locked_to`, `reference` (read from scripts, else omit) or the display range (whole epoch). All four stay optional
-  in the spec.
+  `time_locked_to`, `reference` (read from scripts, else omit), the display range (whole epoch), statistics, the
+  figure's role, the journal (ask width) or where a window comes from. Everything that only feeds the caption is optional
+  in the spec; unknown → leave it out, never "to be confirmed".
+- The skill only draws: it does not judge the analysis (window choice, statistics, K choice). A script stop is only
+  for things that change or break the drawing (data contract, layout, spec syntax).
 - Figure QA stays about the figure: no reviewer-risk / manuscript-level checks (window justification, claim vs
   statistics, K choice) — user, 2026-09-26.
 - Rejected earlier: explore paging, right-hand legend column, topo "grid"/compact layouts, 8-mm colour bar, 89-mm
   waveform-only figure.
 
 ## Open
-- Metaphor: `time_locked_to` and the N400 `claim` still "to be confirmed". Supplementary P200/N300/LPC reuse Pz, CPz.
+- Metaphor: `n400_spec.json` has no `time_locked_to`/`claim` any more (deleted 2026-09-26). Supplementary
+  P200/N300/LPC reuse Pz, CPz. Repetition maps show red extremes at the left temporal edge (FT9/T7) — possibly a
+  noisy channel; reported once, not acted on.
 - Not supported (script stops): difference waves, lateralised components, CSD/source/TF, significance marks,
   > 7 overlaid lines.
 - Codex's abandoned localizer lives in branch `codex/step3-localize-erp` (703f52a) and `git stash@{0}`; not merged.
 
 ## Known pitfalls
-- Heredoc Python in Git Bash eats backslashes (`\n`, `\1`, `\b`): write patch scripts to a file with raw strings.
+- Heredoc Python in Git Bash eats backslashes (`\n`, `\1`, `\b`): write patch scripts to a file, and
+  still use the Edit tool for any replacement whose text contains a backslash (a script file mangled one on 2026-09-26).
 - `codex exec` needs `--skip-git-repo-check` outside git repos; it failed with 401 / timeouts on 2026-09-26.
   agy (`C:/Users/ASUS/AppData/Local/agy/bin/agy.exe`, see the agy-delegate skill) worked for data tasks.
 - `gh repo create --public` is blocked by the auto-mode classifier: the user runs outward-facing commands.
