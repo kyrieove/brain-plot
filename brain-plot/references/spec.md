@@ -41,6 +41,7 @@ Outputs go to `brain-plot/` next to the data folder (rules O1–O3): `ERP_topo/E
 | `cmap` | `"RdBu_r"` | Topomap colour map (a diverging map). |
 | `error` | `"none"` | `"sem"` adds a between-subject ± SEM band. |
 | `stats_note` | none | The author's statistical statement, copied into the caption facts. |
+| `flat_channels` | none | Channels allowed to be constant over the epoch (rule S10), e.g. `["FCz"]` for a reference electrode kept at 0 µV; any other flat channel stops the script. Also in explore and microstate specs. |
 
 ## Not supported in v1 (stop, don't approximate)
 
@@ -62,13 +63,13 @@ Required: `data` (any loader layout, including `<condition>/<group>/<subject>*-a
 | `per_group` | false | One row per condition × group instead of per condition (at most 2 rows without a grid). |
 | `grid` | none | Rows × columns of condition keys, e.g. `[["Hmet","Hlit","Hrep"],["Lmet","Llit","Lrep"]]`; required for more than 2 conditions (rule MS9). |
 | `identity_threshold` | 0.9 | by-K: signed r at which two templates count as the same map. |
-| `groups`, `exclude`, `width_mm`/`height_mm` (180 × 110), `cmap`, `reference`, `time_locked_to` | | As above; the last two only feed the caption facts. |
+| `groups`, `exclude`, `flat_channels`, `width_mm`/`height_mm` (180 × 110), `cmap`, `reference`, `time_locked_to` | | As above; the last two only feed the caption facts. |
 
 ## Explore spec (`python erp_plot.py explore <spec.json>`)
 
 Overview figures for choosing components and windows — not paper figures, no window bands, no interview needed.
 Required: `data`, `conditions`. Also accepted from above: `groups`, `group_by`, `exclude`, `query`, `colors`,
-`linestyles`, `ordered`, `xlim_ms`, `polarity`, `width_mm`/`height_mm`, `cmap`.
+`linestyles`, `ordered`, `xlim_ms`, `polarity`, `width_mm`/`height_mm`, `cmap`, `flat_channels`.
 
 | Key | Default | Meaning |
 |---|---|---|

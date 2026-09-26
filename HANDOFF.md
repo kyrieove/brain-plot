@@ -18,8 +18,9 @@ Two branches, both working, tests pass, everything committed and pushed
 
 ## Next (start here)
 1. ~~Palette decision~~ done 2026-09-26: Lancet palette kept; T7 warns on normal vision only (see review log).
-2. Offered, not started (user picks by number): 3) caption facts structured per panel (a, b, …; filter, reference,
-   baseline, window source, n — facts only); 4) stop on an all-zero channel at load; 5) reviewer-risk items in the QA list.
+2. ~~Offered 3–5~~ done 2026-09-26 in the cloud session (per-panel caption facts S9, flat-channel stop S10, reviewer
+   risks QA 6). **Still to verify locally:** both test suites on Windows, and one real ERP + one microstate spec
+   re-rendered (captions read well; no unexpected flat-channel stop). Branch `claude/bold-gates-u9nx46`, merge into main.
 3. Round 6 (Codex) is fully fixed (table at the end of `docs/review-log.md`); optional round 7 on the fixes with the same
    brief `docs/review-request-round6.md`.
 4. Run the agent-level eval cases `brain-plot/evals/cases.md` once in fresh sessions (manual).

@@ -14,13 +14,15 @@ import erp_plot as ep  # noqa: E402
 CH = ["Fz", "Cz", "Pz", "Oz", "F3", "F4", "C3", "C4", "P3", "P4", "O1", "O2", "T7", "T8", "Fp1", "Fp2"]
 
 
-def make_subject(path, conds, tmin=-0.2, n_t=301, seed=0, bads=()):
+def make_subject(path, conds, tmin=-0.2, n_t=301, seed=0, bads=(), flat=()):
     info = mne.create_info(CH, 500.0, "eeg")
     info.set_montage("standard_1020")
     info["bads"] = list(bads)
     rng = np.random.default_rng(seed)
-    evs = [mne.EvokedArray(rng.normal(0, 2e-6, (len(CH), n_t)), info, tmin=tmin, comment=c, nave=30,
-                           baseline=(None, 0)) for c in conds]
+    x = [rng.normal(0, 2e-6, (len(CH), n_t)) for _ in conds]
+    for a in x:
+        a[[CH.index(c) for c in flat]] = 0.0  # e.g. a reference electrode kept at 0 V
+    evs = [mne.EvokedArray(a, info, tmin=tmin, comment=c, nave=30, baseline=(None, 0)) for a, c in zip(x, conds)]
     mne.write_evokeds(path, evs, overwrite=True, verbose="error")
 
 
@@ -103,7 +105,12 @@ with tempfile.TemporaryDirectory() as d:
     assert run["open_items"] == []
     svg = latest(root, "ERP_topo", "ERP-topo_P3_*.svg").read_text(encoding="utf8")
     assert 'width="510.23622pt"' in svg, "SVG is not 180 mm wide"
-    assert "n < 2 have no shading" in latest(root, "ERP_topo", "ERP-topo_P3_*_caption.md").read_text(encoding="utf8")
+    cap = latest(root, "ERP_topo", "ERP-topo_P3_*_caption.md").read_text(encoding="utf8")
+    assert "n < 2 have no shading" in cap
+    # caption per panel (a, b, …) under the letters drawn: combo waveform 2r, maps 2r + 1; n and trials per line
+    assert cap.index("## Whole figure") < cap.index("## Panels")
+    assert "- (a) Low — waveforms, mean of Cz, Pz; lines: G1 (n = 3, trials per subject mean 30.0 (range 30–30)); G2 (n = 1" in cap
+    assert "- (b) Low — topographies, P3 250–350 ms (source: test); one map per line" in cap and "- (f) High — topographies" in cap
     marks = [l for a in SAVED[-1].axes for l in a.lines if l.get_marker() not in ("None", None, "", " ")]
     assert not marks, "topomaps carry electrode marks (rule L11)"
 
@@ -152,12 +159,23 @@ with tempfile.TemporaryDirectory() as d:
     mne.write_evokeds(root / "G3" / "G3s0_x-ave.fif", evs, overwrite=True, verbose="error")
     fails(spec(root, groups=["G1", "G3"]), "unapplied projectors")
 
+    # 4a. flat channels (rule S10): stop unless listed in flat_channels; checked on cached data too
+    make_subject(root / "G3" / "G3s0_x-ave.fif", "ABC", seed=3, flat=["Oz", "T7"])
+    fails(spec(root, groups=["G1", "G3"]), "G3s0 [A]: channels ['Oz', 'T7'] are flat")
+    fails(spec(root, groups=["G1", "G3"], flat_channels=["Oz"]), "channels ['T7'] are flat")
+    fails(spec(root, groups=["G1", "G3"], flat_channels=["XX"]), "flat_channels must be a list of channel names")
+    ep.plot(spec(root, groups=["G1", "G3"], flat_channels=["Oz", "T7"]))
+    fails(spec(root, groups=["G1", "G3"]), "are flat")  # the cache from the run above does not skip the check
+    assert "Flat channels kept (spec flat_channels, e.g. the reference electrode): Oz, T7" in \
+        latest(root, "ERP_topo", "ERP-topo_P3_*_caption.md").read_text(encoding="utf8")
+
     # 4b. single-type figures (round 5): topo skips the waveform legend; captions describe only drawn elements;
     #     one waveform panel keeps its letter inside the canvas
     late = [dict(name="N4", channels=["Cz", "Pz"], tmin_ms=350, tmax_ms=390, window_source="test")]
     ep.plot(spec(root, groups=["G1"], overlay="conditions", kind="topo", components=late))
     cap = latest(root, "topo", "topo_N4_350-390ms_conditions-by-group_v01_caption.md").read_text(encoding="utf8")
     assert "Lines:" not in cap and "gray band" not in cap and "polarity" not in cap and "Topographies" in cap
+    assert "- (a) G1 — topographies, N4 350–390 ms (source: test); one map per line: Low (n = 3" in cap
     band = [dict(name="P3", tmin_ms=100, tmax_ms=200, window_source="test")]  # erp bands carry no channels
     ep.plot(spec(root, groups=["G1"], overlay="conditions", kind="erp", channels=["Cz", "Pz"], components=band))
     cap = latest(root, "ERP", "ERP-ROI_Cz-Pz_P3-100-200ms_conditions-by-group_v01_caption.md").read_text(encoding="utf8")
@@ -178,6 +196,9 @@ with tempfile.TemporaryDirectory() as d:
     for g in ("G1", "G2"):
         run = json.loads(latest(root, "ERP", f"ERP-grid-2x2_conditions_{g}_v01_run.json").read_text(encoding="utf8"))
         assert run["lines"] == 3 * 4 and run["maps"] == 0 and run["channels"] == ["Fz", "Cz", "Pz", "Oz"]
+        cap = latest(root, "ERP", f"ERP-grid-2x2_conditions_{g}_v01_caption.md").read_text(encoding="utf8")
+        assert f"- (no letters) {g}: one panel per channel (Fz, Cz / Pz, Oz); lines: Low (n = " in cap
+        assert cap.count("- (no letters)") == 1  # one facet level per grid figure
     inside_canvas(SAVED[-2])
     ep.plot(spec(root, groups=["G1", "G2"], kind="erp", layout="grid", channels=[["Cz", "Pz"]], overlay="conditions",
                  components=[dict(name="N4", tmin_ms=350, tmax_ms=390, window_source="t")]))

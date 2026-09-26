@@ -23,7 +23,7 @@ import erp_plot as ep
 
 REQUIRED = {"data", "conditions", "templates", "k", "templates_source"}
 OPTIONAL = {"figure", "blocks", "groups", "exclude", "per_group", "grid", "window_ms", "min_segment_ms", "polarity", "width_mm",
-            "height_mm", "identity_threshold", "cmap", "reference", "time_locked_to"}
+            "height_mm", "identity_threshold", "cmap", "reference", "time_locked_to", "flat_channels"}
 BLOCKS = {"topo": "topo", "butterfly": "butterfly", "gfp": "GFP", "ribbon": "ribbon"}  # block → file-name part
 STATE_COLOURS = ["#00468B", "#ED0000", "#42B540", "#0099B4", "#925E9F", "#FDAF91", "#AD002A", "#7A8A8A", "#1B1919",
                  "#D4A017"]  # rule MS5: the reference palette, by display number
@@ -434,27 +434,38 @@ def plot_by_k(spec, data, info, meta, ms, sphere):
 
 
 def caption(spec, meta, out, paths, facts):
+    """Caption facts: what the whole figure shares, then one entry per panel row, named by its title (microstate figures
+    carry no panel letters)."""
     k = meta["contract"]
-    L = [f"# Caption facts for {out.name}", "",
+    L = [f"# Caption facts for {out.name}", "", "## Whole figure", "",
          f"- Templates: {spec['templates_source']} ({', '.join(p.name for p in paths)}); K = {spec['k']}",
          "- Groups: " + ", ".join(f"{g} (n = {len(v)})" for g, v in meta["ids"].items())]
     if spec.get("exclude"):
         L.append("- Excluded: " + "; ".join(f"{i} ({r})" for i, r in spec["exclude"].items()))
     L.append(f"- Grand average: each subject's condition average, subjects weighted equally; baseline {k['baseline']} s, "
-             f"filter {k['filter'][0]}–{k['filter'][1]} Hz" + (f", reference: {spec['reference']}" if spec.get("reference") else ""))
+             f"filter {k['filter'][0]}–{k['filter'][1]} Hz" + (f", reference: {spec['reference']}" if spec.get("reference") else "")
+             + " (identical in every panel, rule S1)")
+    if spec.get("flat_channels"):
+        L.append(f"- Flat channels kept (spec flat_channels, e.g. the reference electrode): {', '.join(spec['flat_channels'])}")
     L.append(f"- Segmentation: each sample of the grand average (average reference, unit norm) gets the template with the "
              f"highest {'signed' if spec.get('polarity', 'sensitive') == 'sensitive' else 'absolute'} spatial correlation; "
              f"runs shorter than {spec.get('min_segment_ms', 30)} ms take the better-fitting neighbour; window "
              f"{spec.get('window_ms', [0, 800])} ms" + (f", time-locked to {spec['time_locked_to']}" if spec.get("time_locked_to") else ""))
     if "spans" in facts:
-        L.append("- Hatched: GFP below the 95th percentile of the same average's pre-stimulus GFP (fraction of the window: "
-                 + ", ".join(f"{c} {v:.0%}" for c, v in facts["low_gfp_fraction"].items()) + ")")
-        for c, sp in facts["spans"].items():
-            L.append(f"- {c}: " + "; ".join(f"{s} {a:.0f}–{b:.0f} ms (longest run)" for s, (a, b) in sorted(sp.items(), key=lambda x: int(x[0][1:]))))
+        L.append("- Hatched: GFP below the 95th percentile of the same average's pre-stimulus GFP")
     else:
         L.append(f"- Colours: one per template identity across K (signed r ≥ {spec.get('identity_threshold', 0.9)} with the "
                  "family's first template); numbers within a row by median latency")
     L.append(f"- Maps: templates, symmetric colour scale, no electrode marks; MNE {mne.__version__}")
+    L += ["", "## Panels (no letters; by title)", ""]
+    if "spans" in facts:
+        for c, sp in facts["spans"].items():
+            runs_ = "; ".join(f"{s} {a:.0f}–{b:.0f} ms" for s, (a, b) in sorted(sp.items(), key=lambda x: int(x[0][1:])))
+            L.append(f"- {c}: n = {facts['cells'][c]}; longest run per state: {runs_}; hatched "
+                     f"{facts['low_gfp_fraction'][c]:.0%} of the window")
+    else:
+        L += [f"- K = {kk}: {len(fam)} templates, numbered S1–S{len(fam)}" for kk, fam in
+              ((key[1:], v) for key, v in facts["families"].items())]
     Path(f"{out}_caption.md").write_text("\n".join(L) + "\n", encoding="utf8")
 
 

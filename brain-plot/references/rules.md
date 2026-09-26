@@ -16,7 +16,8 @@ The only valid rule list; each rule is stated once. Type: **U** = the user's bin
 | S6 | No significance marks (v1). Statistical statements in the caption come from the user (`stats_note`), never from the figure's appearance. | U | Code (no such option) + interview |
 | S7 | Scalp maps show sensor-level potentials; captions must not claim cortical sources. CSD, source estimates, time–frequency, difference waves, lateralised components: not supported in v1. | M | Code (unsupported keys stop) |
 | S8 | Every requested group, condition and line is drawn: at most 7 overlaid lines, one colour each, else the script stops (also in `explore`); `plot` checks the drawn lines and maps against the expected count for its kind (combo: lines = maps; erp: no maps; topo: no lines). ROI channels are unique (repeats would re-weight the ROI). | M | Code |
-| S9 | The spec records what the figure is for (`claim`, `key_comparison`) as confirmed with the user; the caption facts repeat them. | U | Code (required) + interview |
+| S9 | The spec records what the figure is for (`claim`, `key_comparison`) as confirmed with the user; the caption facts repeat them. `_caption.md` has two parts: `## Whole figure` (facts every panel shares: claim, groups and n, exclusions, trials, time-locking, baseline, filter, reference, windows and their source, scales, statistics from the author) and `## Panels`, one entry per panel under the letter drawn on it (combo: waveforms a, c, …, maps b, d, …; erp and topo: a, b, …; grid and microstate figures have no letters and are listed by title), with that panel's lines, their n and trials per subject, channels and window source. Facts only, never a finished caption. (User request, 2026-09-26.) | U | Code |
+| S10 | A channel that is constant over the whole epoch (peak-to-peak < 1e-6 µV, e.g. all zeros) in any subject × condition stops the script, naming subject, condition and channels — usually an unrecovered bad channel. A reference electrode kept at 0 µV is allowed only by listing it in `flat_channels`; the caption facts then name it. Checked on cached data too. (2026-09-26.) | M | Code |
 
 ## Content and layout
 
@@ -66,7 +67,7 @@ The only valid rule list; each rule is stated once. Type: **U** = the user's bin
 
 ## Microstate figures (`microstate_plot.py`, plan `docs/plan-microstate.md`)
 
-Rules S1 (input contract), T5 (PNG + SVG), T6 (fixed canvas) and O1–O3 apply; the ERP layout rules do not.
+Rules S1 (input contract), S9 (caption structure), S10 (flat channels), T5 (PNG + SVG), T6 (fixed canvas) and O1–O3 apply; the ERP layout rules do not.
 
 | # | Rule | Type | Enforced |
 |---|---|---|---|
@@ -87,5 +88,15 @@ Rules S1 (input contract), T5 (PNG + SVG), T6 (fixed canvas) and O1–O3 apply; 
 2. Gray band, topomap window text and caption window agree.
 3. combo/topo: no dots or other electrode marks on the maps (rule L11).
 4. `open_items` in `_run.json` is empty, or every listed field (marked "to be confirmed" / "not recorded") is reported to the user as open; `stats_note` matches what the user said.
-6. Colour warnings (T7): report a normal-vision `colour_distinctness` below 10 to the user with the two colours (deutan/protan values are not reported).
-5. `_run.json`: `lines`/`maps` fit the kind (combo: both = expected; erp: maps 0; topo: lines 0); `size_mm` equals the spec canvas; `legend` says where the legend went; then replace its `qa` field with the result ("passed" or the open problems).
+5. Colour warnings (T7): report a normal-vision `colour_distinctness` below 10 to the user with the two colours (deutan/protan values are not reported).
+6. Reviewer risks — what a reviewer is likely to question. Check each against the spec, `_caption.md` and `_run.json`; report every hit to the user in one line with its reason; never change the figure or spec because of it on your own. Microstate figures: (a), (b), (d), (h), (i).
+   - (a) Window source (S3) circular or vague: chosen from the displayed comparison ("peak of the grand average", "where the conditions differ", "visual inspection") or not traceable to a paper, a localizer or independent data.
+   - (b) Claim vs statistics: the claim states an effect or difference but `stats_note` is missing, or it reports no reliable effect (e.g. not significant after correction).
+   - (c) Trial counts: mean trials per subject of lines compared in one panel differ by more than 1.5 × (`## Panels`): unequal noise, peak measures biased.
+   - (d) Sample size: a compared group has n < 10, or compared groups differ in n by more than 2 ×.
+   - (e) High-pass above 0.1 Hz with slow or late components (P3, N400, LPC, CNV, sustained potentials): possible distortion of amplitude and latency.
+   - (f) The display range (`xlim_ms`) hides part of the baseline interval, or the baseline is shorter than 100 ms.
+   - (g) Shared map scale dominated by one map, so the others look near-white: correct by rule S5, but say so, since readers may read it as no activity.
+   - (h) Source language: claim, `stats_note` or `templates_source` speak of generators, sources or brain regions (S7).
+   - (i) Microstate: a panel is more than 50 % hatched (segmentation mostly over baseline-level GFP); `templates_source` does not say how K was chosen.
+7. `_run.json`: `lines`/`maps` fit the kind (combo: both = expected; erp: maps 0; topo: lines 0); `size_mm` equals the spec canvas; `legend` says where the legend went; then replace its `qa` field with the result ("passed" or the open problems; reviewer risks are listed there too, as "risk: …").

@@ -27,6 +27,7 @@ from matplotlib.ticker import MaxNLocator
 from scipy.signal import find_peaks, peak_widths
 
 LOADER_VERSION = 3
+FLAT_UV = 1e-6  # µV: a channel whose peak-to-peak range stays below this is flat (rule S10)
 MM = 1 / 25.4
 TWO_COLORS = ["#1b7f79", "#e0533d"]
 OKABE_ITO = ["#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00", "#56B4E9"]
@@ -40,7 +41,8 @@ STYLE = {
 }
 REQUIRED = {"data", "conditions", "claim", "key_comparison", "time_locked_to", "reference"}
 OPTIONAL = {"kind", "groups", "exclude", "query", "overlay", "ordered", "colors", "xlim_ms", "polarity", "width_mm",
-            "height_mm", "cmap", "stats_note", "group_by", "linestyles", "error", "components", "channels", "layout"}
+            "height_mm", "cmap", "stats_note", "group_by", "linestyles", "error", "components", "channels", "layout",
+            "flat_channels"}
 COMPONENT_KEYS = {"name", "channels", "tmin_ms", "tmax_ms", "window_source"}
 TOPO = dict(contours=8, extrapolate="head", image_interp="cubic")  # recorded in every caption; sphere: common_sphere()
 
@@ -350,7 +352,9 @@ def load(spec):
         meta = json.loads(str(z["meta"]))
         info = mne.io.read_info(files[0], verbose="error")
         if list(info.ch_names) == meta["contract"]["ch_names"]:
-            return {g: z[g] for g in groups}, z["times"], info, meta
+            data = {g: z[g] for g in groups}
+            flat_check(spec, data, info.ch_names, meta)  # also on cached data: flat_channels may have changed
+            return data, z["times"], info, meta
     data, nave, ids, ref = {}, {}, {}, None
     for g, fs in groups.items():
         arrs, counts = [], []
@@ -381,9 +385,26 @@ def load(spec):
         data[g], nave[g], ids[g] = np.array(arrs), [list(map(int, c)) for c in counts], [uid(f) for f in fs]
         print(f"loaded {g}: {len(fs)} subjects")
     meta = dict(contract=ref, nave=nave, ids=ids, inputs=stamp, loader_version=LOADER_VERSION)
+    flat_check(spec, data, info.ch_names, meta)
     cache.parent.mkdir(parents=True, exist_ok=True)
     np.savez(cache, times=times, meta=json.dumps(meta), **data)
     return data, times, info, meta
+
+
+def flat_check(spec, data, ch_names, meta):
+    """Rule S10: a channel that is constant over the whole epoch (e.g. all zeros) in any subject × condition stops the
+    script, unless the spec lists it in `flat_channels` (e.g. a reference electrode kept at 0 µV)."""
+    allowed = spec.get("flat_channels", [])
+    if not isinstance(allowed, list) or not all(text(c) for c in allowed) or set(allowed) - set(ch_names):
+        die(f"flat_channels must be a list of channel names in the data (got {allowed!r})")
+    conds = list(spec["conditions"])
+    for g, x in data.items():  # x: (subject, condition, channel, time) in µV
+        flat = np.ptp(x, axis=-1) < FLAT_UV
+        for s, c, ch in zip(*np.nonzero(flat)):
+            if ch_names[ch] not in allowed:
+                bad = [ch_names[i] for i in np.flatnonzero(flat[s, c]) if ch_names[i] not in allowed]
+                die(f"{meta['ids'][g][s]} [{conds[c]}]: channels {bad} are flat (constant over the whole epoch); fix "
+                    "them upstream (e.g. interpolate), or list them in flat_channels if they are the reference electrode")
 
 
 # ---------- inspect / windows ----------
@@ -990,7 +1011,7 @@ def plot_grid(spec, data, info, meta, panels, lines, get, colors, labels, ms, t,
         n = wave_grid(spec, "", grid, info, x, labels, colors, styles, ms, t, lo, hi, negative_up, plabel, out,
                       bands=comps, dpi=600)
         comp = dict(channels=sum(rows, []), bands=comps)
-        caption(spec, comp, meta, list(data), list(spec["conditions"]), out, ms, 0, None, "erp")
+        caption(spec, comp, meta, list(data), list(spec["conditions"]), out, ms, 0, None, "erp", level=p)
         write_run(spec, meta, out, comp, ms, list(canvas_size(spec)), n, 0, legend="under the grid",
                   colour_distinctness=colour_check(colors[:len(lines)], "line colours"))
         archive(out)
@@ -998,12 +1019,21 @@ def plot_grid(spec, data, info, meta, panels, lines, get, colors, labels, ms, t,
     print("wrote", *[f"{o}.png/.svg" for o in outs], sep="\n  ")
 
 
-def caption(spec, comp, meta, groups, conds, out, ms, v, sphere, kind):
-    """Caption facts; only elements that the figure of this kind actually draws are described."""
+def trials(meta, g, i):
+    """n and trials per subject for group g, condition index i (caption facts)."""
+    per = np.array([s[i] for s in meta["nave"][g]])
+    return f"n = {len(per)}, trials per subject mean {per.mean():.1f} (range {per.min()}–{per.max()})"
+
+
+def caption(spec, comp, meta, groups, conds, out, ms, v, sphere, kind, level=None):
+    """Caption facts: what the whole figure shares, then one entry per panel under the letter drawn on it (the grid has
+    no letters: its panels are listed by channel). Only elements that the figure of this kind actually draws are
+    described. `level`: the facet level of an erp grid figure (one figure per level)."""
     k = meta["contract"]
     L = [f"# Caption facts for {out.name}", ""]
     if open_items(spec):
-        L.append(f"- OPEN (not confirmed): {', '.join(open_items(spec))}")
+        L += [f"- OPEN (not confirmed): {', '.join(open_items(spec))}", ""]
+    L += ["## Whole figure", ""]
     L.append(f"- Claim: {spec['claim']}")
     L.append(f"- Key comparison: {spec['key_comparison']}")
     L.append("- Groups: " + ", ".join(f"{g} (n = {len(meta['ids'][g])})" for g in groups))
@@ -1014,7 +1044,9 @@ def caption(spec, comp, meta, groups, conds, out, ms, v, sphere, kind):
         L.append(f"- {spec['conditions'][c]}: trials per subject mean {per.mean():.1f} (range {per.min()}–{per.max()})")
     L.append(f"- Trial selection: {spec.get('query') or 'as stored in the files (no further selection)'}")
     L.append(f"- Time-locked to: {spec['time_locked_to']}; baseline {k['baseline']} s; "
-             f"filter {k['filter'][0]}–{k['filter'][1]} Hz; reference: {spec['reference']}")
+             f"filter {k['filter'][0]}–{k['filter'][1]} Hz; reference: {spec['reference']} (identical in every panel, rule S1)")
+    if spec.get("flat_channels"):
+        L.append(f"- Flat channels kept (spec flat_channels, e.g. the reference electrode): {', '.join(spec['flat_channels'])}")
     if kind == "erp":
         how = {"single": "channel", "grid": "one panel per channel:", "roi": "mean of"}[spec.get("layout", "roi")]
         L.append(f"- Waveforms: {how} {', '.join(comp['channels'])}")
@@ -1040,13 +1072,41 @@ def caption(spec, comp, meta, groups, conds, out, ms, v, sphere, kind):
         L.append(f"- Display: {spec.get('xlim_ms', 'full epoch')} ms; polarity {spec.get('polarity', 'positive_up').replace('_', ' ')}")
     if spec.get("stats_note"):
         L.append(f"- Statistics (from the author): {spec['stats_note']}")
+    L += ["", "## Panels", ""]
+    by_groups = spec.get("overlay", "groups") == "groups"  # panels = conditions, lines = groups; else the reverse
+    panels = [(c, spec["conditions"][c]) for c in conds] if by_groups else [(g, g) for g in groups]
+    if level is not None:
+        panels = [p for p in panels if p[0] == level]
+
+    def cells(p):  # the panel's lines as (group, condition, label), each with its n and trials
+        pairs = [(g, p, g) for g in groups] if by_groups else [(p, c, spec["conditions"][c]) for c in conds]
+        return "; ".join(f"{lab} ({trials(meta, g, conds.index(c))})" for g, c, lab in pairs)
+
+    bands = "; ".join(f"{b['name']} {b['tmin_ms']:g}–{b['tmax_ms']:g} ms (source: {b['window_source']})" for b in comp["bands"])
+    where = {"single": f"channel {', '.join(comp['channels'])}", "roi": f"mean of {', '.join(comp['channels'])}",
+             "grid": ""}.get(spec.get("layout", "roi")) if kind == "erp" else f"mean of {', '.join(comp['channels'])}"
+    for r, (p, plabel) in enumerate(panels):
+        if kind == "erp" and spec.get("layout") == "grid":
+            rows = " / ".join(", ".join(row) for row in spec["channels"])
+            L.append(f"- (no letters) {plabel}: one panel per channel ({rows}); lines: {cells(p)}"
+                     + (f"; gray bands: {bands}" if bands else ""))
+            continue
+        wave = f"{plabel} — waveforms, {where}; lines: {cells(p)}" + (f"; gray band: {bands}" if bands else "")
+        maps = f"{plabel} — topographies, {bands}; one map per line"
+        abc = "abcdefghijklmnopqrstuvwxyz"  # same letters as letter() draws: combo 2r / 2r + 1, erp and topo r
+        if kind == "combo":
+            L += [f"- ({abc[2 * r % 26]}) {wave}", f"- ({abc[(2 * r + 1) % 26]}) {maps}"]
+        elif kind == "erp":
+            L.append(f"- ({abc[r % 26]}) {wave}")
+        else:
+            L.append(f"- ({abc[r % 26]}) {maps}: {cells(p)}")
     Path(f"{out}_caption.md").write_text("\n".join(L) + "\n", encoding="utf8")
 
 
 # ---------- explore: overview figures before windows are known (not paper figures) ----------
 EXPLORE_REQUIRED = {"data", "conditions"}
 EXPLORE_OPTIONAL = {"width_mm", "height_mm", "group_by", "groups", "exclude", "query", "colors", "linestyles", "ordered", "xlim_ms", "polarity",
-                    "channels", "components", "differences", "topo_scale", "cmap"}
+                    "channels", "components", "differences", "topo_scale", "cmap", "flat_channels"}
 EXPLORE_CHANNELS = [["F3", "Fz", "F4"], ["C3", "Cz", "C4"], ["P3", "Pz", "P4"]]  # rows front to back, left to right
 
 

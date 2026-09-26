@@ -119,6 +119,7 @@ with tempfile.TemporaryDirectory() as d:
     assert run["spans"]["NoGo"].get("S2") is None  # T0 never occurs in NoGo: shown as "—" under its map
     cap = Path(f"{out}_caption.md").read_text(encoding="utf8")
     assert "signed" in cap and "Hatched" in cap and "synthetic" in cap
+    assert "## Panels (no letters; by title)" in cap and "- NoGo: n = " in cap and "S2" not in cap.split("- NoGo")[1].split("hatched")[0]
     inside_canvas(SAVED[-1])
 
     # 2. templates named by channel are aligned by name; the result is identical
