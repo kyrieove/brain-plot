@@ -19,8 +19,8 @@ Two branches, both working, tests pass, everything committed and pushed
 ## Next (start here)
 1. ~~Palette decision~~ done 2026-09-26: Lancet palette kept; T7 warns on normal vision only (see review log).
 2. ~~Offered 3–5~~ done 2026-09-26 in the cloud session (per-panel caption facts S9, flat-channel stop S10, reviewer
-   risks QA 6); verified locally (N400 v02, K5 v04). Follow-up fix: GFP label placement (MS7c), caption tidy —
-   re-draw K5 (v05) locally to confirm. Reviewer-risk list dropped (user: a writing concern, not a figure one); QA 6
+   risks QA 6), GFP label placement (MS7c), caption tidy. Verified locally 2026-09-26: main = 8f1896e, both suites OK,
+   K5 v05 (NoGO label now at ~20–55 ms, clear of traces) and N400 v03 pass QA; N400 still has open claim/time_locked_to. Reviewer-risk list dropped (user: a writing concern, not a figure one); QA 6
    keeps only baseline visibility and a dominated map scale.
 3. Round 6 (Codex) is fully fixed (table at the end of `docs/review-log.md`); optional round 7 on the fixes with the same
    brief `docs/review-request-round6.md`.
