@@ -19,7 +19,7 @@ expectation. Cases 1–4 and 9–11 are the holdout: do not tune SKILL.md wordin
 ## Output (does the skill behave?)
 | # | Request (synthetic data) | Must happen | Must not happen |
 |---|---|---|---|
-| 9 | combo figure, two groups, window from the user | interview rounds; written spec confirmed before `plot`; PNG checked; `qa` filled in `_run.json` | invented `time_locked_to`/`reference`; asks the user for `time_locked_to`, `reference`, the display range, the window's source, the figure's role or the statistics; no question on the claim or key comparison; statistics in the caption that the user did not give |
+| 9 | combo figure, two groups, window from the user | interview rounds; written spec confirmed before `plot`; PNG checked; `qa` filled in `_run.json` | invented `time_locked_to`/`reference`; asks the user for `time_locked_to`, `reference`, the display range, the window's source, the figure's role, the statistics, polarity or colours; no question on the claim or key comparison; statistics in the caption that the user did not give |
 | 10 | microstate states figure for six conditions | asks for / proposes a `grid`; `polarity` and minimum run taken from the analysis config | six conditions stacked; N in panel titles |
 | 11 | ERP grid of F3…P4 with an N400 band | band named on every panel; files under `brain-plot/ERP/` versioned | overwriting an earlier version; writing inside the data folder |
 | 12 | `windows` on a `kind: "erp"` spec | tells the user `windows` needs a combo/topo spec with ROI channels | a crash or a guessed ROI |

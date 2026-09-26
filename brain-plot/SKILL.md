@@ -45,7 +45,8 @@ Where something is unknown and only feeds the caption, leave it out of the spec 
 | 1 | Figure type: `combo` (waveforms + maps, one per component), `topo` (maps only), or `erp` (waveforms by channel: ROI mean, one figure per channel incl. `all`, or a grid; channels asked here; gray bands only if the user wants them once windows are confirmed, default none — rule K1). Width (`width_mm`, e.g. 180 for double column); what the reader must see first (one sentence → `claim`; it decides the figure type, components and channels). |
 | 2 | Key comparison → `key_comparison`, which decides `overlay` (the compared variable goes in the same panel) and how lines pair up in `colors`/`linestyles` (e.g. colour = task, line style = level); groups and order (first = reference, drawn black); exclusions; trial selection (all trials or e.g. correct only → `query`). |
 | 3 | Components (one figure each); channels per component; windows (offer `windows` output only as candidates; don't ask where a window comes from — rule S3). The display range is the whole epoch (rule L9); don't ask about it. |
-| 4 | Anything still open: polarity, colours. |
+
+Style (polarity, colours, line styles, fonts, colour map) follows the house defaults in `references/rules.md`; don't ask about it — change it only when the user asks. Line pairing from round 2 (e.g. colour = task, line style = level) is part of the key comparison, not a style question.
 
 `time_locked_to` and `reference` only feed the caption: read them from the preprocessing scripts and files; if they are not there, leave them out of the spec. Never ask the user for them and never fill them from memory.
 

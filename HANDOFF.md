@@ -73,7 +73,8 @@ Nothing is waiting on the user. Optional:
   approved); resting-state figures beyond the template row are not wanted for now.
 - Interview: always ask `claim` and `key_comparison` (they decide type, components, overlay, line pairing); never ask
   `time_locked_to`, `reference` (read from scripts, else omit), the display range (whole epoch), statistics, the
-  figure's role, the journal (ask width) or where a window comes from. Everything that only feeds the caption is optional
+  figure's role, the journal (ask width), where a window comes from, or style (polarity, colours: house defaults unless
+  the user asks). Everything that only feeds the caption is optional
   in the spec; unknown → leave it out, never "to be confirmed".
 - The skill only draws: it does not judge the analysis (window choice, statistics, K choice). A script stop is only
   for things that change or break the drawing (data contract, layout, spec syntax).

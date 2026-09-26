@@ -281,3 +281,8 @@ The GN slide spec (254 × 143 mm, butterfly + GFP) now fails MS10; its height wa
   identical to v03, `open_items` empty) and GN K5 v06 (only change: NoGO hatch at 0–16 ms gone); both QA passed.
 - CLAUDE.md: every new figure is sent into the chat (SendUserFile, render), not left in a folder.
 - Cloud branch `claude/bold-gates-u9nx46` fast-forwarded to main (f058705) by the local agent.
+
+## Style is not asked (2026-09-26, local session)
+- User: polarity and colours are house style, "不用问 设置默认的就行 除非用户要求改". Interview round 4 removed; style
+  follows the defaults in rules.md unless the user asks. Line pairing (colour = task, line style = level) stays part
+  of the key comparison.
