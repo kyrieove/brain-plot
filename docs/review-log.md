@@ -340,3 +340,6 @@ MS10 where no height fits at 180 mm).
 | env | no quick way to see if the interpreter can run the scripts | `check_env.py` (standard library only): versions, fonts, OK / what to install | manual (MNE hidden → PROBLEMS, exit 1) |
 Mutation check: undoing any one of 7 fixes makes a suite fail. Suites: test_erp_plot, test_microstate, test_layout, all
 OK on matplotlib 3.10.9 and 3.11.2 (Linux, DejaVu Sans).
+- Local run (Windows, Arial): test_layout failed — the K = 8 range-omission case used short names ("NoGo 133–199",
+  12.7 mm in Arial, 15.0 in DejaVu), which fit under the maps in Arial. Test now uses long names (17.5 / 21.3 mm) so the
+  omission holds in any font; the figure itself was clean in both.

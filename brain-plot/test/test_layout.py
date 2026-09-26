@@ -149,8 +149,11 @@ with tempfile.TemporaryDirectory() as d:
     ms = dict(base, templates=str(root.parent / "k{k:02d}.npz"), k=5)
     clean("microstate, one condition on the default canvas", msp.plot, dict(ms, conditions={"c1": "Go"}), out)
     clean("microstate, two conditions stacked (GN layout)", msp.plot, dict(ms, conditions={"c1": "Go", "c2": "NoGo"}), out)
+    # long condition names: the ranges ("Incongruent 133–201") are far wider than these small maps in any font, so the
+    # figure must leave them to the caption (with short names, whether they fit depends on the font: Arial vs DejaVu)
     clean("microstate, K = 8, both panel types (small maps: ranges left to the caption)", msp.plot,
-          dict(ms, k=8, conditions={"c1": "Go", "c2": "NoGo"}, blocks=["topo", "butterfly", "gfp", "ribbon"]), out)
+          dict(ms, k=8, conditions={"c1": "Congruent", "c2": "Incongruent"}, blocks=["topo", "butterfly", "gfp", "ribbon"]),
+          out)
     run = json.loads(max(out.rglob("topo-butterfly-GFP-ribbon_K8*_run.json"), key=lambda f: f.stat().st_mtime_ns).read_text("utf8"))
     assert run["ranges_under_maps"] is False, run["ranges_under_maps"]
     clean("microstate, 2 × 3 grid, butterfly", msp.plot,
