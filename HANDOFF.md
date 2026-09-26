@@ -1,4 +1,4 @@
-# brain-plot — handoff (2026-09-26, end of day)
+# brain-plot — handoff (2026-09-26, end of day, after round 6 fixes)
 
 Start of every new session: read this file, then `docs/review-log.md` (newest entries at the bottom).
 
@@ -17,9 +17,10 @@ Two branches, both working, tests pass, everything committed and pushed
   `microstate/`, `specs/`; names say what the figure is; re-renders get `_vNN+1`, old versions move to `_history/`.
 
 ## Next (start here)
-1. **Codex full review** (user runs it): brief `docs/review-request-round6.md` → findings in
-   `docs/astra-review-round6.md`. Read them, show the user, fix after the user decides, log in review-log, push.
-2. `qa` fields of the metaphor v01 figures are still PENDING (record after a visual check if the user wants).
+1. Round 6 (Codex, `docs/astra-review-round6.md`, 15 findings) is fully fixed — see the table at the end of
+   `docs/review-log.md`. Optional: ask Codex for round 7 on the fixes (same brief, `docs/review-request-round6.md`).
+2. Run the agent-level eval cases `brain-plot/evals/cases.md` once in fresh sessions (manual; holdout marked).
+3. `qa` fields of the metaphor v01 figures are still PENDING.
 
 ## Use
 - Any session: `/brain-plot <data_dir>` (skill linked at `~/.claude/skills/brain-plot` → `C:\dev\brain-plot\brain-plot`).

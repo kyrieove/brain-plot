@@ -134,19 +134,29 @@ def safe(x):
     return re.sub(r'[\\/:*?"<>|\s]+', "", str(x))
 
 
+def version_pattern(stem):
+    return re.compile(re.escape(stem) + r"_v(\d+)(?![\d])")
+
+
 def versioned(folder, stem):
-    """Rule O2: path prefix of the next version of `stem` (…_v01, _v02, …). Files of the previous versions move to
-    folder/_history/; nothing is overwritten. Call only once the figure has passed its checks."""
-    hist = folder / "_history"
-    pat = re.compile(re.escape(stem) + r"_v(\d+)(?![\d])")
-    old = [f for d in (folder, hist) if d.exists() for f in d.iterdir() if pat.match(f.name)]
+    """Rule O2: path prefix of the next version of `stem` (…_v01, _v02, …); nothing is overwritten. Moves nothing:
+    call archive() once every file of the new version is written, so a failed render leaves the old one in place."""
+    pat = version_pattern(stem)
+    old = [f for d in (folder, folder / "_history") if d.exists() for f in d.iterdir() if pat.match(f.name)]
     n = max((int(pat.match(f.name).group(1)) for f in old), default=0) + 1
-    for f in old:
-        if f.parent == folder:
-            hist.mkdir(parents=True, exist_ok=True)
-            f.rename(hist / f.name)
     folder.mkdir(parents=True, exist_ok=True)
     return folder / f"{stem}_v{n:02d}"
+
+
+def archive(out):
+    """Rule O2: after `out` (…_vNN) is complete, the files of every other version of its stem move to _history/."""
+    stem, _ = out.name.rsplit("_v", 1)
+    pat, hist = version_pattern(stem), out.parent / "_history"
+    for f in list(out.parent.iterdir()):
+        m = pat.match(f.name)
+        if m and f"{stem}_v{m.group(1)}" != out.name:
+            hist.mkdir(exist_ok=True)
+            f.rename(hist / f.name)
 
 
 # ---------- data ----------
@@ -173,7 +183,10 @@ def split_layout(root, conds):
     for c in conds:
         for d in sorted(x for x in (root / c).iterdir() if x.is_dir()):
             for f in sorted(d.glob("*-ave.fif")):
-                by.setdefault(d.name, {}).setdefault(subject_id(f), {})[c] = f
+                slot = by.setdefault(d.name, {}).setdefault(subject_id(f), {})
+                if c in slot:
+                    die(f"two files for subject {subject_id(f)} in {c}/{d.name}: {slot[c].name}, {f.name}")
+                slot[c] = f
     gaps = sorted(f"{g}/{i}" for g, ss in by.items() for i, fs in ss.items() if len(fs) != len(conds))
     if gaps:
         die(f"subjects missing a condition file: {gaps}")
@@ -368,6 +381,8 @@ def windows(spec):
     conditions, searched in each component's [tmin_ms, tmax_ms] (use a generous search range here). The reported
     interval is the full width at half prominence, not a rule; the user decides names and final windows."""
     check_spec(spec)
+    if any("channels" not in c for c in spec["components"]):
+        die("windows searches each component's ROI: give components with 'channels' (a combo/topo spec)")
     data, times, info, _ = load(spec)
     allsub = np.concatenate([d.mean(1) for d in data.values()]).mean(0)  # (ch, t)
     ms = times * 1000
@@ -844,7 +859,7 @@ def plot(spec):
     outs, batch = [], None
     if kind == "erp" and spec["channels"] == "all":  # rule O3: one file per channel, one versioned folder
         batch = versioned(out_root(spec) / "ERP", f"ERP-all-channels_{comparison(spec)}")
-        batch.mkdir()
+        batch.mkdir()  # archived as a whole after its last file
     for comp, w, stats, topo in computed:
         v = v_sensor = max(max(np.abs(a).max() for a in topo.values()), 1e-6)
         gap_mm = GAP_MM
@@ -889,7 +904,11 @@ def plot(spec):
         write_run(spec, meta, out, comp, ms, size, n_lines, n_maps, legend=placed, gap_mm=float(gap_mm),
                   colour_limit_uV=float(v), sensor_max_uV=float(v_sensor), interpolated_max_uV=float(peak),
                   sphere_m=sphere)
+        if not batch:
+            archive(out)
         outs.append(out)
+    if batch:
+        archive(batch)
     print("wrote", *([batch] if batch else [f"{o}.png/.svg" for o in outs]), sep="\n  ")
 
 
@@ -929,6 +948,7 @@ def plot_grid(spec, data, info, meta, panels, lines, get, colors, labels, ms, t,
         comp = dict(channels=sum(rows, []), bands=comps)
         caption(spec, comp, meta, list(data), list(spec["conditions"]), out, ms, 0, None, "erp")
         write_run(spec, meta, out, comp, ms, list(canvas_size(spec)), n, 0, legend="under the grid")
+        archive(out)
         outs.append(out)
     print("wrote", *[f"{o}.png/.svg" for o in outs], sep="\n  ")
 
@@ -1021,8 +1041,10 @@ def wave_grid(spec, title, grid, info, x, labels, colors, styles, ms, t, lo, hi,
     for r, row in enumerate(grid):
         for c, ch in enumerate(row):
             ax = fig.add_subplot(gs[r, c])
-            for b in bands:
+            for b in bands:  # rule L8: the component's name on its band
                 ax.axvspan(b["tmin_ms"], b["tmax_ms"], color="0.88", lw=0, zorder=0)
+                ax.text((b["tmin_ms"] + b["tmax_ms"]) / 2, 1.0, b["name"], transform=ax.get_xaxis_transform(),
+                        ha="center", va="bottom", fontsize=6, fontweight="bold")
             for k, (col, ls, lab) in enumerate(zip(colors, styles, labels)):
                 ax.plot(ms[t], x[k, ch], color=col, ls=ls, lw=0.8, label=lab)
                 n += 1
@@ -1147,10 +1169,12 @@ def explore(spec):
     for g in groups:  # rule O3
         outs.append(versioned(root / "ERP", f"ERP-grid-{shape}_conditions_{safe(g)}"))
         wave_grid(spec, "Waveforms", grid, info, data[g].mean(0), labels, colors, styles, ms, t, lo, hi, neg, g, outs[-1])
+        archive(outs[-1])
         if spec.get("components"):
             names = "-".join(c["name"] for c in spec["components"])
             outs.append(versioned(root / "topo", f"topo-table_{safe(names)}_{safe(g)}"))
             topo_table(spec, data[g], conds, labels, spec["components"], info, ms, sphere, g, outs[-1])
+            archive(outs[-1])
     print("wrote", *[f"{o}.png/.svg" for o in outs], sep="\n  ")
 
 

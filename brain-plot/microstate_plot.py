@@ -49,6 +49,9 @@ def check(spec):
     blocks = spec.get("blocks", ["topo", "butterfly", "ribbon"])
     if not blocks or set(blocks) - set(BLOCKS) or len(set(blocks)) != len(blocks) or not {"butterfly", "gfp"} & set(blocks):
         ep.die(f"blocks: a list from {list(BLOCKS)} with 'butterfly' and/or 'gfp', no repeats")
+    if "ribbon" in blocks and "butterfly" not in blocks:
+        ep.die("blocks: 'ribbon' is drawn under the butterfly plot; add 'butterfly' or drop 'ribbon' (the GFP panel is "
+               "coloured by state itself)")
     if spec.get("polarity", "sensitive") not in ("sensitive", "insensitive"):
         ep.die("polarity must be 'sensitive' or 'insensitive' (as in the analysis that made the templates)")
     lo, hi = spec.get("window_ms", [0, 800])
@@ -58,6 +61,8 @@ def check(spec):
     if g is not None and (spec.get("per_group") or not isinstance(g, list) or not all(isinstance(r, list) and r for r in g)
                           or sorted(sum(g, [])) != sorted(spec["conditions"])):
         ep.die("grid: rows of condition keys using every condition exactly once (not with per_group) — rule MS9")
+    if g and len(spec["conditions"]) > 2 and max(len(r) for r in g) < 2:
+        ep.die("grid: more than two conditions need at least two columns; one column would stack them (rule MS9)")
     if not ep.text(spec["templates_source"]):
         ep.die("templates_source must say which analysis made the templates")
 
@@ -85,7 +90,10 @@ def load_templates(spec, k, info):
     elif c.shape[1] != len(info.ch_names):
         ep.die(f"{path.name}: {c.shape[1]} template channels, {len(info.ch_names)} in the data (order must match)")
     c = c - c.mean(1, keepdims=True)
-    return c / np.linalg.norm(c, axis=1, keepdims=True), path
+    norm = np.linalg.norm(c, axis=1, keepdims=True)
+    if not np.isfinite(c).all() or not (norm > 1e-12).all():
+        ep.die(f"{path.name}: templates must be finite and non-flat after average reference")
+    return c / norm, path
 
 
 def runs(lab):
@@ -198,11 +206,10 @@ def framed_map(fig, W, H, x, y, s, vec, info, sphere, vmax, colour, label, sub, 
 
 def hatch(ax, ms, mask, y0, y1):
     """Rule MS3: diagonal white hatch over low-GFP runs; the state colour stays visible underneath."""
-    step = ms[1] - ms[0]
     for a, b, v in runs(mask.astype(int)):
         if v:
-            ax.add_patch(Rectangle((ms[a], y0), ms[b - 1] - ms[a] + step, y1 - y0, fill=False, hatch="//////",
-                                   ec="white", lw=0, zorder=4))
+            x0, x1 = edges(ms, a, b)
+            ax.add_patch(Rectangle((x0, y0), x1 - x0, y1 - y0, fill=False, hatch="//////", ec="white", lw=0, zorder=4))
 
 
 def time_axis(ax, lo, hi, labelled):
@@ -214,12 +221,32 @@ def time_axis(ax, lo, hi, labelled):
         ax.set_xlabel("Time (ms)", fontsize=7, labelpad=1)
 
 
-def plot_states(spec, data, info, meta, ms, sphere):
-    k, blocks = spec["k"], spec.get("blocks", ["topo", "butterfly", "ribbon"])
+def window_mask(spec, ms):
+    """Samples of window_ms; stops if the window reaches past the data or holds fewer than two samples."""
     lo, hi = spec.get("window_ms", [0, 800])
     w = ep.sample_mask(ms, lo, hi)
     if w.sum() < 2 or lo < ms[0] - 1 or hi > ms[-1] + 1:
         ep.die(f"window_ms {lo, hi} must lie inside the data ({ms[0]:g}–{ms[-1]:g} ms)")
+    return w
+
+
+def edges(t, a, b):
+    """Rule MS2: the run [a, b) owns the time from half a sample before t[a] to half a sample after t[b-1] (clipped to
+    the axis), so neighbouring runs meet between samples and no sample is drawn in two states."""
+    h = (t[1] - t[0]) / 2
+    return max(t[0], t[a] - h), min(t[-1] + 2 * h, t[b - 1] + h)
+
+
+def under(t, y, a, b):
+    """Polygon under y for the run [a, b), cut at the run's edges (values linearly interpolated there)."""
+    x0, x1 = edges(t, a, b)
+    xs = np.r_[x0, t[a:b], x1]
+    return xs, np.interp(xs, t, y)
+
+
+def plot_states(spec, data, info, meta, ms, sphere):
+    k, blocks = spec["k"], spec.get("blocks", ["topo", "butterfly", "ribbon"])
+    w = window_mask(spec, ms)
     centers, tpath = load_templates(spec, k, info)
     cells = cells_of(spec, data, meta)
     sens = spec.get("polarity", "sensitive") == "sensitive"
@@ -274,10 +301,12 @@ def plot_states(spec, data, info, meta, ms, sphere):
 
     W, H = ep.canvas_size(dict(width_mm=spec.get("width_mm", 180), height_mm=spec.get("height_mm", 100 if C > 1 else 110)))
     maps, x_right, y_grid, cell_w, widths, row_h, ph = layout(W, H)
-    ratio = widths[0] / ph
-    if not 1.8 <= ratio <= 3.5:  # rule MS10: time panels keep a readable shape
-        ok = [h for h in range(60, 301) if 1.8 <= (lambda g: g[4][0] / g[6])(layout(W, h)) <= 3.5]
-        ep.die(f"time panels would be {widths[0]:.0f} × {ph:.0f} mm (width:height {ratio:.1f}); keep 1.8–3.5 with "
+    def shapes_ok(g):
+        return all(1.8 <= pw / g[6] <= 3.5 for pw in g[4])
+    if not shapes_ok((maps, x_right, y_grid, cell_w, widths, row_h, ph)):  # rule MS10: every time panel
+        ok = [h for h in range(60, 301) if shapes_ok(layout(W, h))]
+        ep.die(f"time panels would be {' and '.join(f'{pw:.0f} × {ph:.0f} mm ({pw / ph:.1f})' for pw in widths)}; "
+               "keep width:height 1.8–3.5 with "
                + (f"height_mm {ok[0]}–{ok[-1]} at width_mm {W:g}" if ok else "another width_mm or grid") + " (rule MS10)")
     fig = plt.figure(figsize=(W * MM, H * MM))
     vmax = float(np.abs(centers).max())
@@ -311,11 +340,12 @@ def plot_states(spec, data, info, meta, ms, sphere):
                 else:
                     ax.plot(t, gfp, color=TRACE, lw=0.8, zorder=3)
                     for a, b, st in runs(lab):
-                        ax.fill_between(t[a:b + 1], 0, gfp[a:b + 1], color=col[st], lw=0, zorder=2)
+                        xs, ys = under(t, gfp, a, b)
+                        ax.fill_between(xs, 0, ys, color=col[st], lw=0, zorder=2)
                     for a, b, v in runs(low.astype(int)):  # rule MS3: hatch under the curve only
                         if v:
-                            ax.fill_between(t[a:b + 1], 0, gfp[a:b + 1], facecolor="none", hatch="//////", ec="white",
-                                            lw=0, zorder=2.5)
+                            xs, ys = under(t, gfp, a, b)
+                            ax.fill_between(xs, 0, ys, facecolor="none", hatch="//////", ec="white", lw=0, zorder=2.5)
                     ax.set_ylim(0, gmax)
                     ax.set_title("GFP" if "butterfly" in panels else cell, fontsize=7, fontweight="bold", pad=2.5)
                 if c_i == 0 or len(panels) > 1:  # y label once per row of a grid (shared ranges)
@@ -327,7 +357,8 @@ def plot_states(spec, data, info, meta, ms, sphere):
                     rax = mm_axes(fig, W, H, xx, y0, pw, rib)
                     step = t[1] - t[0]
                     for a, b, st in runs(lab):
-                        rax.add_patch(Rectangle((t[a], 0), t[b - 1] - t[a] + step, 1, color=col[st], lw=0))
+                        x0, x1 = edges(t, a, b)
+                        rax.add_patch(Rectangle((x0, 0), x1 - x0, 1, color=col[st], lw=0))
                         if (t[b - 1] - t[a]) > 0.045 * (t[-1] - t[0]) * C:
                             rax.text((t[a] + t[b - 1] + step) / 2, 0.5, f"S{pos[st] + 1}", ha="center", va="center",
                                      fontsize=5.5, color="white", fontweight="bold", zorder=5)
@@ -369,8 +400,7 @@ def identity_families(rows, threshold):
 
 def plot_by_k(spec, data, info, meta, ms, sphere):
     ks = spec["k"]
-    lo, hi = spec.get("window_ms", [0, 800])
-    w = ep.sample_mask(ms, lo, hi)
+    w = window_mask(spec, ms)
     cells = cells_of(spec, data, meta)
     sens = spec.get("polarity", "sensitive") == "sensitive"
     rows, paths = [], []
@@ -444,6 +474,7 @@ def plot(spec):
         size_mm=list(fig.get_size_inches() / MM), versions=dict(mne=mne.__version__, matplotlib=matplotlib.__version__),
         qa="PENDING: the agent records the visual QA result here after checking the PNG"),
         indent=1, ensure_ascii=False, default=float), encoding="utf8")
+    ep.archive(out)  # rule O2: older versions move only now that this one is complete
     print("wrote", f"{out}.png/.svg")
     return out
 

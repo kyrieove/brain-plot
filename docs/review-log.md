@@ -196,3 +196,23 @@ checks were confirmed to fail on the old code. Re-rendered N400 main, supplement
   and it applies here too: MS7d); 8 mm between the template row and the panels; a multi-column grid takes either the
   butterfly or the GFP panel, not both (user: "三者再放一起就有点挤"). GFP-panel hatch now fills under the curve only
   (the full-height hatch cut the y axis into dashes).
+
+## Round 6 fixes (2026-09-26, `docs/astra-review-round6.md`, 15 findings, all fixed)
+| # | Fix | Test |
+|---|---|---|
+| 1 | split layout stops on two files with one subject ID in a condition folder | microstate test 4 |
+| 2 | one window check (`window_mask`) for states and by-K | by-K 0–1000 ms on 800-ms data stops |
+| 3 | templates must be finite and non-flat | zero templates stop |
+| 4 | MS10 checks every time panel; height range must fit all | 254 × 143 slide now stops, 120 passes |
+| 5 | ERP grid bands carry the component name (L8) | two "N4" labels on a 1 × 2 grid |
+| 6 | `ribbon` requires `butterfly` | check() refuses gfp + ribbon |
+| 7 | runs meet half-way between samples in ribbon, GFP fill and hatch (`edges`, `under`) | edge values asserted |
+| 8 | `versioned()` no longer moves; `archive(out)` after every file is written | invalid colour after the version was chosen leaves v01 (fails on the old code) |
+| 9 | > 2 conditions need a grid with ≥ 2 columns | check() refuses a 3 × 1 grid |
+| 10 | O1 no longer lists localizer/data_log | — |
+| 11 | description says "draws only" and names the excluded neighbours | evals/cases.md 3–5, 8 |
+| 12 | SKILL.md routes to the two scripts in its first lines | evals 1, 2 |
+| 13 | agent-level eval cases `brain-plot/evals/cases.md` (8 trigger, 4 behaviour; manual, holdout marked) | — |
+| 14 | SKILL.md states the side effects (cache, output folder, `_history/`, dependencies) | — |
+| 15 | `windows` refuses components without ROI channels with a clear message | erp test |
+The GN slide spec (254 × 143 mm, butterfly + GFP) now fails MS10; its height was set to 110 mm (valid 79–114 at 254 mm width).

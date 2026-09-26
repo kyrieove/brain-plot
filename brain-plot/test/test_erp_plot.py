@@ -179,6 +179,25 @@ with tempfile.TemporaryDirectory() as d:
         run = json.loads(latest(root, "ERP", f"ERP-grid-2x2_conditions_{g}_v01_run.json").read_text(encoding="utf8"))
         assert run["lines"] == 3 * 4 and run["maps"] == 0 and run["channels"] == ["Fz", "Cz", "Pz", "Oz"]
     inside_canvas(SAVED[-2])
+    ep.plot(spec(root, groups=["G1", "G2"], kind="erp", layout="grid", channels=[["Cz", "Pz"]], overlay="conditions",
+                 components=[dict(name="N4", tmin_ms=350, tmax_ms=390, window_source="t")]))
+    assert sum(t == "N4" for t, _ in texts_of(SAVED[-2])) == 2  # round 6: band named in every grid panel (L8)
+    # round 6: a render that fails after its version number was chosen leaves the previous version in place (O2)
+    g1 = "ERP-grid-1x2_conditions_G1_N4-350-390ms_v01.png"
+    try:
+        ep.plot(spec(root, groups=["G1", "G2"], kind="erp", layout="grid", channels=[["Cz", "Pz"]], overlay="conditions",
+                     colors=["not-a-colour"] * 3,
+                     components=[dict(name="N4", tmin_ms=350, tmax_ms=390, window_source="t")]))
+        raise AssertionError("an invalid colour was accepted")
+    except ValueError:
+        pass
+    assert (root.parent / "brain-plot" / "ERP" / g1).exists()
+    try:  # round 6: windows needs ROI channels, which erp bands do not carry
+        ep.windows(spec(root, kind="erp", channels=["Cz"], components=[dict(name="N4", tmin_ms=350, tmax_ms=390,
+                                                                            window_source="t")]))
+        raise AssertionError("windows accepted bands without channels")
+    except SystemExit as e:
+        assert "ROI" in str(e), e
     fails(spec(root, kind="erp"), "needs channels")
     fails(spec(root, kind="erp", channels=["Cz", "Cz"]), "needs channels")
     fails(spec(root, groups=["G1", "G2"], kind="erp", channels=["Cz", "FCz"], components=[]), "not in data")

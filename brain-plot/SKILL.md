@@ -1,11 +1,15 @@
 ---
 name: brain-plot
-description: Paper-ready ERP figures (waveforms + scalp topographies) from per-subject MNE files, in one fixed house style. First interviews the user in rounds (claim, key comparison, groups, components and windows, layout), gets explicit confirmation of a written spec, then draws with erp_plot.py and checks the render. Also draws microstate figures (templates, butterfly, GFP, segmentation ribbon; across-K template rows) from saved templates. Use for ERP 波形图、地形图、ERP+地形图组合图、论文 ERP 配图、微状态图、microstate figure、brain plot.
+description: Paper-ready ERP figures (waveforms + scalp topographies) from per-subject MNE files, in one fixed house style. First interviews the user in rounds (claim, key comparison, groups, components and windows, layout), gets explicit confirmation of a written spec, then draws with erp_plot.py and checks the render. Also draws microstate figures (templates, butterfly, GFP, segmentation ribbon; across-K template rows) from saved templates. Draws only — not for ERP statistics, EEG preprocessing, microstate clustering, or source/time-frequency plots. Use for ERP 波形图、地形图、ERP+地形图组合图、论文 ERP 配图、微状态图、microstate figure、brain plot.
 ---
 
 # brain-plot
 
-`erp_plot.py` (next to this file) does all computing and drawing; the style is fixed in code. Never restyle a
+Route first: ERP waveforms / topomaps / combo / overview → `erp_plot.py`; microstate figures from saved templates → `microstate_plot.py` (section "Microstate figures"). Statistics, preprocessing and clustering are out of scope.
+
+Side effects (tell the user before the first run): the scripts read every input file, write a cache (`brain-plot/.cache/`, can be tens of MB — mind synced folders like Dropbox) and all figures to `brain-plot/` next to the data folder, and move older versions of a re-drawn figure to `_history/` (never delete or overwrite). They need Python with MNE ≥ 1.6, matplotlib ≥ 3.8, scipy; run them on a trusted local copy of the data.
+
+`erp_plot.py` (next to this file) does the ERP computing and drawing; the style is fixed in code. Never restyle a
 figure by hand or with ad-hoc matplotlib — change the spec instead.
 Needs Python ≥ 3.10 with mne ≥ 1.6, matplotlib ≥ 3.8, scipy (tested: MNE 1.13.dev, matplotlib 3.10).
 Rules: `references/rules.md` (binding). Spec fields: `references/spec.md`. Worked spec: `test/fig_main.json`.
@@ -46,7 +50,7 @@ Where the science is unknown, recommend "to be confirmed" — never invent a val
 If the intended message and the statistics disagree (e.g. "show group differences" but no effect survived
 correction), say so plainly and offer an honest message before drawing.
 
-Candidate windows, if the user wants help (search ranges in `tmin_ms`/`tmax_ms`):
+Candidate windows, if the user wants help (a combo/topo spec whose components carry ROI `channels`; search ranges in `tmin_ms`/`tmax_ms`; `kind: "erp"` bands have no channels and are refused):
 ```
 python erp_plot.py windows <spec.json>
 ```
@@ -81,6 +85,8 @@ docs, locked config and model files first: templates path, subjects and exclusio
 segment length. Ask only: which K (or which K range for `by-K`), the figure's role, which conditions (and groups), which
 blocks. Confirm the spec, run `python microstate_plot.py plot <spec.json>`, check the PNG (maps framed and numbered
 in time order, ribbon and map labels agree, hatching only where GFP is at baseline level), record `qa` in `_run.json`.
+
+Agent-level eval cases (trigger and behaviour): `evals/cases.md`.
 
 ## Boundaries
 

@@ -61,6 +61,20 @@ def inside_canvas(fig):
     assert not out, f"outside the canvas: {out[:2]}"
 
 
+# 0a. round 6: run edges sit half-way between samples, so no sample is drawn in two states (MS2)
+tt = np.array([0.0, 4.0, 8.0, 12.0])
+assert msp.edges(tt, 0, 2) == (0.0, 6.0) and msp.edges(tt, 2, 4) == (6.0, 14.0)
+xs, ys = msp.under(tt, np.array([0.0, 2.0, 4.0, 6.0]), 0, 2)
+assert list(xs) == [0.0, 0.0, 4.0, 6.0] and ys[-1] == 3.0
+# 0b. round 6: more than two conditions in one grid column would stack them (MS9); ribbon needs a butterfly
+for bad, text in ((dict(conditions={"A": "a", "B": "b", "C": "c"}, grid=[["A"], ["B"], ["C"]]), "two columns"),
+                  (dict(conditions={"A": "a"}, blocks=["topo", "gfp", "ribbon"]), "'ribbon' is drawn under")):
+    try:
+        msp.check(dict(dict(data="x", templates="x", k=3, templates_source="x"), **bad))
+        raise AssertionError(f"check accepted {bad}")
+    except SystemExit as e:
+        assert text in str(e), e
+
 # 0. polarity: a sign-flipped T1 map is T1 only when polarity is ignored
 flip = np.outer(-T[1], np.ones(20))
 assert (msp.segment(flip, T, SF, 30, sensitive=False) == 1).all()
@@ -101,8 +115,10 @@ with tempfile.TemporaryDirectory() as d:
     assert json.loads(Path(f"{out2}_run.json").read_text(encoding="utf8"))["labels_ms"] == run["labels_ms"]
 
     # 3. GFP block, per-group rows, across-K identity colours (K=2's templates are K=3's T2 and T1)
+    fails(spec(root, blocks=["topo", "butterfly", "gfp", "ribbon"], per_group=True, groups=["G1"], width_mm=254,
+               height_mm=143), "height_mm 87")  # round 6: the GFP panel (1.5 : 1) is checked too (MS10)
     msp.plot(spec(root, blocks=["topo", "butterfly", "gfp", "ribbon"], per_group=True, groups=["G1"], width_mm=254,
-                  height_mm=143))
+                  height_mm=120))
     inside_canvas(SAVED[-1])
     # rule MS9: more than two rows need a grid; a 1 × 2 grid puts the maps in a row above it
     fails(spec(root, per_group=True), "give 'grid'")
@@ -125,6 +141,9 @@ with tempfile.TemporaryDirectory() as d:
     inside_canvas(SAVED[-1])
 
     # 4. errors stop the script
+    fails(spec(root, figure="by-K", k=[2, 3], window_ms=[0, 1000]), "must lie inside the data")  # round 6
+    np.savez(root / "k05.npz", centers=np.zeros((5, len(CH))))
+    fails(spec(root, k=5), "non-flat")  # round 6: degenerate templates
     fails(spec(root, k=[3]), "one integer")
     fails(spec(root, blocks=["topo"]), "'butterfly' and/or 'gfp'")
     fails(spec(root, colour="x"), "unsupported microstate keys")
@@ -132,6 +151,10 @@ with tempfile.TemporaryDirectory() as d:
     fails(spec(root, k=4), "expected 4 templates")
     np.savez(root / "k04.npz", centers=np.r_[T, T[:1]][:, :10])
     fails(spec(root, k=4), "order must match")
+    import shutil
+    shutil.copy(root / "ev" / "A" / "G1" / "G1s0_A-ave.fif", root / "ev" / "A" / "G1" / "G1s0_copy-ave.fif")
+    fails(spec(root), "two files for subject G1s0")  # round 6: never silently keep one of two files
+    (root / "ev" / "A" / "G1" / "G1s0_copy-ave.fif").unlink()
     for f in (root / "ev" / "A" / "G2").glob("*"):
         f.unlink()
     fails(spec(root), "missing a condition file")
