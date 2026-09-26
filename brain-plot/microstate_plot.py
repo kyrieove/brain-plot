@@ -357,8 +357,9 @@ def plot_by_k(spec, data, info, meta, ms, sphere):
     extra = 5.0  # mm: state label above each map + spacing
     s = min((W - 2 * side - lab_w) / (max(ks) * 1.18), (H - top - bottom) / len(ks) - extra)
     vmax = max(float(np.abs(c).max()) for _, c, _ in rows)
+    pad = (H - top - bottom - len(ks) * (s + extra)) / 2  # rows centred vertically on the fixed canvas
     for r, (k, centers, order) in enumerate(rows):
-        y = H - top - r * (s + extra) - 3.5 - s
+        y = H - top - pad - r * (s + extra) - 3.5 - s
         fig.text(side / W, (y + s / 2) / H, f"K = {k}", fontsize=7.5, fontweight="bold", va="center")
         for i, st in enumerate(order):
             framed_map(fig, W, H, side + lab_w + i * s * 1.18, y, s, centers[st], info, sphere, vmax,
