@@ -1,6 +1,6 @@
 ---
 name: brain-plot
-description: Paper-ready ERP figures (waveforms + scalp topographies) from per-subject MNE files, in one fixed house style. First interviews the user in rounds (claim, key comparison, groups, components and windows, layout), gets explicit confirmation of a written spec, then draws with erp_plot.py and checks the render. Also draws microstate figures (templates, butterfly, GFP, segmentation ribbon; across-K template rows) from saved templates. Draws only — not for ERP statistics, EEG preprocessing, microstate clustering, or source/time-frequency plots. Use for ERP 波形图、地形图、ERP+地形图组合图、论文 ERP 配图、微状态图、microstate figure、brain plot.
+description: Paper-ready ERP figures (waveforms + scalp topographies) from per-subject MNE Epochs/Evoked .fif files, in one fixed house style. First interviews the user in rounds (claim, key comparison, groups, components and windows, layout), gets explicit confirmation of a written spec, then draws with erp_plot.py and checks the render. Also draws microstate figures (templates, butterfly, GFP, segmentation ribbon; across-K template rows) from saved templates. Draws only — not for ERP statistics, EEG preprocessing, microstate clustering, or source/time-frequency plots. Use for ERP 波形图、地形图、ERP+地形图组合图、论文 ERP 配图、微状态图、microstate figure、brain plot.
 ---
 
 # brain-plot
@@ -12,7 +12,7 @@ Side effects (tell the user before the first run): the scripts read every input 
 `erp_plot.py` (next to this file) does the ERP computing and drawing; the style is fixed in code. Never restyle a
 figure by hand or with ad-hoc matplotlib — change the spec instead.
 Needs Python ≥ 3.10 with mne ≥ 1.6, matplotlib ≥ 3.8, scipy (tested: MNE 1.13.dev, matplotlib 3.10).
-Rules: `references/rules.md` (binding). Spec fields: `references/spec.md`. Worked spec: `test/fig_main.json`.
+Rules: `references/rules.md` (binding). Spec fields: `references/spec.md`. Worked specs: `../examples/specs/` (run `../examples/make_demo_data.py` first for synthetic data). Relative `data`/`templates` paths in a spec file are taken from the spec's folder.
 
 ## 0. Explore (optional, before windows are known)
 

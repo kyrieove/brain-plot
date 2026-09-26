@@ -1,0 +1,11 @@
+{
+ "data": "../demo_data",
+ "conditions": {"standard": "Standard", "target": "Target"},
+ "groups": ["Control"],
+ "overlay": "conditions",
+ "kind": "erp",
+ "layout": "grid",
+ "channels": [["F3", "Fz", "F4"], ["C3", "Cz", "C4"], ["P3", "Pz", "P4"]],
+ "claim": "standard vs target across the scalp in the control group",
+ "key_comparison": "conditions within the control group"
+}

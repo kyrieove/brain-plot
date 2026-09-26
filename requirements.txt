@@ -1,0 +1,6 @@
+# brain-plot: Python >= 3.10
+mne>=1.6
+matplotlib>=3.8
+numpy
+scipy
+pandas  # only for `query` / `group_by` on Epochs metadata

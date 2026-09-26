@@ -286,3 +286,14 @@ The GN slide spec (254 × 143 mm, butterfly + GFP) now fails MS10; its height wa
 - User: polarity and colours are house style, "不用问 设置默认的就行 除非用户要求改". Interview round 4 removed; style
   follows the defaults in rules.md unless the user asks. Line pairing (colour = task, line style = level) stays part
   of the key comparison.
+
+## Sharing: README, demo data, portability (2026-09-26, cloud session)
+- README.md (English) + README.zh-CN.md; example figures in `docs/images/` from synthetic data
+  (`examples/make_demo_data.py`, specs in `examples/specs/`); `requirements.txt`. Stale `test/fig_main.json` (had the
+  removed `out` key) deleted; SKILL.md and spec.md point to `examples/specs/`.
+- Relative `data`/`templates` in a spec file are resolved from the spec's folder (`read_spec`); absolute paths unchanged.
+- Portability: tests failed on matplotlib 3.11 (closed pyplot figures lose their Agg canvas; test helper `renderer()`
+  re-attaches one) and on systems without Arial (grid "ms" label ~0.3 mm past the right edge; grid right margin 4 → 6 mm).
+  Both suites now pass on matplotlib 3.10 and 3.11 with DejaVu Sans.
+- Microstate map labels printed "-0" for a run starting at the first sample; now integers.
+- Seen, not changed: with `hatch: true` the ribbon's S# labels are hard to read over the hatching.

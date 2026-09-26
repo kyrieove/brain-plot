@@ -17,6 +17,12 @@ Two branches, both working, tests pass, everything committed and pushed
   `microstate/`, `specs/`; names say what the figure is; re-renders get `_vNN+1`, old versions move to `_history/`.
 
 ## Next (start here)
+- 2026-09-26 (cloud): README (en + zh-CN), synthetic demo (`examples/`), `requirements.txt`, spec-relative paths,
+  matplotlib 3.11 / no-Arial test fixes, grid right margin 6 mm (see review log). Open for the user before sharing:
+  `CLAUDE.md` holds personal rules (Chinese replies, SendUserFile) that would apply to anyone opening the repo in
+  Claude Code; `HANDOFF.md` and `agent-test-*.md` at the root carry personal paths; ribbon labels under `hatch` are hard
+  to read.
+
 Everything is committed and pushed; `main` = cloud branch `claude/bold-gates-u9nx46` = f058705 (plus this handoff).
 Done on 2026-09-26 (details in `docs/review-log.md`, newest at the bottom): Lancet palette kept, T7 warns on normal
 vision only; per-panel caption facts (S9); flat-channel stop with `flat_channels` (S10); GFP label clear of traces

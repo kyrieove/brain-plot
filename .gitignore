@@ -10,3 +10,7 @@ __pycache__/
 *_run.json
 *-epo.fif
 *-ave.fif
+!docs/images/*.png
+examples/demo_data/
+examples/demo_templates/
+examples/brain-plot/

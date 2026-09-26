@@ -338,7 +338,7 @@ def plot_states(spec, data, info, meta, ms, sphere):
     vmax = float(np.abs(centers).max())
     short = {c: c.split(" · ")[0] if len(cells) > 1 else "" for c in cells}
     for i, (st, (mx, my, ms_)) in enumerate(zip(order, maps)):
-        sub = "\n".join(f"{short[c]} {spans[c][st][0]:.0f}–{spans[c][st][1]:.0f}".strip() if st in spans[c]
+        sub = "\n".join(f"{short[c]} {round(spans[c][st][0])}–{round(spans[c][st][1])}".strip() if st in spans[c]
                         else f"{short[c]} —".strip() for c in cells) if n_sub else ""  # rule MS7a
         framed_map(fig, W, H, mx, my, ms_, centers[st], info, sphere, vmax, col[st], f"S{i + 1}", sub,
                    spec.get("cmap", "RdBu_r"))
@@ -489,7 +489,7 @@ def caption(spec, meta, out, paths, facts):
     L += ["", "## Panels (no letters; by title)", ""]
     if "spans" in facts:
         for c, sp in facts["spans"].items():
-            runs_ = "; ".join(f"{s} {a:.0f}–{b:.0f} ms" for s, (a, b) in sorted(sp.items(), key=lambda x: int(x[0][1:])))
+            runs_ = "; ".join(f"{s} {round(a)}–{round(b)} ms" for s, (a, b) in sorted(sp.items(), key=lambda x: int(x[0][1:])))
             L.append(f"- {c}: n = {facts['cells'][c]}; longest run per state: {runs_}"
                      + (f"; hatched {facts['low_gfp_fraction'][c]:.0%} of the window" if "low_gfp_fraction" in facts else ""))
     else:
@@ -526,4 +526,4 @@ if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")
     if sys.argv[1] != "plot":
         ep.die("usage: python microstate_plot.py plot <spec.json>")
-    plot(json.loads(Path(sys.argv[2]).read_text(encoding="utf8")))
+    plot(ep.read_spec(sys.argv[2]))

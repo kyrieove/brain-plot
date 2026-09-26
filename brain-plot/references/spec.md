@@ -1,7 +1,7 @@
 # Spec format (erp_plot.py v1)
 
-A JSON object. Unknown keys stop the script (an old spec with `out` stops too: delete the key). Example:
-`test/fig_main.json`. Keep specs in `brain-plot/specs/`.
+A JSON object. Unknown keys stop the script (an old spec with `out` stops too: delete the key). Examples:
+`examples/specs/` (synthetic data: `python examples/make_demo_data.py`). Relative `data` and `templates` paths are taken from the spec file's folder. Keep specs in `brain-plot/specs/`.
 
 Outputs go to `brain-plot/` next to the data folder (rules O1–O3): `ERP_topo/ERP-topo_<component>_<channels>_<window>_<comparison>_vNN`,
 `topo/topo_<component>_<window>_<comparison>_vNN`, `ERP/ERP-ROI_<channels>[_<band>-<window>]_<comparison>_vNN`, `ERP/ERP_<channel>_…` (single), `ERP/ERP-all-channels_<comparison>_vNN/` (single, all), `ERP/ERP-grid-<rows>x<cols>_<lines>_<facet level>_vNN` (grid); each as

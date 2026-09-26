@@ -1,0 +1,15 @@
+{
+ "data": "../demo_data",
+ "conditions": {"standard": "Standard", "target": "Target"},
+ "groups": ["Control", "Patient"],
+ "overlay": "groups",
+ "claim": "P3 to targets in both groups, with its parietal scalp distribution",
+ "key_comparison": "groups (Control reference, Patient) within each condition",
+ "components": [
+  {"name": "P3", "channels": ["CPz", "Pz"], "tmin_ms": 300, "tmax_ms": 460,
+   "window_source": "a priori (synthetic demo data)"}
+ ],
+ "reference": "average reference",
+ "time_locked_to": "stimulus onset",
+ "error": "sem"
+}

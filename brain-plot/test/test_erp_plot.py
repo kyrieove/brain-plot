@@ -5,6 +5,7 @@ import tempfile
 from pathlib import Path
 
 import matplotlib.figure
+from matplotlib.backends.backend_agg import FigureCanvasAgg
 import mne
 import numpy as np
 
@@ -34,20 +35,27 @@ def spec(root, **kw):
     return s
 
 
+def renderer(fig):
+    """The figure's renderer; matplotlib ≥ 3.11 detaches a closed pyplot figure from its Agg canvas."""
+    if not hasattr(fig.canvas, "get_renderer"):
+        FigureCanvasAgg(fig)
+    return fig.canvas.get_renderer()
+
+
 SAVED = []  # every figure saved, to measure its layout afterwards
 _savefig = matplotlib.figure.Figure.savefig
 matplotlib.figure.Figure.savefig = lambda self, *a, **k: (SAVED.append(self), _savefig(self, *a, **k))[1]
 
 
 def texts_of(fig):
-    R = fig.canvas.get_renderer()
+    R = renderer(fig)
     ts = list(fig.texts) + [t for a in fig.axes for t in a.texts + [a.title] + a.get_xticklabels() + a.get_yticklabels()]
     return [(t.get_text(), t.get_window_extent(R)) for t in ts if t.get_visible() and t.get_text().strip()]
 
 
 def inside_canvas(fig):
     """Every text and every axes lies within the fixed canvas (rule T6)."""
-    R, W, H = fig.canvas.get_renderer(), fig.bbox.width, fig.bbox.height
+    R, W, H = renderer(fig), fig.bbox.width, fig.bbox.height
     boxes = texts_of(fig) + [("axes", a.get_tightbbox(R)) for a in fig.axes]
     out = [(n, b) for n, b in boxes if b.x0 < -0.5 or b.y0 < -0.5 or b.x1 > W + 0.5 or b.y1 > H + 0.5]
     assert not out, f"outside the canvas: {out[:3]}"
@@ -66,6 +74,16 @@ def fails(s, text):
         return
     raise AssertionError(f"expected failure containing '{text}'")
 
+
+# 0c. relative data/templates paths in a spec file are taken from the spec's folder; absolute ones are kept
+with tempfile.TemporaryDirectory() as d:
+    p = Path(d) / "specs" / "s.json"
+    p.parent.mkdir()
+    p.write_text(json.dumps(dict(data="../data", templates="../t/k{k:02d}.npz", conditions={"A": "a"})), encoding="utf8")
+    s = ep.read_spec(p)
+    assert s["data"] == str((Path(d) / "data").resolve()) and s["templates"] == str((Path(d) / "t" / "k{k:02d}.npz").resolve())
+    p.write_text(json.dumps(dict(data=str(Path(d).resolve()), conditions={"A": "a"})), encoding="utf8")
+    assert ep.read_spec(p)["data"] == str(Path(d).resolve())
 
 # 0. numbers: ROI = mean of channels within subject; SEM over subjects; topography = window mean
 x = np.zeros((3, 2, 5))

@@ -101,6 +101,16 @@ def ink(colour):
 
 
 # ---------- spec ----------
+def read_spec(path):
+    """Spec JSON; relative `data` and `templates` paths are taken relative to the spec file's folder."""
+    path = Path(path)
+    spec = json.loads(path.read_text(encoding="utf8"))
+    for k in ("data", "templates"):
+        if isinstance(spec.get(k), str) and not Path(spec[k]).is_absolute():
+            spec[k] = str((path.parent / spec[k]).resolve())
+    return spec
+
+
 def check_spec(spec):
     keys = set(spec)
     if REQUIRED - keys:
@@ -1147,7 +1157,7 @@ def wave_grid(spec, title, grid, info, x, labels, colors, styles, ms, t, lo, hi,
     leg_cols = len(labels) if len(labels) <= 4 else -(-len(labels) // 2)  # one row, two rows if more than 4
     leg_mm = 4 + 4 * -(-len(labels) // leg_cols)
     gs = GridSpec(nr, nc, figure=fig, hspace=0.6, wspace=0.35,
-                  left=10 / W, right=1 - 4 / W, top=1 - 10 / H, bottom=(6 + leg_mm) / H)
+                  left=10 / W, right=1 - 6 / W, top=1 - 10 / H, bottom=(6 + leg_mm) / H)  # 6 mm: room for "ms" in any font
     x = x[:, :, t]
     chans = [i for r in grid for i in r]
     ylim = data_ylim({(c, i): (x[c, i], None) for c in range(len(x)) for i in chans})
@@ -1298,5 +1308,5 @@ if __name__ == "__main__":
     if cmd == "inspect":
         inspect(arg)
     else:
-        spec = json.loads(Path(arg).read_text(encoding="utf8"))
+        spec = read_spec(arg)
         {"windows": windows, "plot": plot, "explore": explore}[cmd](spec)

@@ -7,6 +7,7 @@ import tempfile
 from pathlib import Path
 
 import matplotlib.figure
+from matplotlib.backends.backend_agg import FigureCanvasAgg
 import mne
 import numpy as np
 
@@ -23,6 +24,13 @@ T[2] -= (T[2] @ T[0]) * T[0]
 T[2] /= np.linalg.norm(T[2])  # keep the families distinct
 # condition → planted (template, start ms, stop ms); A has a 12-ms blip of T0 inside T1 that must be merged away
 PLAN = {"A": [(1, 100, 300), (0, 200, 212), (0, 300, 500), (2, 500, 800)], "B": [(1, 100, 300), (2, 300, 800)]}
+
+def renderer(fig):
+    """The figure's renderer; matplotlib ≥ 3.11 detaches a closed pyplot figure from its Agg canvas."""
+    if not hasattr(fig.canvas, "get_renderer"):
+        FigureCanvasAgg(fig)
+    return fig.canvas.get_renderer()
+
 
 SAVED = []
 _savefig = matplotlib.figure.Figure.savefig
@@ -57,7 +65,7 @@ def fails(s, text):
 
 
 def inside_canvas(fig):
-    R, W, H = fig.canvas.get_renderer(), fig.bbox.width, fig.bbox.height
+    R, W, H = renderer(fig), fig.bbox.width, fig.bbox.height
     out = [b for a in fig.axes for b in [a.get_tightbbox(R)] if b.x0 < -0.5 or b.y0 < -0.5 or b.x1 > W + 0.5 or b.y1 > H + 0.5]
     out += [t.get_window_extent(R) for t in fig.texts if t.get_window_extent(R).x0 < -0.5]
     assert not out, f"outside the canvas: {out[:2]}"
@@ -65,7 +73,7 @@ def inside_canvas(fig):
 
 def gfp_label_clear(fig):
     """Rule MS7c: no channel trace (nor the GFP curve) passes through the "GFP" label box, measured on the drawn figure."""
-    R, n = fig.canvas.get_renderer(), 0
+    R, n = renderer(fig), 0
     for ax in fig.axes:
         for tx in [t for t in ax.texts if t.get_text() == "GFP"]:
             b, n = tx.get_window_extent(R), n + 1

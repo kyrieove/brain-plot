@@ -1,0 +1,8 @@
+{
+ "data": "../demo_data",
+ "conditions": {"standard": "Standard", "target": "Target"},
+ "templates": "../demo_templates/k{k:02d}.npz",
+ "k": 4,
+ "templates_source": "synthetic demo templates",
+ "blocks": ["topo", "butterfly", "ribbon"]
+}
