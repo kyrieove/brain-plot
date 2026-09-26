@@ -35,7 +35,7 @@ The only valid rule list; each rule is stated once. Type: **U** = the user's bin
 | L8 | Component name on the gray band. Shared y-range within a figure; 0 µV always visible. | D | Code |
 | K1 | `kind: "erp"`: waveforms by channel, not by component. `layout`: `"roi"` (mean of the chosen channels, panels stacked as in combo), `"single"` (one figure per channel; `channels: "all"` = every channel, one file each in one versioned folder), `"grid"` (one figure per facet level, a panel per channel at its grid cell, legend under the grid, no SEM band). Lines/panels follow `overlay` (L3). Gray bands (named, rule L8, in every layout) only for components the user asks for after the windows are confirmed; default none. L5–L10 and T1–T3 apply; one letter per panel inside the canvas (roi/single); panels keep ≥ 13 mm between them. (User rules, 2026-09-25/26.) | U | Code |
 | K2 | `kind: "topo"`: maps only; each panel is a block of maps whose rows × columns adapt to line and panel count on the fixed canvas (largest maps; among shapes within 10 % of that size the one with more rows; never an empty row); facet name rotated at the left of its block; the window title once above the first block; one 4-mm colour bar; no legend. (User rule, 2026-09-25.) | U | Code |
-| L9 | Display range = the analysis range (default the whole epoch); it must include 0. Not narrowed to hide activity the author has not excluded from analysis. | U | Code + interview |
+| L9 | Display range = the whole epoch (default; not asked in the interview, user 2026-09-26); `xlim_ms` only when the user asks for it. It must include 0 and is never narrowed to hide activity the author has not excluded from analysis. | U | Code |
 
 ## Style
 

@@ -42,10 +42,12 @@ Where the science is unknown, recommend "to be confirmed" — never invent a val
 
 | Round | Decide |
 |---|---|
-| 1 | Figure type: `combo` (waveforms + maps, one per component), `topo` (maps only), or `erp` (waveforms by channel: ROI mean, one figure per channel incl. `all`, or a grid; channels asked here; gray bands only if the user wants them once windows are confirmed, default none — rule K1). Role of the figure (main / one of several / supplement); journal and width; what the reader must see first (one sentence → `claim`). |
-| 2 | Key comparison → `key_comparison` and `overlay` (the compared variable goes in the same panel); groups and order (first = reference, drawn black); exclusions with reasons; trial selection (all trials or e.g. correct only → `query`; must match the trials the statistics used); what the statistics say (→ `stats_note`) and whether the intended message fits them. |
-| 3 | Components (one figure each); channels per component; windows **and their source** (rule S3; offer `windows` output only as candidates); display range (rule L9). |
-| 4 | Anything still open: polarity, colours, time-locking wording, reference wording. |
+| 1 | Figure type: `combo` (waveforms + maps, one per component), `topo` (maps only), or `erp` (waveforms by channel: ROI mean, one figure per channel incl. `all`, or a grid; channels asked here; gray bands only if the user wants them once windows are confirmed, default none — rule K1). Role of the figure (main / one of several / supplement); journal and width; what the reader must see first (one sentence → `claim`; it decides the figure type, components and channels). |
+| 2 | Key comparison → `key_comparison`, which decides `overlay` (the compared variable goes in the same panel) and how lines pair up in `colors`/`linestyles` (e.g. colour = task, line style = level); groups and order (first = reference, drawn black); exclusions with reasons; trial selection (all trials or e.g. correct only → `query`; must match the trials the statistics used); what the statistics say (→ `stats_note`) and whether the intended message fits them. |
+| 3 | Components (one figure each); channels per component; windows **and their source** (rule S3; offer `windows` output only as candidates). The display range is the whole epoch (rule L9); don't ask about it. |
+| 4 | Anything still open: polarity, colours. |
+
+`time_locked_to` and `reference` only feed the caption: read them from the preprocessing scripts and files; if they are not there, leave them out of the spec. Never ask the user for them and never fill them from memory.
 
 If the intended message and the statistics disagree (e.g. "show group differences" but no effect survived
 correction), say so plainly and offer an honest message before drawing.

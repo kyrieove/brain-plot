@@ -60,6 +60,9 @@ Two branches, both working, tests pass, everything committed and pushed
 - Microstate: never stack more than 2 conditions (use `grid`); butterfly and GFP not both in a multi-column grid;
   panel width:height 1.8–3.5; hatch low-GFP samples, no text note; resting-state figures beyond the template row are
   not wanted for now.
+- Interview: always ask `claim` and `key_comparison` (they decide type, components, overlay, line pairing); never ask
+  `time_locked_to`, `reference` (read from scripts, else omit) or the display range (whole epoch). All four stay optional
+  in the spec.
 - Figure QA stays about the figure: no reviewer-risk / manuscript-level checks (window justification, claim vs
   statistics, K choice) — user, 2026-09-26.
 - Rejected earlier: explore paging, right-hand legend column, topo "grid"/compact layouts, 8-mm colour bar, 89-mm

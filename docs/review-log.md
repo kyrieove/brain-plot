@@ -260,3 +260,7 @@ The GN slide spec (254 × 143 mm, butterfly + GFP) now fails MS10; its height wa
 ## Optional caption fields (2026-09-26, local session, commit 29b50c7)
 - `claim`, `key_comparison`, `time_locked_to`, `reference` are optional in the ERP spec (they only feed the caption);
   omitted → no caption line. CLAUDE.md: user-facing text in Chinese. Rules S1/S9 wording synced in the cloud session.
+- Interview (user, after a neutral review): `claim` and `key_comparison` are design inputs and are always asked (claim →
+  figure type, components, channels; key comparison → `overlay` and colour/line-style pairing); they stay optional in
+  the spec. `time_locked_to` and `reference` only feed the caption: read from scripts/files, else left out, never
+  asked. Display range = whole epoch, not asked (L9).
