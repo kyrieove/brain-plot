@@ -29,6 +29,7 @@ STATE_COLOURS = ["#00468B", "#ED0000", "#42B540", "#0099B4", "#925E9F", "#FDAF91
                  "#D4A017"]  # rule MS5: the reference palette, by display number
 IDENTITY_COLOURS = STATE_COLOURS + ["#B8860B", "#E75480", "#2E8B7A", "#6B4C9A", "#8B5A2B", "#5B8FF9"]
 TRACE, SOFT = "#171b21", "#5a626d"
+MAP_MAX_MM = 22.0  # largest template map on the states figure
 MM = ep.MM
 
 
@@ -231,12 +232,16 @@ def plot_states(spec, data, info, meta, ms, sphere):
     top, bottom, side = 6.0, 9.0, 4.0
     x_right = side
     if "topo" in blocks:  # rule MS6: template column at the left, one or two columns of framed maps
-        ncol = 1 if k <= 5 else 2
-        nrow = -(-k // ncol)
         n_sub = len(cells) if len(cells) <= 4 else 0  # per-cell time ranges only while they stay legible
         extra = 3.5 + 2.3 * n_sub + 1.0  # mm: state label above, one range line per cell below, spacing
-        s = min((H - top - bottom) / nrow - extra, 18.0)
-        zone = ncol * s + (ncol - 1) * 4
+        cgap = 5.0
+
+        def size(nc):  # map side for nc columns; the time panels keep at least half the canvas width
+            nr = -(-k // nc)
+            return min((H - top - bottom) / nr - extra, MAP_MAX_MM, (W / 2 - side - 6 - (nc - 1) * cgap) / nc)
+        ncol = max(range(1, 4), key=lambda nc: (round(size(nc), 1), -nc))  # rule MS6: largest maps, fewest columns
+        nrow, s = -(-k // ncol), size(ncol)
+        zone = ncol * s + (ncol - 1) * cgap
         y_top = H - top - (H - top - bottom - nrow * (s + extra)) / 2
         vmax = float(np.abs(centers).max())
         short = {c: c.split(" · ")[0] if len(cells) > 1 else "" for c in cells}
@@ -244,7 +249,7 @@ def plot_states(spec, data, info, meta, ms, sphere):
             r, cc = i % nrow, i // nrow
             sub = "\n".join(f"{short[c]} {spans[c][st][0]:.0f}–{spans[c][st][1]:.0f}".strip() if st in spans[c]
                             else f"{short[c]} —".strip() for c in cells) if n_sub else ""  # rule MS7a
-            framed_map(fig, W, H, side + cc * (s + 4), y_top - r * (s + extra) - 3.5 - s, s,
+            framed_map(fig, W, H, side + cc * (s + cgap), y_top - r * (s + extra) - 3.5 - s, s,
                        centers[st], info, sphere, vmax, col[st], f"S{i + 1}", sub, spec.get("cmap", "RdBu_r"))
         x_right = side + zone + 6
     panels = [b for b in ("butterfly", "gfp") if b in blocks]
