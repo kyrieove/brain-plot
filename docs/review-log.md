@@ -182,3 +182,6 @@ checks were confirmed to fail on the old code. Re-rendered N400 main, supplement
 - `test/test_microstate.py`: planted windows recovered to the sample, 12-ms blip merged, polarity, name alignment,
   versioning, errors. Mutations (no merge, polarity ignored) fail the tests.
 - Metaphor GN specs: `gn_manuscript/01-evokeds_grand_averages/brain-plot/specs/microstate_*.json`.
+- 2026-09-26, user: template maps looked too small next to the butterfly plot. The map column now takes 1–3 columns,
+  whichever gives the largest maps (≤ 22 mm) while the time panels keep half the canvas (K = 5: 10 → 22 mm, two
+  columns). User: "还不错".
