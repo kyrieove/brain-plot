@@ -1,4 +1,6 @@
 """Regression checks for microstate_plot.py on synthetic data: python test/test_microstate.py  (prints OK)."""
+import contextlib
+import io
 import json
 import sys
 import tempfile
@@ -75,11 +77,16 @@ for bad, text in ((dict(conditions={"A": "a", "B": "b", "C": "c"}, grid=[["A"], 
     except SystemExit as e:
         assert text in str(e), e
 
-# 0c. colour checks: ribbon text by background (MS7b); CVD distinctness recorded and warned (T7)
+# 0c. colour checks: ribbon text by background (MS7b); CVD distinctness recorded, only normal vision warned (T7)
 assert [msp.ep.ink(c) for c in ("#00468B", "#ED0000", "#FDAF91", "#D4A017")] == ["white", "white", "black", "black"]
-cc = msp.ep.colour_check(["#0099B4", "#925E9F", "#ED0000"], "test")
+with contextlib.redirect_stdout(io.StringIO()) as out:
+    cc = msp.ep.colour_check(["#0099B4", "#925E9F", "#ED0000"], "test")
 assert cc["normal"]["min_delta_e"] > 25 and cc["deutan"]["min_delta_e"] < 10  # cyan/purple merge for deuteranopes
 assert cc["deutan"]["pair"] == ["#0099b4", "#925e9f"]
+assert "WARNING" not in out.getvalue()  # colour-blind values are recorded only
+with contextlib.redirect_stdout(io.StringIO()) as out:
+    msp.ep.colour_check(["#ED0000", "#E80505"], "test")
+assert "WARNING" in out.getvalue() and "normal" in out.getvalue()
 
 # 0. polarity: a sign-flipped T1 map is T1 only when polarity is ignored
 flip = np.outer(-T[1], np.ones(20))

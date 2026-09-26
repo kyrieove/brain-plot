@@ -69,8 +69,9 @@ def cielab(lin):
 
 def colour_check(colors, what):
     """Rule T7: smallest CIE76 ΔE between the figure's categorical colours for normal vision and simulated deuteranopia
-    and protanopia (Machado 2009, severity 1). Recorded in _run.json; a warning below MIN_DELTA_E (the palette is the
-    user's choice, so the script does not stop)."""
+    and protanopia (Machado 2009, severity 1). All three are recorded in _run.json; only normal vision warns below
+    MIN_DELTA_E (user, 2026-09-26: colour-blind vision is recorded, not warned; the palette is the user's choice, so the
+    script does not stop)."""
     cols = list(dict.fromkeys(matplotlib.colors.to_hex(c) for c in colors))
     out = {}
     for vision, m in [("normal", np.eye(3))] + list(CVD.items()):
@@ -79,7 +80,7 @@ def colour_check(colors, what):
                  for j in range(i + 1, len(cols))]
         d, a, b = min(pairs, default=(np.inf, "", ""))
         out[vision] = dict(min_delta_e=round(d, 1), pair=[a, b])
-        if d < MIN_DELTA_E:
+        if vision == "normal" and d < MIN_DELTA_E:
             print(f"WARNING: {what}: {a} and {b} are hard to tell apart for {vision} vision (ΔE {d:.1f}; rule T7)")
     return out
 

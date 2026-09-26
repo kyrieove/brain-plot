@@ -17,10 +17,7 @@ Two branches, both working, tests pass, everything committed and pushed
   `microstate/`, `specs/`; names say what the figure is; re-renders get `_vNN+1`, old versions move to `_history/`.
 
 ## Next (start here)
-1. **Decision pending (ask first):** the reference microstate palette's S4 cyan `#0099B4` and S5 purple `#925E9F` are
-   ΔE 7.5 for deuteranopes (rule T7 warns on every K ≥ 5 figure). Offered: a) keep the palette, only warn;
-   b) replace S5 with a colour distinct under all three visions — compute 2–3 candidates (ΔE ≥ 10 vs all others in
-   normal/deutan/protan, `erp_plot.colour_check`) and let the user pick. Recommended b.
+1. ~~Palette decision~~ done 2026-09-26: Lancet palette kept; T7 warns on normal vision only (see review log).
 2. Offered, not started (user picks by number): 3) caption facts structured per panel (a, b, …; filter, reference,
    baseline, window source, n — facts only); 4) stop on an all-zero channel at load; 5) reviewer-risk items in the QA list.
 3. Round 6 (Codex) is fully fixed (table at the end of `docs/review-log.md`); optional round 7 on the fixes with the same
@@ -75,5 +72,8 @@ Two branches, both working, tests pass, everything committed and pushed
 - `codex exec` needs `--skip-git-repo-check` outside git repos; it failed with 401 / timeouts on 2026-09-26.
   agy (`C:/Users/ASUS/AppData/Local/agy/bin/agy.exe`, see the agy-delegate skill) worked for data tasks.
 - `gh repo create --public` is blocked by the auto-mode classifier: the user runs outward-facing commands.
+- Cloud container (Linux, matplotlib 3.11): `inside_canvas` fails with `FigureCanvasBase ... get_renderer`; use
+  `matplotlib<3.11` + `MPLBACKEND=Agg`. Even then the ERP 2 × 2 grid (`test_erp_plot.py:181`) puts its "ms" label
+  ~10 px past the right edge without Arial (also on unchanged code); on the Windows env both suites pass.
 - Never fill `reference` / `time_locked_to` from memory: read the preprocessing script (metaphor: linked mastoids
   TP9/TP10, `scripts/preprocess_eeg.py:382`).

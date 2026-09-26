@@ -226,3 +226,10 @@ The GN slide spec (254 × 143 mm, butterfly + GFP) now fails MS10; its height wa
   user's choice.
 - MS7b (from nature-figure `is_dark()`): ribbon labels black on light states (green, apricot, mustard), white otherwise.
 - Not taken yet: panel-structured caption skeleton, flat-channel guard, reviewer-risk QA list (offered to the user).
+
+## Palette decision (2026-09-26)
+- User: colour blindness is not a concern; keep the Lancet palette (MS5). Checked 9 established 10-colour palettes
+  (ggsci Lancet/NPG/AAAS, Paul Tol muted, Tableau 10 / colorblind, seaborn deep/colorblind, tab10): under normal
+  vision Lancet has the largest smallest ΔE (28.3; tab10 27.7, Tableau 10 25.9, Tol muted 22.8, NPG 20.9).
+- T7 changed: normal, deutan and protan values are all still recorded in `_run.json`; only normal vision warns below 10.
+  Test: the cyan/purple pair (deutan 7.5) prints no warning; two near-identical reds do.

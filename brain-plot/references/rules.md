@@ -46,7 +46,7 @@ The only valid rule list; each rule is stated once. Type: **U** = the user's bin
 | T4 | Topomap colour map RdBu_r (0 = white). | D | Code |
 | T5 | Arial/Helvetica at final size: titles 7 pt, facet names 7.5 pt bold, component labels 6.5 pt, ticks/legend/colour bar/map labels 6 pt, panel letters 8 pt bold; line width 0.9 pt, SEM alpha 0.15; fixed canvas `width_mm` (default 180) × `height_mm`, no tight cropping; output PNG (600 dpi) and SVG with editable text, no PDF (user rule, 2026-09-26: SVG is for adjusting by hand); `explore` also writes PNG + SVG. | U/D | Code |
 | T6 | The canvas is fixed (spec `width_mm` × `height_mm`, default 180 × 120 mm) and never derived from the content: panels, heads and gaps are fitted inside it; fonts keep their point sizes. (User rule, 2026-09-25.) | U | Code |
-| T7 | Categorical colours (lines, states, identity families) are checked for the smallest CIE76 ΔE between any two in normal vision and simulated deuteranopia/protanopia (Machado 2009); recorded in `_run.json` (`colour_distinctness`), a warning below 10. The palette stays the user's choice; the agent reports warnings. | D | Code + QA |
+| T7 | Categorical colours (lines, states, identity families) are checked for the smallest CIE76 ΔE between any two in normal vision and simulated deuteranopia/protanopia (Machado 2009); all three recorded in `_run.json` (`colour_distinctness`); only normal vision warns below 10 (user 2026-09-26: colour-blind values are recorded, not warned). The palette stays the user's choice; the agent reports warnings. | D | Code + QA |
 
 ## Explore (overview before windows are chosen)
 
@@ -87,5 +87,5 @@ Rules S1 (input contract), T5 (PNG + SVG), T6 (fixed canvas) and O1–O3 apply; 
 2. Gray band, topomap window text and caption window agree.
 3. combo/topo: no dots or other electrode marks on the maps (rule L11).
 4. `open_items` in `_run.json` is empty, or every listed field (marked "to be confirmed" / "not recorded") is reported to the user as open; `stats_note` matches what the user said.
-6. Colour warnings (T7): report any `colour_distinctness` below 10 to the user with the two colours.
+6. Colour warnings (T7): report a normal-vision `colour_distinctness` below 10 to the user with the two colours (deutan/protan values are not reported).
 5. `_run.json`: `lines`/`maps` fit the kind (combo: both = expected; erp: maps 0; topo: lines 0); `size_mm` equals the spec canvas; `legend` says where the legend went; then replace its `qa` field with the result ("passed" or the open problems).
