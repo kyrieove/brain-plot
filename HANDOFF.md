@@ -18,8 +18,8 @@ Two branches, both working, tests pass, everything committed and pushed
 
 ## Next (start here)
 - 2026-09-26 (cloud): external UX review fixed — items 1, 2, 4, 6–10 + doc (table at the end of the review log).
-  Pending: #5 ordering check on the GN K5 data (local prompt given in chat); if the rule's "median of midpoints" gives
-  a different order than the code, keep the code and change the rule text.
+  #5 done: same order on all 9 real specs, MS4 text aligned with the code. GN K5 v07 accepted. GN templates
+  (`centers_k05.npz`) have no ch_names → warning on every run; re-save them with ch_names if the order is known.
 - 2026-09-26 (cloud): README (en + zh-CN), synthetic demo (`examples/`), `requirements.txt`, spec-relative paths,
   matplotlib 3.11 / no-Arial test fixes, grid right margin 6 mm (see review log). README images = the user's own metaphor figures (`docs/images/example-erp.png`, `example-microstate.png`,
   copied by a local session; user: shared with classmates for testing, not a public release). Open for the user:

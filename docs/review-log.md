@@ -314,3 +314,6 @@ The GN slide spec (254 × 143 mm, butterfly + GFP) now fails MS10; its height wa
 - #5 (ordering formula ≠ rule text) not changed yet: checked locally first, since renumbering would change existing
   figures. Not taken (user decisions or out of scope): CVD palette, panel letters on microstate figures, submission
   export, journal questions, upstream label import, doctor/CI.
+- #5 checked locally (2026-09-26): code order = "median of midpoints" order on all 9 real specs (GN K5, metaphor
+  K3–K8 incl. grids). Code kept; MS4 text now states the code's formula. GN K5 v07 accepted by the user (boundaries
+  1 ms earlier from #4; numbering and colours unchanged).

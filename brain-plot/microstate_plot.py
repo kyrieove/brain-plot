@@ -158,7 +158,7 @@ def longest_runs(labels, ms, k):
 
 
 def display_order(spans, k):
-    """Rule MS4: states numbered by the median midpoint of their longest runs across cells; absent states last."""
+    """Rule MS4: states numbered by (median onset + median offset) / 2 of their longest runs across cells; absent last."""
     def middle(s):
         on = [v[s][0] for v in spans.values() if s in v]
         off = [v[s][1] for v in spans.values() if s in v]
