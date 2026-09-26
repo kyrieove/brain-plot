@@ -75,21 +75,29 @@ def cielab(lin):
     return np.array([116 * f[1] - 16, 500 * (f[0] - f[1]), 200 * (f[1] - f[2])])
 
 
-def colour_check(colors, what):
-    """Rule T7: smallest CIE76 ΔE between the figure's categorical colours for normal vision and simulated deuteranopia
-    and protanopia (Machado 2009, severity 1). All three are recorded in _run.json; only normal vision warns below
-    MIN_DELTA_E (user, 2026-09-26: colour-blind vision is recorded, not warned; the palette is the user's choice, so the
-    script does not stop)."""
-    cols = list(dict.fromkeys(matplotlib.colors.to_hex(c) for c in colors))
+def colour_check(colors, what, styles=None):
+    """Rule T7: smallest CIE76 ΔE between the figure's categorical encodings for normal vision and simulated
+    deuteranopia and protanopia (Machado 2009, severity 1). Two lines with the same colour and the same line style count
+    as ΔE 0 (indistinguishable); the same colour with different line styles is a deliberate second factor and is not
+    compared. All three visions are recorded in _run.json (null with fewer than two encodings); only normal vision warns
+    below MIN_DELTA_E (user, 2026-09-26: colour-blind vision is recorded, not warned; the palette is the user's choice,
+    so the script does not stop)."""
+    cols = [matplotlib.colors.to_hex(c) for c in colors]
+    sty = list(styles) if styles is not None else ["-"] * len(cols)
+    idx = [(i, j) for i in range(len(cols)) for j in range(i + 1, len(cols))
+           if not (cols[i] == cols[j] and sty[i] != sty[j])]
     out = {}
     for vision, m in [("normal", np.eye(3))] + list(CVD.items()):
         lab = [cielab(np.clip(np.array(m) @ linear_rgb(c), 0, 1)) for c in cols]
-        pairs = [(float(np.linalg.norm(lab[i] - lab[j])), cols[i], cols[j]) for i in range(len(cols))
-                 for j in range(i + 1, len(cols))]
-        d, a, b = min(pairs, default=(np.inf, "", ""))
+        pairs = [(0.0 if cols[i] == cols[j] else float(np.linalg.norm(lab[i] - lab[j])), cols[i], cols[j]) for i, j in idx]
+        if not pairs:
+            out[vision] = dict(min_delta_e=None, pair=None)
+            continue
+        d, a, b = min(pairs)
         out[vision] = dict(min_delta_e=round(d, 1), pair=[a, b])
         if vision == "normal" and d < MIN_DELTA_E:
-            print(f"WARNING: {what}: {a} and {b} are hard to tell apart for {vision} vision (ΔE {d:.1f}; rule T7)")
+            same = " (same colour and line style)" if d == 0 else ""
+            print(f"WARNING: {what}: {a} and {b} are hard to tell apart for {vision} vision (ΔE {d:.1f}{same}; rule T7)")
     return out
 
 
@@ -222,7 +230,8 @@ def archive(out):
 
 # ---------- data ----------
 def subject_id(f):
-    return re.match(r"[^_\-.]+", f.name).group(0)
+    """File name up to the first _, - or . ; BIDS names keep their label: sub-01_task-x-ave.fif → sub-01."""
+    return re.match(r"sub-[^_.]+|[^_\-.]+", f.name).group(0)
 
 
 def find_groups(data_dir):
@@ -424,24 +433,45 @@ def flat_check(spec, data, ch_names, meta):
 
 
 # ---------- inspect / windows ----------
+def discover(data_dir):
+    """Every input layout that plot accepts, without a spec: {group: [unit, …]}, where a unit is a file or, in the
+    <condition>/<group>/<subject>-ave.fif layout, {condition: file}."""
+    root = Path(data_dir)
+    if not root.is_dir():
+        die(f"{root} is not a folder")
+    groups = find_groups(root)
+    if any(groups.values()):
+        return groups
+    conds = sorted(d.name for d in root.iterdir() if d.is_dir() and any(d.glob("*/*-ave.fif")))
+    if conds:
+        return split_layout(root, conds)
+    die(f"no *-epo.fif or *-ave.fif in {root}, its group sub-folders, or <condition>/<group>/ folders")
+
+
 def inspect(data_dir):
-    groups = find_groups(data_dir)
+    groups = discover(data_dir)
     out = {"groups": {g: len(f) for g, f in groups.items()}}
     trials = {}
-    for files in groups.values():
-        for f in files:
-            if f.name.endswith("-epo.fif"):
-                ep = mne.read_epochs(f, preload=False, verbose="error")
+    for units in groups.values():  # trial counts from every file, not only the first
+        for u in units:
+            if isinstance(u, dict):
+                for c, f in u.items():
+                    trials.setdefault(c, []).append(mne.read_evokeds(f, verbose="error")[0].nave)
+            elif u.name.endswith("-epo.fif"):
+                ep = mne.read_epochs(u, preload=False, verbose="error")
                 for c in ep.event_id:
                     trials.setdefault(c, []).append(len(ep[c]))
-    f0 = next(iter(groups.values()))[0]
+            else:
+                for e in mne.read_evokeds(u, verbose="error"):
+                    trials.setdefault(e.comment, []).append(e.nave)
+    f0 = unit_files(next(iter(groups.values()))[0])[0]
     if f0.name.endswith("-epo.fif"):
         ep = mne.read_epochs(f0, preload=False, verbose="error")
         info, times, baseline, md = ep.info, ep.times, ep.baseline, ep.metadata
     else:
         ev = mne.read_evokeds(f0, verbose="error")
         info, times, baseline, md = ev[0].info, ev[0].times, ev[0].baseline, None
-        trials = {e.comment: [e.nave] for e in ev}
+    out["header_from"] = f"{f0.name} (channels, times, filter, reference: the first file only; plot checks every file)"
     out["conditions_trials_min_median_max"] = {c: [min(v), int(np.median(v)), max(v)] for c, v in trials.items()}
     out["n_channels"], out["ch_names"] = len(info.ch_names), info.ch_names
     out["has_montage"] = info.get_montage() is not None
@@ -982,7 +1012,8 @@ def plot(spec):
         plt.close(fig)
         caption(spec, comp, meta, groups, conds, out, ms, v, sphere, kind)
         write_run(spec, meta, out, comp, ms, size, n_lines, n_maps, legend=placed, gap_mm=float(gap_mm),
-                  colour_distinctness=colour_check(colors[:len(lines)], "line colours") if kind != "topo" else None,
+                  colour_distinctness=colour_check(colors[:len(lines)], "line colours", line_styles(spec, len(lines)))
+                  if kind != "topo" else None,
                   colour_limit_uV=float(v), sensor_max_uV=float(v_sensor), interpolated_max_uV=float(peak),
                   sphere_m=sphere)
         if not batch:
@@ -1009,7 +1040,7 @@ def write_run(spec, meta, out, comp, ms, size, n_lines, n_maps, **extra):
         versions=dict(mne=mne.__version__, matplotlib=matplotlib.__version__, numpy=np.__version__),
         size_mm=size, lines=n_lines, maps=n_maps,
         qa="PENDING: the agent records the visual QA result here after checking the PNG"),
-        indent=1, ensure_ascii=False), encoding="utf8")
+        indent=1, ensure_ascii=False, allow_nan=False), encoding="utf8")  # strict JSON: no NaN/Infinity
 
 
 def plot_grid(spec, data, info, meta, panels, lines, get, colors, labels, ms, t, lo, hi, negative_up, comps):
@@ -1029,7 +1060,7 @@ def plot_grid(spec, data, info, meta, panels, lines, get, colors, labels, ms, t,
         comp = dict(channels=sum(rows, []), bands=comps)
         caption(spec, comp, meta, list(data), list(spec["conditions"]), out, ms, 0, None, "erp", level=p)
         write_run(spec, meta, out, comp, ms, list(canvas_size(spec)), n, 0, legend="under the grid",
-                  colour_distinctness=colour_check(colors[:len(lines)], "line colours"))
+                  colour_distinctness=colour_check(colors[:len(lines)], "line colours", styles))
         archive(out)
         outs.append(out)
     print("wrote", *[f"{o}.png/.svg" for o in outs], sep="\n  ")

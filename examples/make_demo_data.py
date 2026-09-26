@@ -14,6 +14,8 @@ from pathlib import Path
 import mne
 import numpy as np
 
+MONTAGE = "colin27_1020" if "colin27_1020" in mne.channels.get_builtin_montages() else "standard_1020"  # MNE ≥ 1.14 drops the old name
+
 HERE = Path(__file__).parent
 SF, TMIN, TMAX = 500.0, -0.2, 0.8
 CH = ["Fp1", "Fp2", "F7", "F3", "Fz", "F4", "F8", "FC5", "FC1", "FC2", "FC6", "T7", "C3", "Cz", "C4", "T8", "CP5",
@@ -29,7 +31,7 @@ GAIN = {("Control", "standard"): {"P3": 0.35}, ("Control", "target"): {"P3": 1.0
 
 def info():
     inf = mne.create_info(CH, SF, "eeg")
-    inf.set_montage("standard_1020")
+    inf.set_montage(MONTAGE)
     return inf
 
 

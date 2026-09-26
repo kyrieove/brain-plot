@@ -11,6 +11,8 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 import mne
 import numpy as np
 
+MONTAGE = "colin27_1020" if "colin27_1020" in mne.channels.get_builtin_montages() else "standard_1020"  # MNE ≥ 1.14 drops the old name
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import microstate_plot as msp  # noqa: E402
 
@@ -44,7 +46,7 @@ def evoked(cond, seed, tmin=-0.2):
         on = (times * 1000 >= a) & (times * 1000 < b)
         x[:, on] = np.outer(T[tpl], np.full(on.sum(), 8e-6)) + x[:, on] * (tpl == 0 and b - a < 20)
     info = mne.create_info(CH, SF, "eeg")
-    info.set_montage("standard_1020")
+    info.set_montage(MONTAGE)
     return mne.EvokedArray(x, info, tmin=times[0], comment=f"x_{cond}", nave=40, baseline=None)
 
 
@@ -93,12 +95,16 @@ xs, ys = msp.under(tt, np.array([0.0, 2.0, 4.0, 6.0]), 0, 2)
 assert list(xs) == [0.0, 0.0, 4.0, 6.0] and ys[-1] == 3.0
 # 0b. round 6: more than two conditions in one grid column would stack them (MS9); ribbon needs a butterfly
 for bad, text in ((dict(conditions={"A": "a", "B": "b", "C": "c"}, grid=[["A"], ["B"], ["C"]]), "two columns"),
-                  (dict(conditions={"A": "a"}, blocks=["topo", "gfp", "ribbon"]), "'ribbon' is drawn under")):
+                  (dict(conditions={"A": "a"}, blocks=["topo", "gfp", "ribbon"]), "'ribbon' is drawn under"),
+                  (dict(conditions={"A": "Same", "B": "Same"}), "labels must be unique")):  # would merge two rows
     try:
         msp.check(dict(dict(data="x", templates="x", k=3, templates_source="x"), **bad))
         raise AssertionError(f"check accepted {bad}")
     except SystemExit as e:
         assert text in str(e), e
+
+# 0b. longest runs use the drawn boundaries (half-way between samples), like the ribbon (MS2)
+assert msp.longest_runs({"c": np.array([0, 0, 1, 1])}, tt, 2) == {"c": {0: (0.0, 6.0), 1: (6.0, 14.0)}}
 
 # 0c. colour checks: ribbon text by background (MS7b); CVD distinctness recorded, only normal vision warned (T7)
 assert [msp.ep.ink(c) for c in ("#00468B", "#ED0000", "#FDAF91", "#D4A017")] == ["white", "white", "black", "black"]
@@ -145,6 +151,17 @@ with tempfile.TemporaryDirectory() as d:
     assert "## Panels (no letters; by title)" in cap and "- NoGo: n = " in cap and "S2" not in cap.split("- NoGo")[1].split("hatched")[0]
     inside_canvas(SAVED[-1])
     gfp_label_clear(SAVED[-1])
+    # review 2026-09-26: one boundary definition — dotted lines sit half-way between a run's first sample and the
+    # previous run's last sample, like the ribbon; spans say so too
+    for ax in [a for a in SAVED[-1].axes if a.get_title() in ("Go", "NoGo")]:
+        drawn = sorted(ln.get_xdata()[0] for ln in ax.lines if ln.get_linestyle() == ":")
+        rs = run["labels_ms"][ax.get_title()]
+        assert np.allclose(drawn, [(p[1] + r[0]) / 2 for p, r in zip(rs, rs[1:])]), (drawn, rs)
+    assert np.allclose(run["spans"]["Go"]["S2"], [298, 498], atol=1e-3), run["spans"]["Go"]  # planted 300–496 ms, samples every 4 ms
+    # templates without ch_names: warned, stated in the caption, content digest recorded; strict JSON
+    assert run["templates_meta"][0]["channel_order"].startswith("assumed") and len(run["templates_meta"][0]["md5"]) == 32
+    assert "no channel names stored" in cap and set(run["code_md5"]) == {"microstate_plot.py", "erp_plot.py"}
+    assert "Infinity" not in Path(f"{out}_run.json").read_text(encoding="utf8")
 
     # 2. templates named by channel are aligned by name; the result is identical
     order = list(reversed(CH))
@@ -153,6 +170,8 @@ with tempfile.TemporaryDirectory() as d:
     run2 = json.loads(Path(f"{out2}_run.json").read_text(encoding="utf8"))
     assert out2.name.endswith("_v02") and (out.parent / "_history" / f"{out.name}.png").exists()  # rule O2
     assert run2["labels_ms"] == run["labels_ms"]
+    assert run2["templates_meta"][0]["channel_order"].startswith("by name")
+    assert "no channel names stored" not in Path(f"{out2}_caption.md").read_text(encoding="utf8")
     assert "low_gfp_fraction" not in run2 and "atched" not in Path(f"{out2}_caption.md").read_text(encoding="utf8")  # MS3 opt-in
 
     # 3. GFP block, per-group rows, across-K identity colours (K=2's templates are K=3's T2 and T1)
@@ -162,7 +181,7 @@ with tempfile.TemporaryDirectory() as d:
                   height_mm=120))
     inside_canvas(SAVED[-1])
     # rule MS9: more than two rows need a grid; a 1 × 2 grid puts the maps in a row above it
-    fails(spec(root, per_group=True), "give 'grid'")
+    fails(spec(root, per_group=True), "draw one figure per group")  # review: grid + per_group was a dead end
     out4 = msp.plot(spec(root, grid=[["A", "B"]], height_mm=75))
     fig = SAVED[-1]
     inside_canvas(fig)

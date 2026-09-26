@@ -22,7 +22,7 @@ python erp_plot.py explore <explore.json>
 ```
 3 × 3 waveforms (F3 Fz F4 / C3 Cz C4 / P3 Pz P4) plus a condition × component topomap table, optionally with
 difference maps. Keys: `references/spec.md`, section Explore. Windows read off these figures are still
-candidates; their source must be stated in round 3 (rule S3). Explore writes no `_run.json` and needs no QA
+candidates for the user to fix in round 3. Explore writes no `_run.json` and needs no QA
 record (rules E1–E3); just look at the PNGs before showing them.
 
 ## 1. Inspect — facts are your job, not the user's

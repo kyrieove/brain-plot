@@ -297,3 +297,20 @@ The GN slide spec (254 × 143 mm, butterfly + GFP) now fails MS10; its height wa
   Both suites now pass on matplotlib 3.10 and 3.11 with DejaVu Sans.
 - Microstate map labels printed "-0" for a run starting at the first sample; now integers.
 - Seen, not changed: with `hatch: true` the ribbon's S# labels are hard to read over the hatching.
+
+## User-experience review (2026-09-26, external, on c5c033b) — fixes
+| # | Finding (confirmed by reproduction) | Fix | Test |
+|---|---|---|---|
+| 1 | microstate: two conditions with one label merged silently | labels must be unique (`check`); drawn rows = requested rows | check list; plot |
+| 2 | templates without `ch_names` only count-checked | warning + caption line + `templates_meta.channel_order` | microstate 1, 2 |
+| 4 | three boundary definitions (ribbon half-way, spans end-of-sample, dotted lines at run start) | spans and dotted lines use `edges()`; `time_semantics` in `_run.json` | 0b; dotted lines vs `labels_ms` |
+| 6 | `inspect` crashed on `<condition>/<group>/` data; evoked trials from the first file only | `discover()` covers every layout; trials from every file; `header_from`; clear error on empty folders | erp 0d |
+| 7 | `sub-01_…` and `sub-02_…` both parsed as `sub` | BIDS `sub-<label>` kept | erp 0d |
+| 8 | `per_group` > 2 rows pointed to `grid`, which `per_group` refuses | message: one figure per group | microstate 3 |
+| 9 | identical colours → ΔE Infinity, no warning; `Infinity` in `_run.json` | colour + line style compared; same/same = 0 and warned; < 2 encodings → null; `allow_nan=False` | erp 0d, strict JSON |
+| 10 | provenance: no template content digest; microstate code digest missed `erp_plot.py` | `templates_meta.md5`; `code_md5` for both scripts | microstate 1 |
+| doc | SKILL explore paragraph still required a window source | removed | — |
+| — | MNE 1.13 deprecates the montage name `standard_1020` (gone in 1.14) | tests and demo use `colin27_1020` when available | both suites |
+- #5 (ordering formula ≠ rule text) not changed yet: checked locally first, since renumbering would change existing
+  figures. Not taken (user decisions or out of scope): CVD palette, panel letters on microstate figures, submission
+  export, journal questions, upstream label import, doctor/CI.

@@ -1,4 +1,6 @@
 """Regression checks on synthetic data: python test/test_erp_plot.py  (prints OK or fails on an assert)."""
+import contextlib
+import io
 import json
 import sys
 import tempfile
@@ -9,6 +11,8 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 import mne
 import numpy as np
 
+MONTAGE = "colin27_1020" if "colin27_1020" in mne.channels.get_builtin_montages() else "standard_1020"  # MNE ≥ 1.14 drops the old name
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import erp_plot as ep  # noqa: E402
 
@@ -17,7 +21,7 @@ CH = ["Fz", "Cz", "Pz", "Oz", "F3", "F4", "C3", "C4", "P3", "P4", "O1", "O2", "T
 
 def make_subject(path, conds, tmin=-0.2, n_t=301, seed=0, bads=(), flat=()):
     info = mne.create_info(CH, 500.0, "eeg")
-    info.set_montage("standard_1020")
+    info.set_montage(MONTAGE)
     info["bads"] = list(bads)
     rng = np.random.default_rng(seed)
     x = [rng.normal(0, 2e-6, (len(CH), n_t)) for _ in conds]
@@ -85,6 +89,35 @@ with tempfile.TemporaryDirectory() as d:
     p.write_text(json.dumps(dict(data=str(Path(d).resolve()), conditions={"A": "a"})), encoding="utf8")
     assert ep.read_spec(p)["data"] == str(Path(d).resolve())
 
+# 0d. review 2026-09-26: BIDS subject IDs; colour check on colour + line style; inspect on every input layout
+assert [ep.subject_id(Path(n)) for n in ("sub-01_task-erp-ave.fif", "sub-02_task-erp-ave.fif", "s07_x-epo.fif")] == \
+    ["sub-01", "sub-02", "s07"]
+with contextlib.redirect_stdout(io.StringIO()) as o:
+    same = ep.colour_check(["red", "red"], "t")                       # same colour, same (solid) line: indistinguishable
+assert same["normal"] == {"min_delta_e": 0.0, "pair": ["#ff0000", "#ff0000"]} and "same colour and line style" in o.getvalue()
+assert ep.colour_check(["red", "red"], "t", ["-", "--"])["normal"]["min_delta_e"] is None  # style encodes the factor
+assert ep.colour_check(["red"], "t")["deutan"] == {"min_delta_e": None, "pair": None}
+with tempfile.TemporaryDirectory() as d:
+    root = Path(d) / "data"
+    info = mne.create_info(CH, 500.0, "eeg")
+    info.set_montage(MONTAGE)
+    for c in ("A", "B"):  # <condition>/<group>/<subject>-ave.fif
+        for g, n in (("G1", 2), ("G2", 1)):
+            (root / c / g).mkdir(parents=True)
+            for i in range(n):
+                mne.EvokedArray(np.zeros((len(CH), 20)) + 1e-6, info, tmin=-0.01, comment=c, nave=20 + i).save(
+                    root / c / g / f"sub-{g}{i}_{c}-ave.fif", verbose="error")
+    with contextlib.redirect_stdout(io.StringIO()) as o:
+        ep.inspect(root)
+    got = json.loads(o.getvalue())
+    assert got["groups"] == {"G1": 2, "G2": 1} and got["conditions_trials_min_median_max"]["A"] == [20, 20, 21], got
+    (Path(d) / "empty").mkdir()
+    try:
+        ep.inspect(Path(d) / "empty")
+        raise AssertionError("inspect accepted an empty folder")
+    except SystemExit as e:
+        assert "no *-epo.fif or *-ave.fif" in str(e), e
+
 # 0. numbers: ROI = mean of channels within subject; SEM over subjects; topography = window mean
 x = np.zeros((3, 2, 5))
 x[:, 0] = np.array([1.0, 2.0, 6.0])[:, None]  # channel 0 per subject
@@ -119,6 +152,7 @@ with tempfile.TemporaryDirectory() as d:
     ep.plot(spec(root, xlim_ms=[-100, 400], error="sem"))
     run = json.loads(latest(root, "ERP_topo", "ERP-topo_P3_*_run.json").read_text(encoding="utf8"))
     assert run["lines"] == run["maps"] == 3 * 2
+    assert "Infinity" not in latest(root, "ERP_topo", "ERP-topo_P3_*_run.json").read_text(encoding="utf8")  # strict JSON
     assert run["legend"] in ("between panels", "widened gap"), run["legend"]  # default legend path (rule L7)
     assert run["open_items"] == []
     svg = latest(root, "ERP_topo", "ERP-topo_P3_*.svg").read_text(encoding="utf8")
@@ -266,7 +300,7 @@ with tempfile.TemporaryDirectory() as d:
     root.mkdir()
     import pandas as pd
     info = mne.create_info(CH, 500.0, "eeg")
-    info.set_montage("standard_1020")
+    info.set_montage(MONTAGE)
     for i, g in enumerate(["HI", "HI", "LO"]):
         ev = np.repeat([1, 2], 5)
         md = pd.DataFrame(dict(WM=[g] * 10))

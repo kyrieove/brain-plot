@@ -65,6 +65,9 @@ def check(spec):
         ep.die("grid: rows of condition keys using every condition exactly once (not with per_group) — rule MS9")
     if g and len(spec["conditions"]) > 2 and max(len(r) for r in g) < 2:
         ep.die("grid: more than two conditions need at least two columns; one column would stack them (rule MS9)")
+    labels = list(spec["conditions"].values())
+    if len(set(labels)) != len(labels):
+        ep.die(f"condition labels must be unique (each names one row of panels): {labels}")
     if "templates_source" in spec and not ep.text(spec["templates_source"]):
         ep.die("templates_source must be a non-empty string when given")
     if not isinstance(spec.get("hatch", False), bool):
@@ -93,6 +96,9 @@ def load_templates(spec, k, info):
         c = c[:, [names.index(ch) for ch in info.ch_names]]
     elif c.shape[1] != len(info.ch_names):
         ep.die(f"{path.name}: {c.shape[1]} template channels, {len(info.ch_names)} in the data (order must match)")
+    else:
+        print(f"WARNING: {path.name} has no ch_names; its columns are assumed to follow the data's channel order "
+              f"({', '.join(info.ch_names[:4])}, …). Save ch_names with the templates to have them matched by name.")
     c = c - c.mean(1, keepdims=True)
     norm = np.linalg.norm(c, axis=1, keepdims=True)
     if not np.isfinite(c).all() or not (norm > 1e-12).all():
@@ -140,14 +146,13 @@ def segment(x, centers, sfreq, min_ms, sensitive):
 
 
 def longest_runs(labels, ms, k):
-    """Per cell: state → (onset, offset) ms of its longest run (offset = end of its last sample)."""
-    step = ms[1] - ms[0]
+    """Per cell: state → (onset, offset) ms of its longest run, as drawn: edges() (half-way between samples, rule MS2)."""
     out = {}
     for cell, lab in labels.items():
         best = {}
         for a, b, s in runs(lab):
             if b - a > best.get(s, (0,))[0]:
-                best[s] = (b - a, float(ms[a]), float(ms[b - 1] + step))
+                best[s] = (b - a, *map(float, edges(ms, a, b)))
         out[cell] = {s: v[1:] for s, v in best.items()}
     return out
 
@@ -274,6 +279,9 @@ def plot_states(spec, data, info, meta, ms, sphere):
     w = window_mask(spec, ms)
     centers, tpath = load_templates(spec, k, info)
     cells = cells_of(spec, data, meta)
+    want = len(spec["conditions"]) * (len(data) if spec.get("per_group") else 1)
+    if len(cells) != want:  # every requested condition (× group) is one row, never merged
+        ep.die(f"{len(cells)} rows for {want} requested conditions (× groups); row names must be unique")
     sens = spec.get("polarity", "sensitive") == "sensitive"
     labels = {c: segment(x[:, w], centers, info["sfreq"], spec.get("min_segment_ms", 30), sens) for c, (x, _) in cells.items()}
     lows = {c: low_gfp(x, ms, w) if spec.get("hatch") else np.zeros(w.sum(), bool)  # rule MS3: opt-in
@@ -289,6 +297,10 @@ def plot_states(spec, data, info, meta, ms, sphere):
         grid = [[spec["conditions"][c] for c in row] for row in spec["grid"]]
     elif len(names) <= 2:
         grid = [[c] for c in names]
+    elif spec.get("per_group"):
+        ep.die(f"per_group gives {len(names)} rows (conditions × groups); at most 2 can be stacked and 'grid' takes "
+               "conditions only — draw one figure per group instead (e.g. \"groups\": [\"" + list(data)[0] + "\"], no "
+               "per_group) — rule MS9")
     else:
         ep.die(f"{len(names)} rows of time panels would be stacked; give 'grid' (rows × columns of condition keys, "
                "e.g. [[\"Hmet\",\"Hlit\",\"Hrep\"],[\"Lmet\",\"Llit\",\"Lrep\"]]) — rule MS9")
@@ -350,7 +362,7 @@ def plot_states(spec, data, info, meta, ms, sphere):
             y0 = y_grid - (r + 1) * row_h - r * gap
             lab, low = labels[cell], lows[cell]
             gfp = x[:, w].std(0)
-            bounds = [t[a] for a, _, _ in runs(lab)[1:]]
+            bounds = [edges(t, a, b)[0] for a, b, _ in runs(lab)[1:]]  # rule MS2: same boundaries as the ribbon
             xx = x_right + c_i * (cell_w + cgap) + ylab
             for p, pw in zip(panels, widths):
                 ax = mm_axes(fig, W, H, xx, y0 + rib + (1.0 if rib else 0), pw, ph)
@@ -485,17 +497,27 @@ def caption(spec, meta, out, paths, facts):
     if "spans" not in facts:
         L.append(f"- Colours: one per template identity across K (signed r ≥ {spec.get('identity_threshold', 0.9)} with the "
                  "family's first template); numbers within a row by median latency")
-    L.append(f"- Maps: templates, symmetric colour scale, no electrode marks; MNE {mne.__version__}")
+    L.append(f"- Maps: templates after average reference and unit norm (unitless), symmetric colour scale, no electrode "
+             f"marks; MNE {mne.__version__}")
+    if any(not m["channel_order"].startswith("by name") for m in facts["templates_meta"]):
+        L.append("- Template channels: no channel names stored; columns assumed to follow the data's channel order")
     L += ["", "## Panels (no letters; by title)", ""]
     if "spans" in facts:
         for c, sp in facts["spans"].items():
             runs_ = "; ".join(f"{s} {round(a)}–{round(b)} ms" for s, (a, b) in sorted(sp.items(), key=lambda x: int(x[0][1:])))
-            L.append(f"- {c}: n = {facts['cells'][c]}; longest run per state: {runs_}"
+            L.append(f"- {c}: n = {facts['cells'][c]}; longest run per state (boundaries half-way between samples): {runs_}"
                      + (f"; hatched {facts['low_gfp_fraction'][c]:.0%} of the window" if "low_gfp_fraction" in facts else ""))
     else:
         L += [f"- K = {kk}: {len(fam)} templates, numbered S1–S{len(fam)}" for kk, fam in
               ((key[1:], v) for key, v in facts["families"].items())]
     Path(f"{out}_caption.md").write_text("\n".join(L) + "\n", encoding="utf8")
+
+
+def template_meta(path):
+    """Rule MS1 provenance: content digest of a template file and how its channels were matched."""
+    named = path.suffix == ".npz" and "ch_names" in np.load(path, allow_pickle=False)
+    return dict(file=str(path), md5=hashlib.md5(path.read_bytes()).hexdigest(),
+                channel_order="by name (ch_names in the file)" if named else "assumed = data channel order (no ch_names)")
 
 
 def plot(spec):
@@ -510,13 +532,17 @@ def plot(spec):
     for ext in ("svg", "png"):  # rule T5
         fig.savefig(f"{out}.{ext}", dpi=600 if ext == "png" else None)
     plt.close(fig)
+    facts["templates_meta"] = [template_meta(p) for p in paths]
     caption(spec, meta, out, paths, facts)
     Path(f"{out}_run.json").write_text(json.dumps(dict(
         spec=spec, templates=[str(p) for p in paths], **facts, inputs=meta["inputs"], ids=meta["ids"],
-        contract=meta["contract"], code_md5=hashlib.md5(Path(__file__).read_bytes()).hexdigest(),
+        contract=meta["contract"], code_md5={f.name: hashlib.md5(f.read_bytes()).hexdigest() for f in
+                                             (Path(__file__), Path(ep.__file__))},
+        time_semantics="labels_ms: centres of each run's first and last sample; spans (and every drawn boundary): "
+                       "half-way between samples (rule MS2)",
         size_mm=list(fig.get_size_inches() / MM), versions=dict(mne=mne.__version__, matplotlib=matplotlib.__version__),
         qa="PENDING: the agent records the visual QA result here after checking the PNG"),
-        indent=1, ensure_ascii=False, default=float), encoding="utf8")
+        indent=1, ensure_ascii=False, default=float, allow_nan=False), encoding="utf8")  # strict JSON
     ep.archive(out)  # rule O2: older versions move only now that this one is complete
     print("wrote", f"{out}.png/.svg")
     return out

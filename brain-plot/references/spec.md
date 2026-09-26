@@ -12,7 +12,7 @@ Outputs go to `brain-plot/` next to the data folder (rules O1–O3): `ERP_topo/E
 
 | Key | Meaning |
 |---|---|
-| `data` | Folder with one `*-epo.fif` or `*-ave.fif` per subject; sub-folders are groups. Subject ID = file name up to the first `_`, `-` or `.`. |
+| `data` | Folder with one `*-epo.fif` or `*-ave.fif` per subject; sub-folders are groups. Subject ID = file name up to the first `_`, `-` or `.`; BIDS names keep their label (`sub-01_task-x-ave.fif` → `sub-01`). |
 | `conditions` | `{file_key: label}`; file_key is the event name (epochs) or comment (evoked). Order = panel/line order. |
 | `components` | combo/topo: list of `{name, channels, tmin_ms, tmax_ms}` (+ optional `window_source`); one figure each. erp: optional gray bands `{name, tmin_ms, tmax_ms}` (+ optional `window_source`) (no channels), default none. `name`: letters/digits/`_`/`-`, unique ignoring case (it becomes a file name). `channels`: non-empty, no repeats. The window must lie inside `xlim_ms`. `window_source` (optional, caption only): where the window comes from, if the author wants it in the caption. |
 
