@@ -35,7 +35,7 @@ Plan: `docs/plan-2026-09-26.md` (revised: the skill only draws; no localizer). R
 - Microstate branch done (plan `docs/plan-microstate.md`, rules MS1–MS8, `microstate_plot.py`,
   `test/test_microstate.py`). GN v10 examples: `C:\Users\ASUS\Dropbox\metaphor_production\gn_manuscript\01-evokeds_grand_averages\brain-plot\`
   (specs in its `specs/`, figures in `microstate/`).
-- Next: external review of both branches (astra via codex was failing: 401, then timeouts); `qa` fields of the
+- Next: Codex full review, brief in `docs/review-request-round6.md` → `docs/astra-review-round6.md`; `qa` fields of the
   metaphor v01 figures are still PENDING.
 
 ## Rejected by the user (don't redo)
