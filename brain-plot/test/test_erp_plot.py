@@ -121,6 +121,13 @@ with tempfile.TemporaryDirectory() as d:
     run = json.loads(latest(root, "ERP_topo", "ERP-topo_P3_*_run.json").read_text(encoding="utf8"))
     assert run["legend"] == "inside panel" and run["open_items"] == ["time_locked_to"]
     assert "OPEN (not confirmed): time_locked_to" in latest(root, "ERP_topo", "ERP-topo_P3_*_caption.md").read_text(encoding="utf8")
+    s = spec(root)  # claim, key_comparison, time_locked_to, reference are optional; their caption lines drop out
+    for k in ("claim", "key_comparison", "time_locked_to", "reference"):
+        s.pop(k)
+    ep.plot(s)
+    cap = latest(root, "ERP_topo", "ERP-topo_P3_*_caption.md").read_text(encoding="utf8")
+    assert "- Baseline " in cap and not any(
+        w in cap for w in ("Claim:", "Key comparison:", "Time-locked to", "reference:")), cap
 
     # 3. spec and input errors stop the script
     fails(spec(root, difference=["A", "B"]), "unsupported spec keys")
