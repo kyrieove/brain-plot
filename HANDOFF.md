@@ -17,15 +17,21 @@ Two branches, both working, tests pass, everything committed and pushed
   `microstate/`, `specs/`; names say what the figure is; re-renders get `_vNN+1`, old versions move to `_history/`.
 
 ## Next (start here)
-1. ~~Palette decision~~ done 2026-09-26: Lancet palette kept; T7 warns on normal vision only (see review log).
-2. ~~Offered 3–5~~ done 2026-09-26 in the cloud session (per-panel caption facts S9, flat-channel stop S10, reviewer
-   risks QA 6), GFP label placement (MS7c), caption tidy. Verified locally 2026-09-26: main = 8f1896e, both suites OK,
-   K5 v05 (NoGO label now at ~20–55 ms, clear of traces) and N400 v03 pass QA; N400 still has open claim/time_locked_to. Reviewer-risk list dropped (user: a writing concern, not a figure one); QA 6
-   keeps only baseline visibility and a dominated map scale.
-3. Round 6 (Codex) is fully fixed (table at the end of `docs/review-log.md`); optional round 7 on the fixes with the same
-   brief `docs/review-request-round6.md`.
-4. Run the agent-level eval cases `brain-plot/evals/cases.md` once in fresh sessions (manual).
-5. `qa` fields of the metaphor v01 figures are still PENDING.
+Done on 2026-09-26 (details in `docs/review-log.md`, newest at the bottom): Lancet palette kept, T7 warns on normal
+vision only; per-panel caption facts (S9); flat-channel stop with `flat_channels` (S10); GFP label clear of traces
+(MS7c); reviewer-risk QA dropped (QA 6 = baseline visibility + dominated map scale only); caption fields optional
+(local commit 29b50c7); interview: always ask `claim`/`key_comparison`, never ask `time_locked_to`/`reference`/display
+range. Verified locally: both suites OK, GN K5 v05 and metaphor N400 v03 pass QA.
+
+1. Sync first if the local clone is behind: `git fetch origin && git merge --ff-only origin/claude/bold-gates-u9nx46`
+   (the cloud branch holds the latest doc-only commits; main = 29b50c7 until then).
+2. Open question for the user (asked, not answered): interview round 2 still checks "whether the intended message fits
+   the statistics" and says to flag a mismatch — at odds with "writing concerns are not the figure's". Drop it?
+3. Metaphor N400 spec: `time_locked_to` is "TO BE CONFIRMED" → under the new rule read it from the scripts or delete
+   the key (no question to the user); `claim` still marked to be confirmed.
+4. Optional: round 7 review on the round-6 fixes (brief `docs/review-request-round6.md`); run `brain-plot/evals/cases.md`
+   in fresh sessions (manual); `qa` of the metaphor v01 figures still PENDING (superseded versions may not need it).
+5. Local commits show author `xburner23412`, not `kyrieove` — check `git config user.name/user.email` if unintended.
 
 ## Use
 - Any session: `/brain-plot <data_dir>` (skill linked at `~/.claude/skills/brain-plot` → `C:\dev\brain-plot\brain-plot`).
@@ -33,6 +39,9 @@ Two branches, both working, tests pass, everything committed and pushed
   with `--no-deps` on 2026-09-26; MNE untouched).
 - Tests: `python brain-plot/test/test_erp_plot.py` and `python brain-plot/test/test_microstate.py` → both `OK`.
 - Commit + push after every tested change set (user rule); commit messages end with the Co-Authored-By line.
+- `CLAUDE.md`: all user-facing text in Chinese; files for agents stay English.
+- Cloud sessions work on a fresh clone (branch `claude/bold-gates-u9nx46`); the user merges it locally and runs
+  anything that needs the real data, pasting results back.
 
 ## Key files
 | File | What |
