@@ -31,26 +31,23 @@ record (rules E1–E3); just look at the PNGs before showing them.
 python erp_plot.py inspect <data_dir>
 ```
 Also read the study's own notes if they exist (analysis plan, results, preprocessing log) to learn the
-hypotheses, analysed components and windows, exclusions, reference, stimulus timing and statistical results.
+analysed components and windows, exclusions, reference and stimulus timing.
 Never ask the user for something you can read.
 
 ## 2. Interview in rounds (grilling)
 
 Ask only what the data and notes cannot settle. Each round: every question whose prerequisites are settled,
 numbered, each with your recommended answer and one line of why. Wait for answers, then the next round.
-Where the science is unknown, recommend "to be confirmed" — never invent a value just so the user can say "ok".
+Where something is unknown and only feeds the caption, leave it out of the spec — never invent a value just so the user can say "ok".
 
 | Round | Decide |
 |---|---|
-| 1 | Figure type: `combo` (waveforms + maps, one per component), `topo` (maps only), or `erp` (waveforms by channel: ROI mean, one figure per channel incl. `all`, or a grid; channels asked here; gray bands only if the user wants them once windows are confirmed, default none — rule K1). Role of the figure (main / one of several / supplement); journal and width; what the reader must see first (one sentence → `claim`; it decides the figure type, components and channels). |
-| 2 | Key comparison → `key_comparison`, which decides `overlay` (the compared variable goes in the same panel) and how lines pair up in `colors`/`linestyles` (e.g. colour = task, line style = level); groups and order (first = reference, drawn black); exclusions with reasons; trial selection (all trials or e.g. correct only → `query`; must match the trials the statistics used); what the statistics say (→ `stats_note`) and whether the intended message fits them. |
-| 3 | Components (one figure each); channels per component; windows **and their source** (rule S3; offer `windows` output only as candidates). The display range is the whole epoch (rule L9); don't ask about it. |
+| 1 | Figure type: `combo` (waveforms + maps, one per component), `topo` (maps only), or `erp` (waveforms by channel: ROI mean, one figure per channel incl. `all`, or a grid; channels asked here; gray bands only if the user wants them once windows are confirmed, default none — rule K1). Width (`width_mm`, e.g. 180 for double column); what the reader must see first (one sentence → `claim`; it decides the figure type, components and channels). |
+| 2 | Key comparison → `key_comparison`, which decides `overlay` (the compared variable goes in the same panel) and how lines pair up in `colors`/`linestyles` (e.g. colour = task, line style = level); groups and order (first = reference, drawn black); exclusions; trial selection (all trials or e.g. correct only → `query`). |
+| 3 | Components (one figure each); channels per component; windows (offer `windows` output only as candidates; don't ask where a window comes from — rule S3). The display range is the whole epoch (rule L9); don't ask about it. |
 | 4 | Anything still open: polarity, colours. |
 
 `time_locked_to` and `reference` only feed the caption: read them from the preprocessing scripts and files; if they are not there, leave them out of the spec. Never ask the user for them and never fill them from memory.
-
-If the intended message and the statistics disagree (e.g. "show group differences" but no effect survived
-correction), say so plainly and offer an honest message before drawing.
 
 Candidate windows, if the user wants help (a combo/topo spec whose components carry ROI `channels`; search ranges in `tmin_ms`/`tmax_ms`; `kind: "erp"` bands have no channels and are refused):
 ```
@@ -86,9 +83,9 @@ If the script stops on flat channels (rule S10), ask whether they are the refere
 
 For microstate figures use `microstate_plot.py` (rules MS1–MS8, spec section "Microstate spec"). Read the analysis's
 docs, locked config and model files first: templates path, subjects and exclusions, window, polarity mode, minimum
-segment length. Ask only: which K (or which K range for `by-K`), the figure's role, which conditions (and groups), which
+segment length. Ask only: which K (or which K range for `by-K`), which conditions (and groups), which
 blocks. Confirm the spec, run `python microstate_plot.py plot <spec.json>`, check the PNG (maps framed and numbered
-in time order, ribbon and map labels agree, hatching only where GFP is at baseline level), record `qa` in `_run.json`.
+in time order, ribbon and map labels agree; with `hatch`, hatching only where GFP is at baseline level), record `qa` in `_run.json`.
 
 Agent-level eval cases (trigger and behaviour): `evals/cases.md`.
 

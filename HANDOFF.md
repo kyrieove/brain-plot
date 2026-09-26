@@ -23,15 +23,14 @@ vision only; per-panel caption facts (S9); flat-channel stop with `flat_channels
 (local commit 29b50c7); interview: always ask `claim`/`key_comparison`, never ask `time_locked_to`/`reference`/display
 range. Verified locally: both suites OK, GN K5 v05 and metaphor N400 v03 pass QA.
 
-1. Sync first if the local clone is behind: `git fetch origin && git merge --ff-only origin/claude/bold-gates-u9nx46`
-   (the cloud branch holds the latest doc-only commits; main = 29b50c7 until then).
-2. Open question for the user (asked, not answered): interview round 2 still checks "whether the intended message fits
-   the statistics" and says to flag a mismatch — at odds with "writing concerns are not the figure's". Drop it?
-3. Metaphor N400 spec: `time_locked_to` is "TO BE CONFIRMED" → under the new rule read it from the scripts or delete
-   the key (no question to the user); `claim` still marked to be confirmed.
-4. Optional: round 7 review on the round-6 fixes (brief `docs/review-request-round6.md`); run `brain-plot/evals/cases.md`
+1. Done later on 2026-09-26 (local): everything that only feeds the caption or polices the analysis is optional or gone —
+   `window_source`, exclusion reasons (`exclude` may be a list), `templates_source`; no questions on statistics, the
+   figure's role, journal or window source; S3/E3 no longer police window choice; microstate hatching is opt-in
+   (`hatch: true`, MS3) and without it no baseline is needed. Metaphor `n400_spec.json`: `time_locked_to` and `claim`
+   deleted, so its next render should have no open items.
+2. Optional: round 7 review on the round-6 fixes (brief `docs/review-request-round6.md`); run `brain-plot/evals/cases.md`
    in fresh sessions (manual); `qa` of the metaphor v01 figures still PENDING (superseded versions may not need it).
-5. Local commits show author `xburner23412`, not `kyrieove` — check `git config user.name/user.email` if unintended.
+3. Local commits show author `xburner23412`, not `kyrieove` — check `git config user.name/user.email` if unintended.
 
 ## Use
 - Any session: `/brain-plot <data_dir>` (skill linked at `~/.claude/skills/brain-plot` → `C:\dev\brain-plot\brain-plot`).

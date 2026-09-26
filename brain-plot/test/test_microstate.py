@@ -120,7 +120,7 @@ with tempfile.TemporaryDirectory() as d:
     np.savez(root / "k02.npz", centers=T[[2, 1]])
 
     # 1. segmentation recovers the planted windows (one sample = 4 ms), merges the 12-ms blip, numbers by latency
-    out = msp.plot(spec(root))
+    out = msp.plot(spec(root, hatch=True))
     run = json.loads(Path(f"{out}_run.json").read_text(encoding="utf8"))
     assert out.name == "topo-butterfly-ribbon_K3_A-B_v01" and out.parent.name == "microstate"
     assert run["order_by_display"] == [1, 0, 2], run["order_by_display"]  # T1 first, then T0, then T2
@@ -141,9 +141,11 @@ with tempfile.TemporaryDirectory() as d:
     # 2. templates named by channel are aligned by name; the result is identical
     order = list(reversed(CH))
     np.savez(root / "k03.npz", centers=T[:, [CH.index(c) for c in order]], ch_names=np.array(order))
-    out2 = msp.plot(spec(root))
+    out2 = msp.plot(spec(root, exclude=[]))
+    run2 = json.loads(Path(f"{out2}_run.json").read_text(encoding="utf8"))
     assert out2.name.endswith("_v02") and (out.parent / "_history" / f"{out.name}.png").exists()  # rule O2
-    assert json.loads(Path(f"{out2}_run.json").read_text(encoding="utf8"))["labels_ms"] == run["labels_ms"]
+    assert run2["labels_ms"] == run["labels_ms"]
+    assert "low_gfp_fraction" not in run2 and "atched" not in Path(f"{out2}_caption.md").read_text(encoding="utf8")  # MS3 opt-in
 
     # 3. GFP block, per-group rows, across-K identity colours (K=2's templates are K=3's T2 and T1)
     fails(spec(root, blocks=["topo", "butterfly", "gfp", "ribbon"], per_group=True, groups=["G1"], width_mm=254,
@@ -196,6 +198,9 @@ with tempfile.TemporaryDirectory() as d:  # no pre-stimulus samples: low GFP can
         (root / "ev" / cond / "G").mkdir(parents=True)
         evoked(cond, 1, tmin=0.0).save(root / "ev" / cond / "G" / f"s1_{cond}-ave.fif", verbose="error")
     np.savez(root / "k03.npz", centers=T)
-    fails(spec(root), "no pre-stimulus samples")
+    fails(spec(root, hatch=True), "no pre-stimulus samples")
+    s = spec(root)
+    s.pop("templates_source")
+    msp.plot(s)  # no hatch, no templates_source: draws without a baseline
 
 print("OK")

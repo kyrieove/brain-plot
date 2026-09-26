@@ -43,8 +43,14 @@ REQUIRED = {"data", "conditions"}
 OPTIONAL = {"claim", "key_comparison", "time_locked_to", "reference", "kind", "groups", "exclude", "query", "overlay", "ordered", "colors", "xlim_ms", "polarity", "width_mm",
             "height_mm", "cmap", "stats_note", "group_by", "linestyles", "error", "components", "channels", "layout",
             "flat_channels"}
-COMPONENT_KEYS = {"name", "channels", "tmin_ms", "tmax_ms", "window_source"}
+COMPONENT_KEYS = {"name", "channels", "tmin_ms", "tmax_ms"}  # + optional window_source (caption only)
 TOPO = dict(contours=8, extrapolate="head", image_interp="cubic")  # recorded in every caption; sphere: common_sphere()
+
+
+def excluded(spec):
+    """Caption text for spec exclude: a list of IDs, or {ID: reason} with the reason optional."""
+    ex = spec["exclude"]
+    return "; ".join(f"{i} ({ex[i]})" if isinstance(ex, dict) and ex[i] else str(i) for i in ex)
 
 
 def die(msg):
@@ -113,8 +119,10 @@ def check_spec(spec):
         die("polarity must be 'positive_up' or 'negative_up'")
     if not isinstance(spec["conditions"], dict) or not spec["conditions"]:
         die("conditions must be a non-empty {file_key: label} mapping")
-    if not isinstance(spec.get("exclude", {}), dict) or not all(text(r) for r in spec.get("exclude", {}).values()):
-        die("exclude must be {subject_id: non-empty reason}")
+    ex = spec.get("exclude", {})
+    if not (isinstance(ex, list) and all(text(i) for i in ex)
+            or isinstance(ex, dict) and all(isinstance(r, str) for r in ex.values())):
+        die("exclude must be a list of subject IDs or {subject_id: reason}")
     for k in ("claim", "key_comparison", "time_locked_to", "reference"):  # caption only; optional
         if k in spec and not text(spec[k]):
             die(f"'{k}' must be a non-empty string")
@@ -141,8 +149,8 @@ def check_spec(spec):
         die(f"component names must be strings, unique ignoring case (they become file names): {names}")
     for c in spec.get("components", []):
         need = COMPONENT_KEYS - {"channels"} if erp else COMPONENT_KEYS  # an erp band has no channels of its own
-        if set(c) != need:
-            die(f"component {c.get('name')} needs exactly {sorted(need)}")
+        if not need <= set(c) <= need | {"window_source"}:
+            die(f"component {c.get('name')} needs exactly {sorted(need)} (+ optional window_source)")
         if not re.fullmatch(r"[A-Za-z0-9_\-]+", str(c["name"])):
             die(f"component name {c['name']!r}: use letters, digits, '_' or '-' (it becomes a file name)")
         ch = c.get("channels", ["-"])
@@ -153,8 +161,6 @@ def check_spec(spec):
             die(f"component {c['name']}: tmin_ms < tmax_ms, both finite numbers")
         if not lo <= c["tmin_ms"] or not c["tmax_ms"] <= hi:
             die(f"component {c['name']}: window must lie inside xlim_ms {lo, hi}")
-        if not text(c["window_source"]):
-            die(f"component {c['name']}: window_source must say where the window comes from")
 
 
 def text(x):
@@ -1040,7 +1046,7 @@ def caption(spec, comp, meta, groups, conds, out, ms, v, sphere, kind, level=Non
         L.append(f"- Key comparison: {spec['key_comparison']}")
     L.append("- Groups: " + ", ".join(f"{g} (n = {len(meta['ids'][g])})" for g in groups))
     if spec.get("exclude"):
-        L.append("- Excluded: " + "; ".join(f"{i} ({r})" for i, r in spec["exclude"].items()))
+        L.append("- Excluded: " + excluded(spec))
     for i, c in enumerate(conds):
         per = np.array([s[i] for g in groups for s in meta["nave"][g]])
         L.append(f"- {spec['conditions'][c]}: trials per subject mean {per.mean():.1f} (range {per.min()}–{per.max()})")
@@ -1059,7 +1065,7 @@ def caption(spec, comp, meta, groups, conds, out, ms, v, sphere, kind, level=Non
         roi = {"combo": f"mean of {', '.join(comp['channels'])}; ", "topo": f"ROI {', '.join(comp['channels'])}; ",
                "erp": ""}[kind]
         L.append(f"- {b['name']}: {roi}window {b['tmin_ms']:g}–{b['tmax_ms']:g} ms "
-                 f"(samples {a[0]:g}–{a[-1]:g} ms){band}; source: {b['window_source']}")
+                 f"(samples {a[0]:g}–{a[-1]:g} ms){band}" + (f"; source: {b['window_source']}" if b.get("window_source") else ""))
     if kind != "topo" and spec.get("error", "none") == "sem":
         L.append("- Lines: mean across subjects; shading: ± SEM across subjects at each time point (descriptive, not a test)"
                  + ("; groups with n < 2 have no shading" if any(len(meta['ids'][g]) < 2 for g in groups) else ""))

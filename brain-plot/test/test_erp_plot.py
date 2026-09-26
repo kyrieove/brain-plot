@@ -121,17 +121,19 @@ with tempfile.TemporaryDirectory() as d:
     run = json.loads(latest(root, "ERP_topo", "ERP-topo_P3_*_run.json").read_text(encoding="utf8"))
     assert run["legend"] == "inside panel" and run["open_items"] == ["time_locked_to"]
     assert "OPEN (not confirmed): time_locked_to" in latest(root, "ERP_topo", "ERP-topo_P3_*_caption.md").read_text(encoding="utf8")
-    s = spec(root)  # claim, key_comparison, time_locked_to, reference are optional; their caption lines drop out
+    s = spec(root, exclude=["G1s0"])  # caption-only fields are optional; their caption lines drop out
     for k in ("claim", "key_comparison", "time_locked_to", "reference"):
         s.pop(k)
+    s["components"][0].pop("window_source")
     ep.plot(s)
     cap = latest(root, "ERP_topo", "ERP-topo_P3_*_caption.md").read_text(encoding="utf8")
-    assert "- Baseline " in cap and not any(
-        w in cap for w in ("Claim:", "Key comparison:", "Time-locked to", "reference:")), cap
+    assert "- Baseline " in cap and "- Excluded: G1s0\n" in cap and not any(
+        w in cap for w in ("Claim:", "Key comparison:", "Time-locked to", "reference:", "source:")), cap
 
     # 3. spec and input errors stop the script
     fails(spec(root, difference=["A", "B"]), "unsupported spec keys")
     fails(spec(root, exclude={"nobody": "x"}), "excluded IDs not found")
+    fails(spec(root, exclude="G1s0"), "list of subject IDs")
     fails(spec(root, query="RT > 0"), "cannot be applied to averaged")
     fails(spec(root, xlim_ms=[-100, 300]), "window must lie inside xlim_ms")
     fails(spec(root, xlim_ms=[240, 400]), "include 0")

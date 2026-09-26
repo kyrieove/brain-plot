@@ -22,8 +22,8 @@ from matplotlib.patches import FancyBboxPatch, Rectangle
 
 import erp_plot as ep
 
-REQUIRED = {"data", "conditions", "templates", "k", "templates_source"}
-OPTIONAL = {"figure", "blocks", "groups", "exclude", "per_group", "grid", "window_ms", "min_segment_ms", "polarity", "width_mm",
+REQUIRED = {"data", "conditions", "templates", "k"}
+OPTIONAL = {"templates_source", "hatch", "figure", "blocks", "groups", "exclude", "per_group", "grid", "window_ms", "min_segment_ms", "polarity", "width_mm",
             "height_mm", "identity_threshold", "cmap", "reference", "time_locked_to", "flat_channels"}
 BLOCKS = {"topo": "topo", "butterfly": "butterfly", "gfp": "GFP", "ribbon": "ribbon"}  # block → file-name part
 STATE_COLOURS = ["#00468B", "#ED0000", "#42B540", "#0099B4", "#925E9F", "#FDAF91", "#AD002A", "#7A8A8A", "#1B1919",
@@ -65,8 +65,10 @@ def check(spec):
         ep.die("grid: rows of condition keys using every condition exactly once (not with per_group) — rule MS9")
     if g and len(spec["conditions"]) > 2 and max(len(r) for r in g) < 2:
         ep.die("grid: more than two conditions need at least two columns; one column would stack them (rule MS9)")
-    if not ep.text(spec["templates_source"]):
-        ep.die("templates_source must say which analysis made the templates")
+    if "templates_source" in spec and not ep.text(spec["templates_source"]):
+        ep.die("templates_source must be a non-empty string when given")
+    if not isinstance(spec.get("hatch", False), bool):
+        ep.die("hatch must be true or false")
 
 
 # ---------- computation ----------
@@ -274,7 +276,8 @@ def plot_states(spec, data, info, meta, ms, sphere):
     cells = cells_of(spec, data, meta)
     sens = spec.get("polarity", "sensitive") == "sensitive"
     labels = {c: segment(x[:, w], centers, info["sfreq"], spec.get("min_segment_ms", 30), sens) for c, (x, _) in cells.items()}
-    lows = {c: low_gfp(x, ms, w) for c, (x, _) in cells.items()}
+    lows = {c: low_gfp(x, ms, w) if spec.get("hatch") else np.zeros(w.sum(), bool)  # rule MS3: opt-in
+            for c, (x, _) in cells.items()}
     spans = longest_runs(labels, ms[w], k)
     order = display_order(spans, k)
     pos = {s: i for i, s in enumerate(order)}
@@ -401,7 +404,7 @@ def plot_states(spec, data, info, meta, ms, sphere):
     extra = dict(colour_distinctness=ep.colour_check([col[s] for s in order], "state colours"),
                  order_by_display=[int(s) for s in order], labels_ms={c: [[float(t[a]), float(t[b - 1]), f"S{pos[st] + 1}"]
                                                                       for a, b, st in runs(l)] for c, l in labels.items()},
-                 low_gfp_fraction={c: float(v.mean()) for c, v in lows.items()})
+                 **({"low_gfp_fraction": {c: float(v.mean()) for c, v in lows.items()}} if spec.get("hatch") else {}))
     return fig, stem, [tpath], dict(cells={c: n for c, (_, n) in cells.items()}, spans={
         c: {f"S{pos[s] + 1}": v for s, v in sp.items()} for c, sp in spans.items()}, **extra)
 
@@ -463,10 +466,11 @@ def caption(spec, meta, out, paths, facts):
     carry no panel letters)."""
     k = meta["contract"]
     L = [f"# Caption facts for {out.name}", "", "## Whole figure", "",
-         f"- Templates: {spec['templates_source']} ({', '.join(p.name for p in paths)}); K = {spec['k']}",
+         f"- Templates: " + (f"{spec['templates_source']} " if spec.get("templates_source") else "")
+         + f"({', '.join(p.name for p in paths)}); K = {spec['k']}",
          "- Groups: " + ", ".join(f"{g} (n = {len(v)})" for g, v in meta["ids"].items())]
     if spec.get("exclude"):
-        L.append("- Excluded: " + "; ".join(f"{i} ({r})" for i, r in spec["exclude"].items()))
+        L.append("- Excluded: " + ep.excluded(spec))
     L.append(f"- Grand average: each subject's condition average, subjects weighted equally; baseline {k['baseline']} s, "
              f"filter {k['filter'][0]:g}–{k['filter'][1]:g} Hz" + (f", reference: {spec['reference']}" if spec.get("reference") else "")
              + " (identical in every panel, rule S1)")
@@ -476,9 +480,9 @@ def caption(spec, meta, out, paths, facts):
              f"highest {'signed' if spec.get('polarity', 'sensitive') == 'sensitive' else 'absolute'} spatial correlation; "
              f"runs shorter than {spec.get('min_segment_ms', 30)} ms take the better-fitting neighbour; window "
              f"{spec.get('window_ms', [0, 800])} ms" + (f", time-locked to {spec['time_locked_to']}" if spec.get("time_locked_to") else ""))
-    if "spans" in facts:
+    if "low_gfp_fraction" in facts:
         L.append("- Hatched: GFP below the 95th percentile of the same average's pre-stimulus GFP")
-    else:
+    if "spans" not in facts:
         L.append(f"- Colours: one per template identity across K (signed r ≥ {spec.get('identity_threshold', 0.9)} with the "
                  "family's first template); numbers within a row by median latency")
     L.append(f"- Maps: templates, symmetric colour scale, no electrode marks; MNE {mne.__version__}")
@@ -486,8 +490,8 @@ def caption(spec, meta, out, paths, facts):
     if "spans" in facts:
         for c, sp in facts["spans"].items():
             runs_ = "; ".join(f"{s} {a:.0f}–{b:.0f} ms" for s, (a, b) in sorted(sp.items(), key=lambda x: int(x[0][1:])))
-            L.append(f"- {c}: n = {facts['cells'][c]}; longest run per state: {runs_}; hatched "
-                     f"{facts['low_gfp_fraction'][c]:.0%} of the window")
+            L.append(f"- {c}: n = {facts['cells'][c]}; longest run per state: {runs_}"
+                     + (f"; hatched {facts['low_gfp_fraction'][c]:.0%} of the window" if "low_gfp_fraction" in facts else ""))
     else:
         L += [f"- K = {kk}: {len(fam)} templates, numbered S1–S{len(fam)}" for kk, fam in
               ((key[1:], v) for key, v in facts["families"].items())]

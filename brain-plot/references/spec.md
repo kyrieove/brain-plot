@@ -14,7 +14,7 @@ Outputs go to `brain-plot/` next to the data folder (rules O1–O3): `ERP_topo/E
 |---|---|
 | `data` | Folder with one `*-epo.fif` or `*-ave.fif` per subject; sub-folders are groups. Subject ID = file name up to the first `_`, `-` or `.`. |
 | `conditions` | `{file_key: label}`; file_key is the event name (epochs) or comment (evoked). Order = panel/line order. |
-| `components` | combo/topo: list of `{name, channels, tmin_ms, tmax_ms, window_source}`; one figure each. erp: optional gray bands `{name, tmin_ms, tmax_ms, window_source}` (no channels), default none. `name`: letters/digits/`_`/`-`, unique ignoring case (it becomes a file name). `channels`: non-empty, no repeats. The window must lie inside `xlim_ms`. `window_source` says exactly where the window comes from (rule S3). |
+| `components` | combo/topo: list of `{name, channels, tmin_ms, tmax_ms}` (+ optional `window_source`); one figure each. erp: optional gray bands `{name, tmin_ms, tmax_ms}` (+ optional `window_source`) (no channels), default none. `name`: letters/digits/`_`/`-`, unique ignoring case (it becomes a file name). `channels`: non-empty, no repeats. The window must lie inside `xlim_ms`. `window_source` (optional, caption only): where the window comes from, if the author wants it in the caption. |
 
 ## Optional
 
@@ -25,7 +25,7 @@ Outputs go to `brain-plot/` next to the data folder (rules O1–O3): `ERP_topo/E
 | `layout` | `"roi"` | erp only: `"roi"` (mean of the channels), `"single"` (one figure per channel), `"grid"` (one figure per facet level, a panel per channel). |
 | `groups` | all sub-folders (or `group_by` values), alphabetical | Which groups, in order; the first is drawn black when groups are overlaid. |
 | `group_by` | none | Metadata column holding a between-subject group (e.g. `"WM"`), for a flat folder of epochs files; must be constant within each file. Groups are its values. |
-| `exclude` | none | `{subject_id: reason}`; every ID must exist, every reason non-empty. |
+| `exclude` | none | List of subject IDs, or `{subject_id: reason}` (reason optional, caption only); every ID must exist. |
 | `query` | none | Pandas-style metadata query, epochs only (stops on `-ave.fif`). |
 | `overlay` | `"groups"` | `"groups"`: one panel per condition, groups overlaid. `"conditions"`: one panel per group, conditions overlaid. |
 | `ordered` | false | Conditions are ordered levels (viridis colours). |
@@ -50,8 +50,7 @@ Difference waves, lateralised components (N2pc, LRP), CSD or source data, time�
 ## Microstate spec (`python microstate_plot.py plot <spec.json>`)
 
 Required: `data` (any loader layout, including `<condition>/<group>/<subject>*-ave.fif`), `conditions`, `templates`
-(path; `{k}` is replaced, e.g. `…/centers_k{k:02d}.npz`), `k` (integer for `figure: "states"`, list for `"by-K"`),
-`templates_source` (which analysis made the templates).
+(path; `{k}` is replaced, e.g. `…/centers_k{k:02d}.npz`), `k` (integer for `figure: "states"`, list for `"by-K"`).
 
 | Key | Default | Meaning |
 |---|---|---|
@@ -62,6 +61,8 @@ Required: `data` (any loader layout, including `<condition>/<group>/<subject>*-a
 | `polarity` | `"sensitive"` | `"insensitive"` if the analysis ignored map polarity. |
 | `per_group` | false | One row per condition × group instead of per condition (at most 2 rows without a grid). |
 | `grid` | none | Rows × columns of condition keys, e.g. `[["Hmet","Hlit","Hrep"],["Lmet","Llit","Lrep"]]`; required for more than 2 conditions (rule MS9). |
+| `hatch` | false | true: hatch samples whose GFP is below the pre-stimulus 95th percentile (rule MS3); needs pre-stimulus samples. |
+| `templates_source` | none | Caption only: which analysis made the templates. |
 | `identity_threshold` | 0.9 | by-K: signed r at which two templates count as the same map. |
 | `groups`, `exclude`, `flat_channels`, `width_mm`/`height_mm` (180 × 110), `cmap`, `reference`, `time_locked_to` | | As above; the last two only feed the caption facts. |
 
