@@ -110,10 +110,13 @@ with tempfile.TemporaryDirectory() as d:
     fig = SAVED[-1]
     inside_canvas(fig)
     heads = [a for a in fig.axes if a.get_title() == "" and not a.get_xticks().size]  # template maps
-    panels = [a for a in fig.axes if "N = " in a.get_title()]
+    panels = [a for a in fig.axes if a.get_title() in ("Go", "NoGo")]  # titles carry the condition only (MS7d)
     assert len(panels) == 2 and min(h.get_position().y0 for h in heads) > max(p.get_position().y1 for p in panels)
     assert panels[0].get_position().y0 == panels[1].get_position().y0  # side by side
     fails(spec(root, grid=[["A"]]), "every condition exactly once")
+    fails(spec(root, grid=[["A", "B"]], height_mm=75, blocks=["topo", "butterfly", "gfp"]), "not both")
+    msp.plot(spec(root, grid=[["A", "B"]], height_mm=75, blocks=["topo", "gfp"]))
+    assert [a.get_title() for a in SAVED[-1].axes if a.get_title() in ("Go", "NoGo")] == ["Go", "NoGo"]
     # rule MS10: panel shape; the message proposes heights that work
     fails(spec(root, height_mm=300), "height_mm")
     out3 = msp.plot(spec(root, figure="by-K", k=[2, 3]))

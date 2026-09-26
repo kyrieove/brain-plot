@@ -191,3 +191,8 @@ checks were confirmed to fail on the old code. Re-rendered N400 main, supplement
   more than 2 rows without it stops), template row above multi-column grids, panel shape check 1.8–3.5 : 1 (MS10)
   that stops with the working `height_mm` range. The grid default height is 100 mm, not the 130 mm I proposed: 130 gives
   1.3 : 1 panels for a 2 × 3 grid (valid range 84–110 mm at 180 mm width).
+
+- 2026-09-26, user on the 2 × 3 grid: titles show the condition only (N removed; the user had said so for ERP, rule L10,
+  and it applies here too: MS7d); 8 mm between the template row and the panels; a multi-column grid takes either the
+  butterfly or the GFP panel, not both (user: "三者再放一起就有点挤"). GFP-panel hatch now fills under the curve only
+  (the full-height hatch cut the y axis into dashes).

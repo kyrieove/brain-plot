@@ -240,6 +240,8 @@ def plot_states(spec, data, info, meta, ms, sphere):
         ep.die(f"{len(names)} rows of time panels would be stacked; give 'grid' (rows × columns of condition keys, "
                "e.g. [[\"Hmet\",\"Hlit\",\"Hrep\"],[\"Lmet\",\"Llit\",\"Lrep\"]]) — rule MS9")
     R, C = len(grid), max(len(r) for r in grid)
+    if C > 1 and {"butterfly", "gfp"} <= set(blocks):
+        ep.die("a grid with several columns takes one time panel per condition: 'butterfly' or 'gfp', not both (rule MS9)")
     panels = [b for b in ("butterfly", "gfp") if b in blocks]
     rib = 3.2 if "ribbon" in blocks else 0.0
     top, bottom, side, gap, cgap, ylab = 6.0, 9.0, 4.0, 9.0, 4.0, 11.0
@@ -254,7 +256,7 @@ def plot_states(spec, data, info, meta, ms, sphere):
             s = min(MAP_MAX_MM, (W - 2 * side) / (k * 1.25), 0.22 * H)
             x0 = (W - k * s * 1.25 + 0.25 * s) / 2
             maps = [(x0 + i * s * 1.25, H - top - 3.5 - s, s) for i in range(k)]
-            y_grid = H - top - 3.5 - s - 4.0
+            y_grid = H - top - 3.5 - s - 8.0  # 8 mm between the map row and the first panel titles
         elif "topo" in blocks:
             def size(nc):  # map side for nc columns; the time panels keep at least half the canvas width
                 return min((H - top - bottom) / -(-k // nc) - extra, MAP_MAX_MM, (W / 2 - side - 6 - (nc - 1) * 5) / nc)
@@ -289,7 +291,7 @@ def plot_states(spec, data, info, meta, ms, sphere):
     gmax = max(x[:, w].std(0).max() for x, _ in cells.values()) * 1.10
     for r, row in enumerate(grid):
         for c_i, cell in enumerate(row):
-            x, n_subj = cells[cell]
+            x = cells[cell][0]
             y0 = y_grid - (r + 1) * row_h - r * gap
             lab, low = labels[cell], lows[cell]
             gfp = x[:, w].std(0)
@@ -303,16 +305,19 @@ def plot_states(spec, data, info, meta, ms, sphere):
                     ax.annotate("GFP", (t[-1], gfp[-1]), xytext=(0, 2), textcoords="offset points", fontsize=6,
                                 ha="right", va="bottom", color=TRACE)  # rule MS7c: inside the panel
                     ax.set_ylim(-amp, amp)
-                    ax.set_title(f"{cell} | N = {n_subj}", fontsize=7, fontweight="bold", pad=2.5)
+                    ax.set_title(cell, fontsize=7, fontweight="bold", pad=2.5)  # rule MS7d: condition only, n in the caption
                     for b in bounds:
                         ax.axvline(b, color=SOFT, lw=0.5, ls=":", zorder=1)
                 else:
                     ax.plot(t, gfp, color=TRACE, lw=0.8, zorder=3)
                     for a, b, st in runs(lab):
                         ax.fill_between(t[a:b + 1], 0, gfp[a:b + 1], color=col[st], lw=0, zorder=2)
-                    hatch(ax, t, low, 0, gmax)
+                    for a, b, v in runs(low.astype(int)):  # rule MS3: hatch under the curve only
+                        if v:
+                            ax.fill_between(t[a:b + 1], 0, gfp[a:b + 1], facecolor="none", hatch="//////", ec="white",
+                                            lw=0, zorder=2.5)
                     ax.set_ylim(0, gmax)
-                    ax.set_title(f"{cell} | GFP", fontsize=7, fontweight="bold", pad=2.5)
+                    ax.set_title("GFP" if "butterfly" in panels else cell, fontsize=7, fontweight="bold", pad=2.5)
                 if c_i == 0 or len(panels) > 1:  # y label once per row of a grid (shared ranges)
                     ax.set_ylabel("Amplitude (µV)" if p == "butterfly" else "GFP (µV)", fontsize=7, labelpad=1)
                 ax.tick_params(labelsize=6, length=2, pad=1.5)
