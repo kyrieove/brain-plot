@@ -39,8 +39,8 @@ STYLE = {
     "ytick.major.width": 0.6, "xtick.major.size": 2.5, "ytick.major.size": 2.5, "lines.linewidth": 1.0,
     "axes.spines.top": False, "axes.spines.right": False, "pdf.fonttype": 42, "svg.fonttype": "none",
 }
-REQUIRED = {"data", "conditions", "claim", "key_comparison", "time_locked_to", "reference"}
-OPTIONAL = {"kind", "groups", "exclude", "query", "overlay", "ordered", "colors", "xlim_ms", "polarity", "width_mm",
+REQUIRED = {"data", "conditions"}
+OPTIONAL = {"claim", "key_comparison", "time_locked_to", "reference", "kind", "groups", "exclude", "query", "overlay", "ordered", "colors", "xlim_ms", "polarity", "width_mm",
             "height_mm", "cmap", "stats_note", "group_by", "linestyles", "error", "components", "channels", "layout",
             "flat_channels"}
 COMPONENT_KEYS = {"name", "channels", "tmin_ms", "tmax_ms", "window_source"}
@@ -115,8 +115,8 @@ def check_spec(spec):
         die("conditions must be a non-empty {file_key: label} mapping")
     if not isinstance(spec.get("exclude", {}), dict) or not all(text(r) for r in spec.get("exclude", {}).values()):
         die("exclude must be {subject_id: non-empty reason}")
-    for k in ("claim", "key_comparison", "time_locked_to", "reference"):
-        if not text(spec.get(k)):
+    for k in ("claim", "key_comparison", "time_locked_to", "reference"):  # caption only; optional
+        if k in spec and not text(spec[k]):
             die(f"'{k}' must be a non-empty string")
     erp = spec.get("kind", "combo") == "erp"
     if erp:  # kind "erp" draws by channel; components are optional gray bands (rule K1)
@@ -1034,8 +1034,10 @@ def caption(spec, comp, meta, groups, conds, out, ms, v, sphere, kind, level=Non
     if open_items(spec):
         L += [f"- OPEN (not confirmed): {', '.join(open_items(spec))}", ""]
     L += ["## Whole figure", ""]
-    L.append(f"- Claim: {spec['claim']}")
-    L.append(f"- Key comparison: {spec['key_comparison']}")
+    if spec.get("claim"):
+        L.append(f"- Claim: {spec['claim']}")
+    if spec.get("key_comparison"):
+        L.append(f"- Key comparison: {spec['key_comparison']}")
     L.append("- Groups: " + ", ".join(f"{g} (n = {len(meta['ids'][g])})" for g in groups))
     if spec.get("exclude"):
         L.append("- Excluded: " + "; ".join(f"{i} ({r})" for i, r in spec["exclude"].items()))
@@ -1043,8 +1045,9 @@ def caption(spec, comp, meta, groups, conds, out, ms, v, sphere, kind, level=Non
         per = np.array([s[i] for g in groups for s in meta["nave"][g]])
         L.append(f"- {spec['conditions'][c]}: trials per subject mean {per.mean():.1f} (range {per.min()}–{per.max()})")
     L.append(f"- Trial selection: {spec.get('query') or 'as stored in the files (no further selection)'}")
-    L.append(f"- Time-locked to: {spec['time_locked_to']}; baseline {k['baseline']} s; "
-             f"filter {k['filter'][0]:g}–{k['filter'][1]:g} Hz; reference: {spec['reference']} (identical in every panel, rule S1)")
+    L.append("- " + (f"Time-locked to: {spec['time_locked_to']}; baseline" if spec.get("time_locked_to") else "Baseline")
+             + f" {k['baseline']} s; filter {k['filter'][0]:g}–{k['filter'][1]:g} Hz"
+             + (f"; reference: {spec['reference']}" if spec.get("reference") else "") + " (identical in every panel, rule S1)")
     if spec.get("flat_channels"):
         L.append(f"- Flat channels kept (spec flat_channels, e.g. the reference electrode): {', '.join(spec['flat_channels'])}")
     if kind == "erp":

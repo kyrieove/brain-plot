@@ -15,10 +15,6 @@ Outputs go to `brain-plot/` next to the data folder (rules O1–O3): `ERP_topo/E
 | `data` | Folder with one `*-epo.fif` or `*-ave.fif` per subject; sub-folders are groups. Subject ID = file name up to the first `_`, `-` or `.`. |
 | `conditions` | `{file_key: label}`; file_key is the event name (epochs) or comment (evoked). Order = panel/line order. |
 | `components` | combo/topo: list of `{name, channels, tmin_ms, tmax_ms, window_source}`; one figure each. erp: optional gray bands `{name, tmin_ms, tmax_ms, window_source}` (no channels), default none. `name`: letters/digits/`_`/`-`, unique ignoring case (it becomes a file name). `channels`: non-empty, no repeats. The window must lie inside `xlim_ms`. `window_source` says exactly where the window comes from (rule S3). |
-| `claim` | What the figure is meant to show, as confirmed with the user (one sentence). |
-| `key_comparison` | The comparison the layout serves (e.g. "groups within each condition"). |
-| `time_locked_to` | Event at 0 ms, as it should read in the caption (non-empty). |
-| `reference` | Reference scheme for the caption (non-empty; files often don't store it). |
 
 ## Optional
 
@@ -37,6 +33,10 @@ Outputs go to `brain-plot/` next to the data folder (rules O1–O3): `ERP_topo/E
 | `colors` | rule T3 | List of colours, one per overlaid line, in order (at most 7 lines). |
 | `xlim_ms` | whole epoch | Display range; must include 0 and lie inside the data. |
 | `polarity` | `"positive_up"` | or `"negative_up"`. |
+| `claim` | none | Caption only: what the figure is meant to show (one sentence). Omitted → no caption line. |
+| `key_comparison` | none | Caption only: the comparison the layout serves (e.g. "groups within each condition"). |
+| `time_locked_to` | none | Caption only: event at 0 ms, as it should read in the caption. |
+| `reference` | none | Caption only: reference scheme (files often don't store it). |
 | `width_mm` / `height_mm` | 180 / 120 | Fixed final canvas (rule T6); content is fitted inside. |
 | `cmap` | `"RdBu_r"` | Topomap colour map (a diverging map). |
 | `error` | `"none"` | `"sem"` adds a between-subject ± SEM band. |
