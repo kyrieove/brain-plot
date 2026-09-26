@@ -26,6 +26,14 @@ Python: `C:\Users\ASUS\miniconda3\envs\mnedev\python.exe`. Both test files must 
    `signed_microstate.py`), what the caption facts claim.
 5. Tests: which rules have no check that would fail on wrong code.
 
+## Part B: skill-level audit with yao-meta-skill
+Use the `yao-meta-skill` skill (in `~/.codex/skills/yao-meta-skill`) in **audit mode on the existing skill
+`brain-plot/`**: findings and proposed fixes only, no edits, no generated packages. Cover what it checks that Part A
+does not: the frontmatter `description` as a trigger (should fire for ERP waveform / topomap / microstate figure
+requests, not for ERP statistics or preprocessing), routing between `erp_plot.py` and `microstate_plot.py`, missing
+trigger/output evals, the interface between SKILL.md, rules.md and spec.md, and install/trust concerns (the skill runs
+local scripts on user data and writes next to the data folder). Report these as a separate section of the same file.
+
 ## Output format
 Numbered findings, P1 (wrong result or silent data problem) / P2 (rule or layout violation, misleading output) /
 P3 (cleanup). Each: file:line, a concrete failing input, a minimal fix. End with a one-line verdict.
