@@ -1,6 +1,6 @@
 ---
 name: brain-plot
-description: Paper-ready ERP figures (waveforms + scalp topographies) from per-subject MNE files, in one fixed house style. First interviews the user in rounds (claim, key comparison, groups, components and windows, layout), gets explicit confirmation of a written spec, then draws with erp_plot.py and checks the render. Use for ERP 波形图、地形图、ERP+地形图组合图、论文 ERP 配图、brain plot.
+description: Paper-ready ERP figures (waveforms + scalp topographies) from per-subject MNE files, in one fixed house style. First interviews the user in rounds (claim, key comparison, groups, components and windows, layout), gets explicit confirmation of a written spec, then draws with erp_plot.py and checks the render. Also draws microstate figures (templates, butterfly, GFP, segmentation ribbon; across-K template rows) from saved templates. Use for ERP 波形图、地形图、ERP+地形图组合图、论文 ERP 配图、微状态图、microstate figure、brain plot.
 ---
 
 # brain-plot
