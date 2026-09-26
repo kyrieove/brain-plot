@@ -1,4 +1,4 @@
-# brain-plot — handoff (2026-09-26, end of day, after round 6 fixes)
+# brain-plot — handoff (2026-09-26, end of day)
 
 Start of every new session: read this file, then `docs/review-log.md` (newest entries at the bottom).
 
@@ -17,10 +17,16 @@ Two branches, both working, tests pass, everything committed and pushed
   `microstate/`, `specs/`; names say what the figure is; re-renders get `_vNN+1`, old versions move to `_history/`.
 
 ## Next (start here)
-1. Round 6 (Codex, `docs/astra-review-round6.md`, 15 findings) is fully fixed — see the table at the end of
-   `docs/review-log.md`. Optional: ask Codex for round 7 on the fixes (same brief, `docs/review-request-round6.md`).
-2. Run the agent-level eval cases `brain-plot/evals/cases.md` once in fresh sessions (manual; holdout marked).
-3. `qa` fields of the metaphor v01 figures are still PENDING.
+1. **Decision pending (ask first):** the reference microstate palette's S4 cyan `#0099B4` and S5 purple `#925E9F` are
+   ΔE 7.5 for deuteranopes (rule T7 warns on every K ≥ 5 figure). Offered: a) keep the palette, only warn;
+   b) replace S5 with a colour distinct under all three visions — compute 2–3 candidates (ΔE ≥ 10 vs all others in
+   normal/deutan/protan, `erp_plot.colour_check`) and let the user pick. Recommended b.
+2. Offered, not started (user picks by number): 3) caption facts structured per panel (a, b, …; filter, reference,
+   baseline, window source, n — facts only); 4) stop on an all-zero channel at load; 5) reviewer-risk items in the QA list.
+3. Round 6 (Codex) is fully fixed (table at the end of `docs/review-log.md`); optional round 7 on the fixes with the same
+   brief `docs/review-request-round6.md`.
+4. Run the agent-level eval cases `brain-plot/evals/cases.md` once in fresh sessions (manual).
+5. `qa` fields of the metaphor v01 figures are still PENDING.
 
 ## Use
 - Any session: `/brain-plot <data_dir>` (skill linked at `~/.claude/skills/brain-plot` → `C:\dev\brain-plot\brain-plot`).
