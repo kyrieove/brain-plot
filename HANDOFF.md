@@ -28,14 +28,12 @@ fix is logged in `docs/review-log.md`. Regression checks pass.
 | `docs/astra-review-*.md`, `docs/review-log.md` | reviews and every change |
 
 ## Next (start here in the new session)
-Plan agreed 2026-09-26: `docs/plan-2026-09-26.md`. Repo: https://github.com/kyrieove/brain-plot (public; commit +
-push after every tested change set).
-- Done: step 1 (repo), step 2 (output layout O1–O3, `_history/`, metaphor outputs migrated to
-  `D:\1-python_datasets\metaphor production\derivatives\brain-plot\`, specs in its `specs/`, re-rendered as v01).
-- Next: step 3 — `localize` (collapsed localizer, plan items 11–14; verify every built-in component window with
-  `paper-lookup` first), merge `explore` into it, rebuild `kind: "erp"` by channel (single/all, grid, ROI mean),
-  `data_log.md`. Then step 4: astra review (codex exec failed: 401, then timeouts — ask the user to fix first).
-- `_run.json` `qa` of the re-rendered metaphor v01 figures is still PENDING.
+Plan: `docs/plan-2026-09-26.md` (revised: the skill only draws; no localizer). Repo: https://github.com/kyrieove/brain-plot
+(public; commit + push after every tested change set).
+- Done: repo; output layout O1–O3 + `_history/` + metaphor migration; `kind: "erp"` by channel (roi / single / all /
+  grid, optional bands). Metaphor examples: `derivatives/brain-plot/specs/erp_roi_N400.json`, `erp_grid_3x3.json`.
+- Next: external review of the current code (astra via codex was failing: 401, then timeouts); `qa` fields of the
+  metaphor v01 figures are still PENDING.
 
 ## Rejected by the user (don't redo)
 - Explore: core-channel page + 4/6/8/9 electrode pages (replaced by one 3 × 3); legend as a right-hand column.

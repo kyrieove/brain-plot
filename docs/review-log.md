@@ -161,3 +161,14 @@ checks were confirmed to fail on the old code. Re-rendered N400 main, supplement
   stays to keep the 0.15-pt contours. Caption facts and QA item 3 updated; regression check: no markers on any axes.
 - T5: figures are written as PNG (600 dpi) + SVG (editable text), no PDF — `plot` and `explore`. Old PDFs in the
   metaphor output folders are stale (not deleted).
+
+## kind "erp" by channel; localizer dropped (2026-09-26)
+- User: the skill only draws. The planned `localize` (collapsed localizer, bootstrap, component table, data_log) is
+  dropped — windows and channels come from the analysis. `windows` and `explore` stay. Codex's unfinished localizer is
+  kept in branch `codex/step3-localize-erp` and `git stash`, not merged.
+- `kind: "erp"` rebuilt (rule K1): `channels` + `layout` = `roi` (mean), `single` (one figure per channel, `"all"` →
+  one versioned folder), `grid` (one figure per facet level, reuses `wave_grid`). Components are optional gray bands
+  `{name, tmin_ms, tmax_ms, window_source}`; default none. `draw()` and `legend_room()` take any number of bands;
+  `_run.json` written by `write_run()` (records channels and band sample bounds). Tests 4b, 4c, 8.
+- Note: the erp grid and the explore overview share the name `ERP-grid-3x3_conditions_<group>`, so they version
+  together (a paper grid after an explore overview becomes v02).

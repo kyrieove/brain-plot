@@ -38,9 +38,9 @@ STYLE = {
     "ytick.major.width": 0.6, "xtick.major.size": 2.5, "ytick.major.size": 2.5, "lines.linewidth": 1.0,
     "axes.spines.top": False, "axes.spines.right": False, "pdf.fonttype": 42, "svg.fonttype": "none",
 }
-REQUIRED = {"data", "conditions", "components", "claim", "key_comparison", "time_locked_to", "reference"}
+REQUIRED = {"data", "conditions", "claim", "key_comparison", "time_locked_to", "reference"}
 OPTIONAL = {"kind", "groups", "exclude", "query", "overlay", "ordered", "colors", "xlim_ms", "polarity", "width_mm",
-            "height_mm", "cmap", "stats_note", "group_by", "linestyles", "error"}
+            "height_mm", "cmap", "stats_note", "group_by", "linestyles", "error", "components", "channels", "layout"}
 COMPONENT_KEYS = {"name", "channels", "tmin_ms", "tmax_ms", "window_source"}
 TOPO = dict(contours=8, extrapolate="head", image_interp="cubic")  # recorded in every caption; sphere: common_sphere()
 
@@ -73,16 +73,34 @@ def check_spec(spec):
     for k in ("claim", "key_comparison", "time_locked_to", "reference"):
         if not text(spec.get(k)):
             die(f"'{k}' must be a non-empty string")
+    erp = spec.get("kind", "combo") == "erp"
+    if erp:  # kind "erp" draws by channel; components are optional gray bands (rule K1)
+        if spec.get("layout", "roi") not in ("single", "grid", "roi"):
+            die("layout must be 'single', 'grid' or 'roi'")
+        ch = spec.get("channels")
+        rows = ch if spec.get("layout", "roi") == "grid" else [ch]
+        if not (ch == "all" and spec.get("layout") == "single") and not (
+                isinstance(ch, list) and ch and all(isinstance(r, list) and r and all(text(x) for x in r) for r in rows)
+                and len(sum(rows, [])) == len(set(sum(rows, [])))):
+            die("kind 'erp' needs channels: a list of names (single/roi), rows of names (grid), or 'all' (single); "
+                "no repeats")
+        if spec.get("layout") == "grid" and spec.get("error", "none") == "sem":
+            die("layout 'grid' draws no SEM band; use 'roi' or 'single' for error: 'sem'")
+    elif "channels" in spec or "layout" in spec:
+        die("'channels' and 'layout' belong to kind 'erp'; combo/topo take channels per component")
+    elif not spec.get("components"):
+        die("components is empty")
     lo, hi = spec.get("xlim_ms", [-np.inf, np.inf])
     names = [c.get("name") for c in spec.get("components", [])]
     if not all(isinstance(x, str) for x in names) or len({x.casefold() for x in names}) != len(names):
         die(f"component names must be strings, unique ignoring case (they become file names): {names}")
     for c in spec.get("components", []):
-        if set(c) != COMPONENT_KEYS:
-            die(f"component {c.get('name')} needs exactly {sorted(COMPONENT_KEYS)}")
+        need = COMPONENT_KEYS - {"channels"} if erp else COMPONENT_KEYS  # an erp band has no channels of its own
+        if set(c) != need:
+            die(f"component {c.get('name')} needs exactly {sorted(need)}")
         if not re.fullmatch(r"[A-Za-z0-9_\-]+", str(c["name"])):
             die(f"component name {c['name']!r}: use letters, digits, '_' or '-' (it becomes a file name)")
-        ch = c["channels"]
+        ch = c.get("channels", ["-"])
         if not isinstance(ch, list) or not ch or len(set(ch)) != len(ch):
             die(f"component {c['name']}: channels must be a non-empty list without repeats (repeats re-weight the ROI)")
         if not all(isinstance(x, (int, float)) and np.isfinite(x) for x in (c["tmin_ms"], c["tmax_ms"])) \
@@ -92,8 +110,6 @@ def check_spec(spec):
             die(f"component {c['name']}: window must lie inside xlim_ms {lo, hi}")
         if not text(c["window_source"]):
             die(f"component {c['name']}: window_source must say where the window comes from")
-    if not spec["components"]:
-        die("components is empty")
 
 
 def text(x):
@@ -454,12 +470,12 @@ def data_ylim(stats):
     return ylim
 
 
-def legend_room(series, x, lo, hi, ylim, width, window, axis_frac):
+def legend_room(series, x, lo, hi, ylim, width, windows, axis_frac):
     """Single-panel legend (upper/lower right): free fraction of the axes above and below the visible lines inside
     the right strip the legend covers; the x-axis and one tick-label line on each side count as occupied. A gray
     window band reaching into the strip blocks both corners: (-inf, -inf)."""
     edge = (hi - lo) * (width + 0.02)
-    if comp_overlaps(window, (hi - edge, hi)):
+    if any(comp_overlaps(w, (hi - edge, hi)) for w in windows):
         return -np.inf, -np.inf
     strip = x >= hi - edge
     span = ylim[1] - ylim[0]
@@ -563,9 +579,10 @@ def draw(spec, comp, panels, lines, colors, stats, topo, v, info, ms, t, lo, hi,
     for r_i, (p, plabel) in enumerate(panels):
         ax = fig.add_subplot(gs[r_i, 0]); letter(ax, 2 * r_i if maps else r_i)
         axes.append((ax, p))
-        ax.axvspan(comp["tmin_ms"], comp["tmax_ms"], color="0.88", lw=0, zorder=0)  # full-height window band
-        ax.text((comp["tmin_ms"] + comp["tmax_ms"]) / 2, 1.0, comp["name"], transform=ax.get_xaxis_transform(),
-                ha="center", va="bottom", fontsize=6.5, fontweight="bold")
+        for b in comp["bands"]:
+            ax.axvspan(b["tmin_ms"], b["tmax_ms"], color="0.88", lw=0, zorder=0)  # full-height window band
+            ax.text((b["tmin_ms"] + b["tmax_ms"]) / 2, 1.0, b["name"], transform=ax.get_xaxis_transform(),
+                    ha="center", va="bottom", fontsize=6.5, fontweight="bold")
         for (l, lab), col, ls in zip(lines, colors, styles):
             m, e = stats[p, l]
             if e is not None:
@@ -581,7 +598,7 @@ def draw(spec, comp, panels, lines, colors, stats, topo, v, info, ms, t, lo, hi,
             need = leg_size[1] + 0.03
             for _ in range(10):  # the axis band is fixed in points, so re-measure after each extension
                 room = legend_room([stats[p, l] for l, _ in lines], ms[t], lo, hi, ylim, leg_size[0],
-                                   (comp["tmin_ms"], comp["tmax_ms"]), leg_size[2])
+                                   [(b["tmin_ms"], b["tmax_ms"]) for b in comp["bands"]], leg_size[2])
                 free, span = room[0 if high else 1], ylim[1] - ylim[0]
                 if free >= need - 1e-3:
                     break
@@ -747,19 +764,30 @@ def plot(spec):
     if len(lines) > MAX_LINES or len(colors) < len(lines):
         die(f"{len(lines)} overlaid lines; at most {MAX_LINES} and one colour each ({len(colors)} available)")
     labels = [lab for _, lab in lines]  # rule L10: names only; n goes in the caption facts
-    comps = spec["components"]
-    for comp in comps:  # preflight every component before drawing anything
-        miss = [ch for ch in comp["channels"] if ch not in info.ch_names]
-        if miss:
-            die(f"{comp['name']}: channels {miss} not in data")
+    kind, comps = spec.get("kind", "combo"), spec.get("components", [])
+    for comp in comps:  # preflight every window before drawing anything
         w = sample_mask(ms, comp["tmin_ms"], comp["tmax_ms"])
         if not w.any() or comp["tmin_ms"] < ms[0] - tol or comp["tmax_ms"] > ms[-1] + tol:
             die(f"{comp['name']}: window {comp['tmin_ms']}–{comp['tmax_ms']} ms is outside the data")
+    layout = spec.get("layout", "roi")
+    if kind != "erp":  # one figure per component, its window is the band
+        jobs = [dict(c, bands=[c]) for c in comps]
+    elif layout == "grid":
+        jobs = [dict(channels=sum(spec["channels"], []), bands=comps)]
+    elif layout == "single":
+        jobs = [dict(channels=[c], bands=comps) for c in (info.ch_names if spec["channels"] == "all" else spec["channels"])]
+    else:
+        jobs = [dict(channels=spec["channels"], bands=comps)]
+    miss = sorted({ch for j in jobs for ch in j["channels"] if ch not in info.ch_names})
+    if miss:
+        die(f"channels {miss} not in data")
+    if kind == "erp" and layout == "grid":
+        return plot_grid(spec, data, info, meta, panels, lines, get, colors, labels, ms, t, lo, hi, negative_up, comps)
     sphere = common_sphere(info)
     computed = []
-    for comp in comps:
+    for comp in jobs:
         idx = [info.ch_names.index(c) for c in comp["channels"]]
-        w = sample_mask(ms, comp["tmin_ms"], comp["tmax_ms"])
+        w = sample_mask(ms, comp["tmin_ms"], comp["tmax_ms"]) if kind != "erp" else t  # erp draws no maps
         stats, topo = {}, {}
         for p, _ in panels:
             for l, _ in lines:
@@ -767,15 +795,17 @@ def plot(spec):
                 e = e if spec.get("error", "none") == "sem" else None  # rule S2: no band unless asked
                 stats[p, l], topo[p, l] = (m, e), tp
         computed.append((comp, w, stats, topo))
-    kind = spec.get("kind", "combo")
     leg_size = corner = None  # kind "topo" has no waveforms, so no legend to place
     if kind != "topo":
         leg_size = legend_size(spec, len(panels), labels, colors)
         corner = "between" if len(panels) >= 2 else single_panel_corner(
             [[st[panels[0][0], l] for l, _ in lines] for _, _, st, _ in computed],
             [data_ylim(st) for _, _, st, _ in computed],
-            [(c["tmin_ms"], c["tmax_ms"]) for c, _, _, _ in computed], ms[t], lo, hi, leg_size)
-    outs = []
+            [[(b["tmin_ms"], b["tmax_ms"]) for b in c["bands"]] for c, _, _, _ in computed], ms[t], lo, hi, leg_size)
+    outs, batch = [], None
+    if kind == "erp" and spec["channels"] == "all":  # rule O3: one file per channel, one versioned folder
+        batch = versioned(out_root(spec) / "ERP", f"ERP-all-channels_{comparison(spec)}")
+        batch.mkdir()
     for comp, w, stats, topo in computed:
         v = v_sensor = max(max(np.abs(a).max() for a in topo.values()), 1e-6)
         gap_mm = GAP_MM
@@ -799,35 +829,72 @@ def plot(spec):
                 fig, peak, n_maps, size = draw_topo(spec, comp, panels, lines, topo, v, info, sphere)
             n_lines, placed = 0, "no legend (maps only)"
         if peak > v or placed is None:
-            die(f"{comp['name']}: the figure did not pass its own checks (colour limit {v:.2f} vs maps {peak:.2f}; "
+            die(f"{comp.get('name', ', '.join(comp['channels']))}: the figure did not pass its own checks (colour limit {v:.2f} vs maps {peak:.2f}; "
                 f"legend {placed}); try a taller height_mm")
         want = len(panels) * len(lines)
         if (n_lines, n_maps) != (0 if kind == "topo" else want, 0 if kind == "erp" else want):
             die(f"drew {n_lines} lines / {n_maps} maps for kind {kind!r}, expected {want} of each drawn element")
-        chans, win = "-".join(map(safe, comp["channels"])), f"{comp['tmin_ms']:g}-{comp['tmax_ms']:g}ms"
-        stem = {"combo": f"ERP-topo_{comp['name']}_{chans}_{win}", "topo": f"topo_{comp['name']}_{win}",
-                "erp": f"ERP-ROI_{chans}_{comp['name']}-{win}"}[kind] + f"_{comparison(spec)}"  # rule O3
-        out = versioned(out_root(spec) / KIND_DIR[kind], stem)
+        chans = "-".join(map(safe, comp["channels"]))
+        if kind == "erp":  # rule O3
+            stem = f"{'ERP-ROI' if layout == 'roi' else 'ERP'}_{chans}{band_part(comps)}_{comparison(spec)}"
+            out = batch / f"{stem}{batch.name[-4:]}" if batch else versioned(out_root(spec) / "ERP", stem)
+        else:
+            win = f"{comp['tmin_ms']:g}-{comp['tmax_ms']:g}ms"
+            stem = {"combo": f"ERP-topo_{comp['name']}_{chans}_{win}",
+                    "topo": f"topo_{comp['name']}_{win}"}[kind] + f"_{comparison(spec)}"
+            out = versioned(out_root(spec) / KIND_DIR[kind], stem)
         for ext in ("svg", "png"):  # rule T5: PNG to view, SVG with editable text to adjust
             fig.savefig(f"{out}.{ext}", dpi=600 if ext == "png" else None)
         plt.close(fig)
-        actual = (ms[w][0], ms[w][-1])
-        caption(spec, comp, meta, groups, conds, out, actual, v, sphere, kind)
-        Path(f"{out}_run.json").write_text(json.dumps(dict(
-            spec=spec, component=comp["name"], window_samples_ms=[float(a) for a in actual],
-            colour_limit_uV=float(v), sensor_max_uV=float(v_sensor), interpolated_max_uV=float(peak), sphere_m=sphere,
-            legend=placed, gap_mm=float(gap_mm), open_items=open_items(spec),
-            inputs=meta["inputs"], ids=meta["ids"], contract=meta["contract"],
-            code_md5=hashlib.md5(Path(__file__).read_bytes()).hexdigest(), rules="references/rules.md v1",
-            versions=dict(mne=mne.__version__, matplotlib=matplotlib.__version__, numpy=np.__version__),
-            size_mm=size, lines=n_lines, maps=n_maps,
-            qa="PENDING: the agent records the visual QA result here after checking the PNG"),
-            indent=1, ensure_ascii=False), encoding="utf8")
+        caption(spec, comp, meta, groups, conds, out, ms, v, sphere, kind)
+        write_run(spec, meta, out, comp, ms, size, n_lines, n_maps, legend=placed, gap_mm=float(gap_mm),
+                  colour_limit_uV=float(v), sensor_max_uV=float(v_sensor), interpolated_max_uV=float(peak),
+                  sphere_m=sphere)
+        outs.append(out)
+    print("wrote", *([batch] if batch else [f"{o}.png/.svg" for o in outs]), sep="\n  ")
+
+
+def band_part(comps):
+    """File-name part for the gray bands of an erp figure, e.g. _N400-350-500ms (rule O3)."""
+    return "".join(f"_{c['name']}-{c['tmin_ms']:g}-{c['tmax_ms']:g}ms" for c in comps)
+
+
+def write_run(spec, meta, out, comp, ms, size, n_lines, n_maps, **extra):
+    """_run.json: everything needed to reproduce and audit the figure; `qa` is filled in by the agent."""
+    bands = [dict(name=b["name"], window_samples_ms=[float(x) for x in ms[sample_mask(ms, b["tmin_ms"], b["tmax_ms"])][[0, -1]]])
+             for b in comp["bands"]]
+    Path(f"{out}_run.json").write_text(json.dumps(dict(
+        spec=spec, channels=comp["channels"], bands=bands, **extra, open_items=open_items(spec),
+        inputs=meta["inputs"], ids=meta["ids"], contract=meta["contract"],
+        code_md5=hashlib.md5(Path(__file__).read_bytes()).hexdigest(), rules="references/rules.md v1",
+        versions=dict(mne=mne.__version__, matplotlib=matplotlib.__version__, numpy=np.__version__),
+        size_mm=size, lines=n_lines, maps=n_maps,
+        qa="PENDING: the agent records the visual QA result here after checking the PNG"),
+        indent=1, ensure_ascii=False), encoding="utf8")
+
+
+def plot_grid(spec, data, info, meta, panels, lines, get, colors, labels, ms, t, lo, hi, negative_up, comps):
+    """kind "erp", layout "grid": one figure per facet level (group or condition), a panel per channel at its grid
+    cell, the lines overlaid (rule K1)."""
+    rows = spec["channels"]
+    grid = [[info.ch_names.index(c) for c in r] for r in rows]
+    styles = line_styles(spec, len(lines))
+    what = "conditions" if spec.get("overlay", "groups") == "conditions" else "groups"
+    outs = []
+    for p, plabel in panels:
+        x = np.array([get(p, l).mean(0) for l, _ in lines])  # (line, ch, t): subject mean
+        stem = f"ERP-grid-{len(rows)}x{max(len(r) for r in rows)}_{what}_{safe(plabel)}{band_part(comps)}"  # rule O3
+        out = versioned(out_root(spec) / "ERP", stem)
+        n = wave_grid(spec, "", grid, info, x, labels, colors, styles, ms, t, lo, hi, negative_up, plabel, out,
+                      bands=comps, dpi=600)
+        comp = dict(channels=sum(rows, []), bands=comps)
+        caption(spec, comp, meta, list(data), list(spec["conditions"]), out, ms, 0, None, "erp")
+        write_run(spec, meta, out, comp, ms, list(canvas_size(spec)), n, 0, legend="under the grid")
         outs.append(out)
     print("wrote", *[f"{o}.png/.svg" for o in outs], sep="\n  ")
 
 
-def caption(spec, comp, meta, groups, conds, out, actual, v, sphere, kind):
+def caption(spec, comp, meta, groups, conds, out, ms, v, sphere, kind):
     """Caption facts; only elements that the figure of this kind actually draws are described."""
     k = meta["contract"]
     L = [f"# Caption facts for {out.name}", ""]
@@ -844,10 +911,16 @@ def caption(spec, comp, meta, groups, conds, out, actual, v, sphere, kind):
     L.append(f"- Trial selection: {spec.get('query') or 'as stored in the files (no further selection)'}")
     L.append(f"- Time-locked to: {spec['time_locked_to']}; baseline {k['baseline']} s; "
              f"filter {k['filter'][0]}–{k['filter'][1]} Hz; reference: {spec['reference']}")
-    band = {"combo": "; gray band = topography window", "erp": "; gray band = component window", "topo": ""}[kind]
-    roi = f"mean of {', '.join(comp['channels'])}; " if kind != "topo" else f"ROI {', '.join(comp['channels'])}; "
-    L.append(f"- {comp['name']}: {roi}window {comp['tmin_ms']:g}–{comp['tmax_ms']:g} ms "
-             f"(samples {actual[0]:g}–{actual[1]:g} ms){band}; source: {comp['window_source']}")
+    if kind == "erp":
+        how = {"single": "channel", "grid": "one panel per channel:", "roi": "mean of"}[spec.get("layout", "roi")]
+        L.append(f"- Waveforms: {how} {', '.join(comp['channels'])}")
+    for b in comp["bands"]:
+        a = ms[sample_mask(ms, b["tmin_ms"], b["tmax_ms"])]
+        band = {"combo": "; gray band = topography window", "erp": "; gray band", "topo": ""}[kind]
+        roi = {"combo": f"mean of {', '.join(comp['channels'])}; ", "topo": f"ROI {', '.join(comp['channels'])}; ",
+               "erp": ""}[kind]
+        L.append(f"- {b['name']}: {roi}window {b['tmin_ms']:g}–{b['tmax_ms']:g} ms "
+                 f"(samples {a[0]:g}–{a[-1]:g} ms){band}; source: {b['window_source']}")
     if kind != "topo" and spec.get("error", "none") == "sem":
         L.append("- Lines: mean across subjects; shading: ± SEM across subjects at each time point (descriptive, not a test)"
                  + ("; groups with n < 2 have no shading" if any(len(meta['ids'][g]) < 2 for g in groups) else ""))
@@ -890,9 +963,11 @@ def check_explore(spec):
             die(f"component {c}: needs name, tmin_ms < tmax_ms, both finite numbers")
 
 
-def wave_grid(spec, title, grid, info, data, conds, labels, colors, styles, ms, t, lo, hi, negative_up, facet, out):
-    """One figure: a panel per channel at its grid cell, all conditions of one facet (group) overlaid, no window
-    bands (windows are not known yet); one shared y-range; legend in one row centred under the grid."""
+def wave_grid(spec, title, grid, info, x, labels, colors, styles, ms, t, lo, hi, negative_up, facet, out, bands=(),
+              dpi=300):
+    """One figure: a panel per channel at its grid cell, every line of one facet overlaid (x: line × channel × time,
+    subject means); gray bands only for given windows; one shared y-range; legend in one row centred under the grid.
+    Returns the number of lines drawn."""
     nr, nc = len(grid), max(len(r) for r in grid)
     W, H = canvas_size(spec)  # rule T6
     fig = plt.figure(figsize=(W * MM, H * MM))
@@ -900,15 +975,18 @@ def wave_grid(spec, title, grid, info, data, conds, labels, colors, styles, ms, 
     leg_mm = 4 + 4 * -(-len(labels) // leg_cols)
     gs = GridSpec(nr, nc, figure=fig, hspace=0.6, wspace=0.35,
                   left=10 / W, right=1 - 4 / W, top=1 - 10 / H, bottom=(6 + leg_mm) / H)
-    x = data[:, :, :, t].mean(0)  # (cond, ch, t) subject mean
+    x = x[:, :, t]
     chans = [i for r in grid for i in r]
-    ylim = data_ylim({(c, i): (x[c, i], None) for c in range(len(conds)) for i in chans})
-    first = None
+    ylim = data_ylim({(c, i): (x[c, i], None) for c in range(len(x)) for i in chans})
+    first, n = None, 0
     for r, row in enumerate(grid):
         for c, ch in enumerate(row):
             ax = fig.add_subplot(gs[r, c])
+            for b in bands:
+                ax.axvspan(b["tmin_ms"], b["tmax_ms"], color="0.88", lw=0, zorder=0)
             for k, (col, ls, lab) in enumerate(zip(colors, styles, labels)):
                 ax.plot(ms[t], x[k, ch], color=col, ls=ls, lw=0.8, label=lab)
+                n += 1
             ax.set_title(info.ch_names[ch], pad=6, fontsize=7, fontweight="bold")
             cross_axes(ax, fig, lo, hi, ylim, negative_up, ms[t], x[:, ch].min(0), x[:, ch].max(0))
             first = first or ax
@@ -916,10 +994,12 @@ def wave_grid(spec, title, grid, info, data, conds, labels, colors, styles, ms, 
     order = [i for c in range(leg_cols) for i in range(c, len(h), leg_cols)]  # matplotlib fills columns; read rows
     h, lab = [h[i] for i in order], [lab[i] for i in order]
     fig.legend(h, lab, loc="lower center", bbox_to_anchor=(0.5, 1 / H), ncol=leg_cols, **LEGEND_KW)
-    fig.text(0.5, 1 - 3 / H, f"{title} · {facet}", ha="center", va="top", fontsize=8, fontweight="bold")
-    fig.savefig(f"{out}.png", dpi=300)
+    fig.text(0.5, 1 - 3 / H, f"{title} · {facet}" if title else facet, ha="center", va="top", fontsize=8,
+             fontweight="bold")
+    fig.savefig(f"{out}.png", dpi=dpi)
     fig.savefig(f"{out}.svg")
     plt.close(fig)
+    return n
 
 
 def topo_table(spec, data, conds, labels, comps, info, ms, sphere, facet, out):
@@ -1027,7 +1107,7 @@ def explore(spec):
     outs = []
     for g in groups:  # rule O3
         outs.append(versioned(root / "ERP", f"ERP-grid-{shape}_conditions_{safe(g)}"))
-        wave_grid(spec, "Waveforms", grid, info, data[g], conds, labels, colors, styles, ms, t, lo, hi, neg, g, outs[-1])
+        wave_grid(spec, "Waveforms", grid, info, data[g].mean(0), labels, colors, styles, ms, t, lo, hi, neg, g, outs[-1])
         if spec.get("components"):
             names = "-".join(c["name"] for c in spec["components"])
             outs.append(versioned(root / "topo", f"topo-table_{safe(names)}_{safe(g)}"))

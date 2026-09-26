@@ -4,7 +4,7 @@ A JSON object. Unknown keys stop the script (an old spec with `out` stops too: d
 `test/fig_main.json`. Keep specs in `brain-plot/specs/`.
 
 Outputs go to `brain-plot/` next to the data folder (rules O1–O3): `ERP_topo/ERP-topo_<component>_<channels>_<window>_<comparison>_vNN`,
-`topo/topo_<component>_<window>_<comparison>_vNN`, `ERP/ERP-ROI_<channels>_<component>-<window>_<comparison>_vNN`; each as
+`topo/topo_<component>_<window>_<comparison>_vNN`, `ERP/ERP-ROI_<channels>[_<band>-<window>]_<comparison>_vNN`, `ERP/ERP_<channel>_…` (single), `ERP/ERP-all-channels_<comparison>_vNN/` (single, all), `ERP/ERP-grid-<rows>x<cols>_<lines>_<facet level>_vNN` (grid); each as
 `.png .svg`, `_caption.md`, `_run.json`. `<comparison>` is `groups-by-condition` (`overlay: "groups"`) or
 `conditions-by-group`.
 
@@ -14,7 +14,7 @@ Outputs go to `brain-plot/` next to the data folder (rules O1–O3): `ERP_topo/E
 |---|---|
 | `data` | Folder with one `*-epo.fif` or `*-ave.fif` per subject; sub-folders are groups. Subject ID = file name up to the first `_`, `-` or `.`. |
 | `conditions` | `{file_key: label}`; file_key is the event name (epochs) or comment (evoked). Order = panel/line order. |
-| `components` | List of `{name, channels, tmin_ms, tmax_ms, window_source}`; one figure each. `name`: letters/digits/`_`/`-`, unique ignoring case (it becomes a file name). `channels`: non-empty, no repeats. The window must lie inside `xlim_ms`. `window_source` says exactly where the window comes from (rule S3). |
+| `components` | combo/topo: list of `{name, channels, tmin_ms, tmax_ms, window_source}`; one figure each. erp: optional gray bands `{name, tmin_ms, tmax_ms, window_source}` (no channels), default none. `name`: letters/digits/`_`/`-`, unique ignoring case (it becomes a file name). `channels`: non-empty, no repeats. The window must lie inside `xlim_ms`. `window_source` says exactly where the window comes from (rule S3). |
 | `claim` | What the figure is meant to show, as confirmed with the user (one sentence). |
 | `key_comparison` | The comparison the layout serves (e.g. "groups within each condition"). |
 | `time_locked_to` | Event at 0 ms, as it should read in the caption (non-empty). |
@@ -24,7 +24,9 @@ Outputs go to `brain-plot/` next to the data folder (rules O1–O3): `ERP_topo/E
 
 | Key | Default | Meaning |
 |---|---|---|
-| `kind` | `"combo"` | `"combo"`: waveforms + topomaps. `"erp"`: waveforms only (default canvas 180 × 120 mm). `"topo"`: topomaps only, each panel a block of maps whose shape adapts to line and panel count (rule K2; e.g. 6 lines × 2 panels → 2 × 3, × 4 panels → 1 × 6), one shared colour scale. |
+| `kind` | `"combo"` | `"combo"`: waveforms + topomaps. `"erp"`: waveforms by channel (rule K1; needs `channels`, optional `layout`). `"topo"`: topomaps only, each panel a block of maps whose shape adapts to line and panel count (rule K2; e.g. 6 lines × 2 panels → 2 × 3, × 4 panels → 1 × 6), one shared colour scale. |
+| `channels` | — | erp only: list of names (`roi`, `single`), `"all"` (`single`), or rows of names (`grid`, e.g. `[["F3","Fz","F4"],["C3","Cz","C4"],["P3","Pz","P4"]]`). |
+| `layout` | `"roi"` | erp only: `"roi"` (mean of the channels), `"single"` (one figure per channel), `"grid"` (one figure per facet level, a panel per channel). |
 | `groups` | all sub-folders (or `group_by` values), alphabetical | Which groups, in order; the first is drawn black when groups are overlaid. |
 | `group_by` | none | Metadata column holding a between-subject group (e.g. `"WM"`), for a flat folder of epochs files; must be constant within each file. Groups are its values. |
 | `exclude` | none | `{subject_id: reason}`; every ID must exist, every reason non-empty. |

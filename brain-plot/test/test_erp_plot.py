@@ -158,11 +158,33 @@ with tempfile.TemporaryDirectory() as d:
     ep.plot(spec(root, groups=["G1"], overlay="conditions", kind="topo", components=late))
     cap = latest(root, "topo", "topo_N4_350-390ms_conditions-by-group_v01_caption.md").read_text(encoding="utf8")
     assert "Lines:" not in cap and "gray band" not in cap and "polarity" not in cap and "Topographies" in cap
-    ep.plot(spec(root, groups=["G1"], overlay="conditions", kind="erp", components=early))
+    band = [dict(name="P3", tmin_ms=100, tmax_ms=200, window_source="test")]  # erp bands carry no channels
+    ep.plot(spec(root, groups=["G1"], overlay="conditions", kind="erp", channels=["Cz", "Pz"], components=band))
     cap = latest(root, "ERP", "ERP-ROI_Cz-Pz_P3-100-200ms_conditions-by-group_v01_caption.md").read_text(encoding="utf8")
     assert "Topographies" not in cap and "topography window" not in cap and "Lines:" in cap
+    assert "Waveforms: mean of Cz, Pz" in cap and "P3: window 100–200 ms" in cap
     inside_canvas(SAVED[-1])
     assert any(t == "a" for t, _ in texts_of(SAVED[-1]))
+
+    # 4c. kind "erp" by channel (rule K1): all channels one file each in one versioned folder; grid per facet level;
+    #     no band unless components are given; spec errors
+    ep.plot(spec(root, groups=["G1", "G2"], kind="erp", layout="single", channels="all", components=[]))
+    folder = root.parent / "brain-plot" / "ERP" / "ERP-all-channels_groups-by-condition_v01"
+    assert sorted(f.name for f in folder.glob("*.png")) == sorted(f"ERP_{c}_groups-by-condition_v01.png" for c in CH)
+    assert len(list(folder.iterdir())) == 4 * len(CH)  # png, svg, caption, run per channel
+    assert not any(t in ("P3",) for t, _ in texts_of(SAVED[-1]))  # no band label without components
+    ep.plot(spec(root, groups=["G1", "G2"], kind="erp", layout="grid", channels=[["Fz", "Cz"], ["Pz", "Oz"]], overlay="conditions",
+                 components=[]))
+    for g in ("G1", "G2"):
+        run = json.loads(latest(root, "ERP", f"ERP-grid-2x2_conditions_{g}_v01_run.json").read_text(encoding="utf8"))
+        assert run["lines"] == 3 * 4 and run["maps"] == 0 and run["channels"] == ["Fz", "Cz", "Pz", "Oz"]
+    inside_canvas(SAVED[-2])
+    fails(spec(root, kind="erp"), "needs channels")
+    fails(spec(root, kind="erp", channels=["Cz", "Cz"]), "needs channels")
+    fails(spec(root, groups=["G1", "G2"], kind="erp", channels=["Cz", "FCz"], components=[]), "not in data")
+    fails(spec(root, channels=["Cz"]), "belong to kind 'erp'")
+    fails(spec(root, kind="erp", layout="grid", channels=[["Cz"]], error="sem", components=[]), "no SEM band")
+    fails(spec(root, kind="erp", channels=["Cz"]), "needs exactly")  # a band with channels (spec() default component)
 
     # 5. cache is invalidated when an input file changes
     s = spec(root, groups=["G1"])
@@ -213,7 +235,7 @@ with tempfile.TemporaryDirectory() as d:
     root.mkdir()
     for i in range(2):
         make_subject(root / f"s{i}_x-ave.fif", "ABCDEFG", seed=i)
-    ep.plot(spec(root, conditions={c: c for c in "ABCDEFG"}, kind="erp"))
+    ep.plot(spec(root, conditions={c: c for c in "ABCDEFG"}, kind="erp", channels=["Cz", "Pz"], components=[]))
     fig = SAVED[-1]
     inside_canvas(fig)
     ts = [(t, b) for t, b in texts_of(fig) if t in "ABCDEFG" or "," in t]  # facet labels and ROI titles
