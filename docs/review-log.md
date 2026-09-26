@@ -172,3 +172,13 @@ checks were confirmed to fail on the old code. Re-rendered N400 main, supplement
   `_run.json` written by `write_run()` (records channels and band sample bounds). Tests 4b, 4c, 8.
 - Note: the erp grid and the explore overview share the name `ERP-grid-3x3_conditions_<group>`, so they version
   together (a paper grid after an explore overview becomes v02).
+
+## Microstate branch (2026-09-26, plan `docs/plan-microstate.md`)
+- `microstate_plot.py`: `figure: "states"` (blocks topo / butterfly / gfp / ribbon) and `"by-K"`; rules MS1–MS8.
+  Reproduces the v10 K = 5 reference (boundaries per condition, e.g. S1 GO 80–252 ms, NoGO 74–246 ms; reference
+  median 77–251). Improvements over the reference: per-condition ranges, `S#` on the ribbon, GFP labelled, low-GFP
+  hatch. By-K numbering pools the two conditions, so a few identity colours differ from the reference strip.
+- Loader: `<condition>/<group>/<subject>*-ave.fif` layout (`split_layout`, `uid`), used by both branches.
+- `test/test_microstate.py`: planted windows recovered to the sample, 12-ms blip merged, polarity, name alignment,
+  versioning, errors. Mutations (no merge, polarity ignored) fail the tests.
+- Metaphor GN specs: `gn_manuscript/01-evokeds_grand_averages/brain-plot/specs/microstate_*.json`.

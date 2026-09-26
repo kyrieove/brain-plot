@@ -63,6 +63,21 @@ The only valid rule list; each rule is stated once. Type: **U** = the user's bin
 | O2 | Nothing is overwritten: a new render of the same figure gets the next version `_vNN`; every file of the previous versions (figure, caption, run) moves to that folder's `_history/`. (User rule, 2026-09-26.) | U | Code |
 | O3 | File names say what the figure is: kind, component, channels and/or window, comparison (`groups-by-condition` or `conditions-by-group`) or group, version; e.g. `ERP-topo_N400_Pz-CPz_350-500ms_conditions-by-group_v01`. (User rule, 2026-09-26.) | U | Code |
 
+## Microstate figures (`microstate_plot.py`, plan `docs/plan-microstate.md`)
+
+Rules S1 (input contract), T5 (PNG + SVG), T6 (fixed canvas) and O1–O3 apply; the ERP layout rules do not.
+
+| # | Rule | Type | Enforced |
+|---|---|---|---|
+| MS1 | Draw only: templates are read from the analysis (npz `centers` K × channels, aligned by `ch_names` if stored, else the data's channel order), never re-fitted; `templates_source` names the analysis. | U | Code |
+| MS2 | Each row is the subject-equal grand average of one condition (or condition × group). Every sample gets the template with the highest spatial correlation after average reference and unit norm — signed unless the analysis ignored polarity (`polarity`) — and runs shorter than `min_segment_ms` (default 30) take the better-fitting neighbour; the method and its parameters must match the analysis and are recorded. | M | Code + interview |
+| MS3 | Truthful segmentation: samples whose GFP is below the 95th percentile of the same average's pre-stimulus GFP keep their state colour and number but are hatched; no text note on the figure. No pre-stimulus samples → the script stops. (User rule, 2026-09-26.) | U | Code |
+| MS4 | States are numbered by the median midpoint of their longest runs across rows (reference rule); states that never occur come last. | D | Code |
+| MS5 | Colours: the reference 10-colour palette by display number; across-K figures colour by template identity (signed r ≥ `identity_threshold`, default 0.9, with the family's first template). | U | Code |
+| MS6 | Layout from `blocks`: framed template maps in a left column (two columns when K > 5; state label above in its colour), time panels on the right (`butterfly`: all channels thin gray + GFP; `gfp`: GFP filled with state colours), one row per condition (× group with `per_group`), `ribbon` under the butterfly; fixed canvas `width_mm` × `height_mm` (default 180 × 110). Across-K: one row per K, no time ranges. | U | Code |
+| MS7 | (a) Under each map its longest run per row (`—` if absent), while there are ≤ 4 rows; (b) ribbon segments read `S1`, `S2`, … like the maps; (c) the GFP trace is labelled "GFP". Maps carry no electrode marks. (User rules, 2026-09-26.) | U | Code |
+| MS8 | Outputs in `brain-plot/microstate/`, named by content: `topo-butterfly-ribbon_K5_GO-NoGO_vNN`, `…-GFP-…`, `…_by-group`, `topo-by-K_K3-9_vNN`; each with `_caption.md` and `_run.json` (labels in ms, low-GFP fraction, spans, identity families). | U | Code |
+
 ## QA after every `plot` render (agent looks at the PNG)
 
 1. Nothing overlaps: legend vs lines, SEM shading, gray band and its label; tick labels vs lines; titles vs letters.

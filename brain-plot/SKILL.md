@@ -74,6 +74,14 @@ Open each PNG and go through the QA list at the end of `references/rules.md` (it
 problem; do not edit images. Write the QA result into the `qa` field of each `_run.json`, and list every `open_items` field to the user as still open. Tell the user what you checked, what is still open, and where the files are.
 Hand the caption facts over as facts to write a caption from, not as a finished caption.
 
+## Microstate figures (branch)
+
+For microstate figures use `microstate_plot.py` (rules MS1–MS8, spec section "Microstate spec"). Read the analysis's
+docs, locked config and model files first: templates path, subjects and exclusions, window, polarity mode, minimum
+segment length. Ask only: which K (or which K range for `by-K`), the figure's role, which conditions (and groups), which
+blocks. Confirm the spec, run `python microstate_plot.py plot <spec.json>`, check the PNG (maps framed and numbered
+in time order, ribbon and map labels agree, hatching only where GFP is at baseline level), record `qa` in `_run.json`.
+
 ## Boundaries
 
 Sensor-level ERP potentials only. Stop and say "not supported" for: difference waves, lateralised

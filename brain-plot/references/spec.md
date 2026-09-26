@@ -46,6 +46,23 @@ Outputs go to `brain-plot/` next to the data folder (rules O1–O3): `ERP_topo/E
 
 Difference waves, lateralised components (N2pc, LRP), CSD or source data, time–frequency, significance marks, response-locked data with no 0 in range, more than 7 overlaid lines.
 
+## Microstate spec (`python microstate_plot.py plot <spec.json>`)
+
+Required: `data` (any loader layout, including `<condition>/<group>/<subject>*-ave.fif`), `conditions`, `templates`
+(path; `{k}` is replaced, e.g. `…/centers_k{k:02d}.npz`), `k` (integer for `figure: "states"`, list for `"by-K"`),
+`templates_source` (which analysis made the templates).
+
+| Key | Default | Meaning |
+|---|---|---|
+| `figure` | `"states"` | `"states"`: one K, templates + time panels; `"by-K"`: template rows for several K. |
+| `blocks` | `["topo", "butterfly", "ribbon"]` | Any of `topo`, `butterfly`, `gfp`, `ribbon`, with `butterfly` and/or `gfp`; order sets the file name. |
+| `window_ms` | `[0, 800]` | Segmented and drawn range (as in the analysis). |
+| `min_segment_ms` | 30 | Shorter runs merge into the better-fitting neighbour. |
+| `polarity` | `"sensitive"` | `"insensitive"` if the analysis ignored map polarity. |
+| `per_group` | false | One row per condition × group instead of per condition. |
+| `identity_threshold` | 0.9 | by-K: signed r at which two templates count as the same map. |
+| `groups`, `exclude`, `width_mm`/`height_mm` (180 × 110), `cmap`, `reference`, `time_locked_to` | | As above; the last two only feed the caption facts. |
+
 ## Explore spec (`python erp_plot.py explore <spec.json>`)
 
 Overview figures for choosing components and windows — not paper figures, no window bands, no interview needed.
