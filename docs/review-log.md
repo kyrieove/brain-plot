@@ -216,3 +216,13 @@ checks were confirmed to fail on the old code. Re-rendered N400 main, supplement
 | 14 | SKILL.md states the side effects (cache, output folder, `_history/`, dependencies) | — |
 | 15 | `windows` refuses components without ROI channels with a clear message | erp test |
 The GN slide spec (254 × 143 mm, butterfly + GFP) now fails MS10; its height was set to 110 mm (valid 79–114 at 254 mm width).
+
+## Absorbed from cogsci-visualization / nature-figure (2026-09-26)
+- Compared by agy (both skills vs rules.md); 5 of its 12 suggestions were already in place (SVG text, Agg + close,
+  interpolation-covering colour limit, mm layout, render-time checks).
+- T7 (from the cogsci-visualization colour-blind checklist): ΔE between categorical colours under normal vision and
+  simulated deuteranopia/protanopia, recorded and warned. Finding: in the reference microstate palette S4 cyan
+  `#0099B4` and S5 purple `#925E9F` are ΔE 7.5 for deuteranopes (red/green S2/S3 stay 18.5); palette unchanged,
+  user's choice.
+- MS7b (from nature-figure `is_dark()`): ribbon labels black on light states (green, apricot, mustard), white otherwise.
+- Not taken yet: panel-structured caption skeleton, flat-channel guard, reviewer-risk QA list (offered to the user).

@@ -49,6 +49,48 @@ def die(msg):
     sys.exit(f"ERROR: {msg}")
 
 
+# ---------- colour checks (rules T7, MS7b) ----------
+CVD = {"deutan": [[0.367322, 0.860646, -0.227968], [0.280085, 0.672501, 0.047413], [-0.011820, 0.042940, 0.968881]],
+       "protan": [[0.152286, 1.052583, -0.204868], [0.114503, 0.786281, 0.099216], [-0.003882, -0.048116, 1.051998]]}
+MIN_DELTA_E = 10.0  # below this two categorical colours are hard to tell apart
+
+
+def linear_rgb(c):
+    c = np.array(matplotlib.colors.to_rgb(c))
+    return np.where(c <= 0.04045, c / 12.92, ((c + 0.055) / 1.055) ** 2.4)
+
+
+def cielab(lin):
+    xyz = np.array([[0.4124, 0.3576, 0.1805], [0.2126, 0.7152, 0.0722], [0.0193, 0.1192, 0.9505]]) @ lin
+    f = xyz / np.array([0.95047, 1.0, 1.08883])
+    f = np.where(f > 0.008856, np.cbrt(f), 7.787 * f + 16 / 116)
+    return np.array([116 * f[1] - 16, 500 * (f[0] - f[1]), 200 * (f[1] - f[2])])
+
+
+def colour_check(colors, what):
+    """Rule T7: smallest CIE76 ΔE between the figure's categorical colours for normal vision and simulated deuteranopia
+    and protanopia (Machado 2009, severity 1). Recorded in _run.json; a warning below MIN_DELTA_E (the palette is the
+    user's choice, so the script does not stop)."""
+    cols = list(dict.fromkeys(matplotlib.colors.to_hex(c) for c in colors))
+    out = {}
+    for vision, m in [("normal", np.eye(3))] + list(CVD.items()):
+        lab = [cielab(np.clip(np.array(m) @ linear_rgb(c), 0, 1)) for c in cols]
+        pairs = [(float(np.linalg.norm(lab[i] - lab[j])), cols[i], cols[j]) for i in range(len(cols))
+                 for j in range(i + 1, len(cols))]
+        d, a, b = min(pairs, default=(np.inf, "", ""))
+        out[vision] = dict(min_delta_e=round(d, 1), pair=[a, b])
+        if d < MIN_DELTA_E:
+            print(f"WARNING: {what}: {a} and {b} are hard to tell apart for {vision} vision (ΔE {d:.1f}; rule T7)")
+    return out
+
+
+def ink(colour):
+    """Rule MS7b: white text on dark or saturated backgrounds, black once the relative luminance exceeds 0.3 (light
+    colours such as apricot or mustard); near the WCAG tie (~0.18) white reads better on saturated colours."""
+    lum = float(np.array([0.2126, 0.7152, 0.0722]) @ linear_rgb(colour))
+    return "black" if lum > 0.3 else "white"
+
+
 # ---------- spec ----------
 def check_spec(spec):
     keys = set(spec)
@@ -902,6 +944,7 @@ def plot(spec):
         plt.close(fig)
         caption(spec, comp, meta, groups, conds, out, ms, v, sphere, kind)
         write_run(spec, meta, out, comp, ms, size, n_lines, n_maps, legend=placed, gap_mm=float(gap_mm),
+                  colour_distinctness=colour_check(colors[:len(lines)], "line colours") if kind != "topo" else None,
                   colour_limit_uV=float(v), sensor_max_uV=float(v_sensor), interpolated_max_uV=float(peak),
                   sphere_m=sphere)
         if not batch:
@@ -947,7 +990,8 @@ def plot_grid(spec, data, info, meta, panels, lines, get, colors, labels, ms, t,
                       bands=comps, dpi=600)
         comp = dict(channels=sum(rows, []), bands=comps)
         caption(spec, comp, meta, list(data), list(spec["conditions"]), out, ms, 0, None, "erp")
-        write_run(spec, meta, out, comp, ms, list(canvas_size(spec)), n, 0, legend="under the grid")
+        write_run(spec, meta, out, comp, ms, list(canvas_size(spec)), n, 0, legend="under the grid",
+                  colour_distinctness=colour_check(colors[:len(lines)], "line colours"))
         archive(out)
         outs.append(out)
     print("wrote", *[f"{o}.png/.svg" for o in outs], sep="\n  ")

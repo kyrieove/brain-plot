@@ -75,6 +75,12 @@ for bad, text in ((dict(conditions={"A": "a", "B": "b", "C": "c"}, grid=[["A"], 
     except SystemExit as e:
         assert text in str(e), e
 
+# 0c. colour checks: ribbon text by background (MS7b); CVD distinctness recorded and warned (T7)
+assert [msp.ep.ink(c) for c in ("#00468B", "#ED0000", "#FDAF91", "#D4A017")] == ["white", "white", "black", "black"]
+cc = msp.ep.colour_check(["#0099B4", "#925E9F", "#ED0000"], "test")
+assert cc["normal"]["min_delta_e"] > 25 and cc["deutan"]["min_delta_e"] < 10  # cyan/purple merge for deuteranopes
+assert cc["deutan"]["pair"] == ["#0099b4", "#925e9f"]
+
 # 0. polarity: a sign-flipped T1 map is T1 only when polarity is ignored
 flip = np.outer(-T[1], np.ones(20))
 assert (msp.segment(flip, T, SF, 30, sensitive=False) == 1).all()
@@ -102,6 +108,7 @@ with tempfile.TemporaryDirectory() as d:
     assert [x[1] for x in go] == ["S1", "S2", "S3"] and go[0][0] <= 100 and [x[0] for x in go[1:]] == [300, 500], segs
     assert [x[1] for x in nogo] == ["S1", "S3"] and nogo[0][0] <= 100 and nogo[1][0] == 300, segs
     assert 0.08 < run["low_gfp_fraction"]["Go"] < 0.17, run["low_gfp_fraction"]  # 0–100 ms is baseline-level noise
+    assert set(run["colour_distinctness"]) == {"normal", "deutan", "protan"}
     assert run["spans"]["NoGo"].get("S2") is None  # T0 never occurs in NoGo: shown as "—" under its map
     cap = Path(f"{out}_caption.md").read_text(encoding="utf8")
     assert "signed" in cap and "Hatched" in cap and "synthetic" in cap

@@ -361,7 +361,7 @@ def plot_states(spec, data, info, meta, ms, sphere):
                         rax.add_patch(Rectangle((x0, 0), x1 - x0, 1, color=col[st], lw=0))
                         if (t[b - 1] - t[a]) > 0.045 * (t[-1] - t[0]) * C:
                             rax.text((t[a] + t[b - 1] + step) / 2, 0.5, f"S{pos[st] + 1}", ha="center", va="center",
-                                     fontsize=5.5, color="white", fontweight="bold", zorder=5)
+                                     fontsize=5.5, color=ep.ink(col[st]), fontweight="bold", zorder=5)  # rule MS7b
                     hatch(rax, t, low, 0, 1)
                     rax.set_ylim(0, 1)
                     rax.set_yticks([])
@@ -373,7 +373,8 @@ def plot_states(spec, data, info, meta, ms, sphere):
                 xx += pw + ylab
     stem = f"{'-'.join(BLOCKS[b] for b in blocks)}_K{k}_{'-'.join(map(ep.safe, spec['conditions']))}" \
            + ("_by-group" if spec.get("per_group") else "")  # rule O3
-    extra = dict(order_by_display=[int(s) for s in order], labels_ms={c: [[float(t[a]), float(t[b - 1]), f"S{pos[st] + 1}"]
+    extra = dict(colour_distinctness=ep.colour_check([col[s] for s in order], "state colours"),
+                 order_by_display=[int(s) for s in order], labels_ms={c: [[float(t[a]), float(t[b - 1]), f"S{pos[st] + 1}"]
                                                                       for a, b, st in runs(l)] for c, l in labels.items()},
                  low_gfp_fraction={c: float(v.mean()) for c, v in lows.items()})
     return fig, stem, [tpath], dict(cells={c: n for c, (_, n) in cells.items()}, spans={
@@ -427,7 +428,9 @@ def plot_by_k(spec, data, info, meta, ms, sphere):
                        IDENTITY_COLOURS[fam[k, st]], f"S{i + 1}", "", spec.get("cmap", "RdBu_r"))
     rng = f"{ks[0]}-{ks[-1]}" if len(ks) > 1 and ks == list(range(ks[0], ks[-1] + 1)) else "-".join(map(str, ks))
     stem = f"topo-by-K_K{rng}"
-    return fig, stem, paths, dict(families={f"K{k}": [fam[k, s] for s in o] for k, _, o in rows})
+    return fig, stem, paths, dict(families={f"K{k}": [fam[k, s] for s in o] for k, _, o in rows},
+                                  colour_distinctness=ep.colour_check([IDENTITY_COLOURS[f] for f in set(fam.values())],
+                                                                      "identity colours"))
 
 
 def caption(spec, meta, out, paths, facts):
