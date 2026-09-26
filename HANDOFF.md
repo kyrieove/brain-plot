@@ -1,59 +1,72 @@
-# brain-plot — handoff (2026-09-26)
+# brain-plot — handoff (2026-09-26, end of day)
+
+Start of every new session: read this file, then `docs/review-log.md` (newest entries at the bottom).
 
 ## State
-`brain-plot` skill v1 is finished and in use. Four astra (gpt-6-astra) review rounds plus two real datasets; every
-fix is logged in `docs/review-log.md`. Regression checks pass.
+Two branches, both working, tests pass, everything committed and pushed
+(https://github.com/kyrieove/brain-plot, public, branch `main`).
+- **ERP** (`erp_plot.py`): `combo` (waveforms + maps per component), `topo` (maps only), `erp` (waveforms by channel:
+  `roi` mean / `single` incl. `channels: "all"` / `grid`, gray bands only if asked), `explore` (3 × 3 overview +
+  topomap table), `windows` (candidate windows, optional helper). The skill only draws — no localizer (user decision
+  2026-09-26: windows come from the analysis).
+- **Microstate** (`microstate_plot.py`, plan `docs/plan-microstate.md`, rules MS1–MS10): `figure: "states"` (template
+  maps + butterfly or GFP + segmentation ribbon; ≤ 2 conditions stacked with maps left, more need `grid` with maps on
+  top; one time-panel type per multi-column grid) and `"by-K"` (template rows across K, identity colours). Reads saved
+  templates (npz `centers`, optional `ch_names`), never re-fits.
+- Outputs (both branches, rules O1–O3): `brain-plot/` next to the data folder → `ERP/`, `topo/`, `ERP_topo/`,
+  `microstate/`, `specs/`; names say what the figure is; re-renders get `_vNN+1`, old versions move to `_history/`.
+
+## Next (start here)
+1. **Codex full review** (user runs it): brief `docs/review-request-round6.md` → findings in
+   `docs/astra-review-round6.md`. Read them, show the user, fix after the user decides, log in review-log, push.
+2. `qa` fields of the metaphor v01 figures are still PENDING (record after a visual check if the user wants).
 
 ## Use
-- In any session: `/brain-plot <data_dir>` (skill linked at `~/.claude/skills/brain-plot` → `C:\dev\brain-plot\brain-plot`).
-- Flow: inspect data + read the study's notes → interview in rounds → confirm spec → `erp_plot.py plot` → visual QA
-  → write `qa` into `_run.json`, report `open_items`.
-- Python: conda env `mnedev` (`C:\Users\ASUS\miniconda3\envs\mnedev\python.exe`).
-- Tests: `python brain-plot/test/test_erp_plot.py` → `OK`.
-- Single-type figures: `kind: "erp"` (180 × 120 mm) or `"topo"` (block shape adapts to line and panel count, `topo_block`). User-chosen 2026-09-25.
-- Before windows are known: `erp_plot.py explore <spec>` → 3 × 3 waveforms (F3 Fz F4 / C3 Cz C4 / P3 Pz P4, legend
-  under the grid) + condition × component topomap table (global scale, optional difference maps). User-approved
-  2026-09-25; example `...\figures\brain-plot\explore\v2.json`.
+- Any session: `/brain-plot <data_dir>` (skill linked at `~/.claude/skills/brain-plot` → `C:\dev\brain-plot\brain-plot`).
+- Python: `C:\Users\ASUS\miniconda3\envs\mnedev\python.exe` (conda env `mnedev`, MNE dev — pycrostates 0.6.1 was added
+  with `--no-deps` on 2026-09-26; MNE untouched).
+- Tests: `python brain-plot/test/test_erp_plot.py` and `python brain-plot/test/test_microstate.py` → both `OK`.
+- Commit + push after every tested change set (user rule); commit messages end with the Co-Authored-By line.
 
 ## Key files
 | File | What |
 |---|---|
-| `brain-plot/SKILL.md` | workflow for any agent |
-| `brain-plot/references/rules.md` | the only rule list (U = user rule, binding) |
-| `brain-plot/references/spec.md` | spec keys |
-| `brain-plot/erp_plot.py` | all computing and drawing |
-| `brain-plot/test/fig_main.json` | example spec (synthetic paths, Go/NoGo layout) |
-| `D:\1-python_datasets\metaphor production\derivatives\brain-plot\` | N400 main + P200/N300/LPC supplementary in `ERP_topo/`, explore in `ERP/` + `topo/`, specs in `specs/`, old versions in `_history/` |
-| `research/exemplars.md`, `research/erp-gallery.html` | design sources |
-| `docs/astra-review-*.md`, `docs/review-log.md` | reviews and every change |
+| `brain-plot/SKILL.md` | workflow for any agent (ERP interview rounds; microstate section) |
+| `brain-plot/references/rules.md` | the only rule list: S, L, K, E, T, O, MS (U = user rule, binding) |
+| `brain-plot/references/spec.md` | spec keys for plot / explore / microstate |
+| `brain-plot/erp_plot.py`, `brain-plot/microstate_plot.py` | all computing and drawing |
+| `docs/plan-2026-09-26.md`, `docs/plan-microstate.md` | agreed plans (the first one revised: no localizer) |
+| `docs/review-log.md`, `docs/astra-review-*.md` | every change with its reason; external reviews |
 
-## Next (start here in the new session)
-Plan: `docs/plan-2026-09-26.md` (revised: the skill only draws; no localizer). Repo: https://github.com/kyrieove/brain-plot
-(public; commit + push after every tested change set).
-- Done: repo; output layout O1–O3 + `_history/` + metaphor migration; `kind: "erp"` by channel (roi / single / all /
-  grid, optional bands). Metaphor examples: `derivatives/brain-plot/specs/erp_roi_N400.json`, `erp_grid_3x3.json`.
-- Microstate branch done (plan `docs/plan-microstate.md`, rules MS1–MS8, `microstate_plot.py`,
-  `test/test_microstate.py`). GN v10 examples: `C:\Users\ASUS\Dropbox\metaphor_production\gn_manuscript\01-evokeds_grand_averages\brain-plot\`
-  (specs in its `specs/`, figures in `microstate/`).
-- Next: Codex full review, brief in `docs/review-request-round6.md` → `docs/astra-review-round6.md`; `qa` fields of the
-  metaphor v01 figures are still PENDING.
+## Example data and outputs
+| Data | Outputs |
+|---|---|
+| Metaphor ERP `D:\1-python_datasets\metaphor production\derivatives\preprocessed_epochs` (60 subj, 6 conditions, WM groups) | `…\derivatives\brain-plot\` (N400 + P200/N300/LPC combo, erp ROI/grid, explore, microstate test); specs in `specs\` |
+| Metaphor microstate test (10 random subj, v10 method, K 3–8) | `…\derivatives\microstate_test_n10\` (templates, GA, REPORT, specs incl. `states_k5_grid*.json`) |
+| GN Go/NoGo `C:\Users\ASUS\Dropbox\metaphor_production\gn_manuscript\01-evokeds_grand_averages\evokeds_single_subject` (130 subj, v10 templates) | `…\01-evokeds_grand_averages\brain-plot\microstate\` (K5 states, GFP slide, by-K 3–9); specs in its `specs\`. Note: its `.cache` (77 MB) syncs to Dropbox |
+| Resting test `D:\1-python_datasets\77_microstate\a_clean_2s` (pycrostates K = 4, 10 subj) | `…\77_microstate\pycrostates_k4_n10\`, figure `…\77_microstate\brain-plot\microstate\topo-by-K_K4_v02` |
 
-## Rejected by the user (don't redo)
-- Explore: core-channel page + 4/6/8/9 electrode pages (replaced by one 3 × 3); legend as a right-hand column.
-- Topo-only: one row per panel ("grid" layout); compact centred layout (too cramped); 8 mm colour bar.
-- Waveform-only at 89 mm width.
+## User decisions to respect (don't redo)
+- Paper figures: condition names only in titles/legends, never N (L10, MS7d). No electrode marks on maps (L11).
+  PNG + SVG only (T5). Fixed canvas from the spec (T6).
+- ERP: no localizer; `windows`/`explore` stay optional. Explore: one 3 × 3 page, legend under the grid.
+  Topo-only: block layout, 4-mm colour bar.
+- Microstate: never stack more than 2 conditions (use `grid`); butterfly and GFP not both in a multi-column grid;
+  panel width:height 1.8–3.5; hatch low-GFP samples, no text note; resting-state figures beyond the template row are
+  not wanted for now.
+- Rejected earlier: explore paging, right-hand legend column, topo "grid"/compact layouts, 8-mm colour bar, 89-mm
+  waveform-only figure.
 
 ## Open
-- Metaphor dataset: `time_locked_to` (which event is 0 ms) and the N400 `claim` still marked to be confirmed
-  (user said no caption needed).
-- Supplementary P200/N300/LPC reuse Pz, CPz; P200 is usually fronto-central — change if the user wants.
-- Not supported in v1 (script stops): difference waves, lateralised components, CSD/source/TF, significance marks,
+- Metaphor: `time_locked_to` and the N400 `claim` still "to be confirmed". Supplementary P200/N300/LPC reuse Pz, CPz.
+- Not supported (script stops): difference waves, lateralised components, CSD/source/TF, significance marks,
   > 7 overlaid lines.
+- Codex's abandoned localizer lives in branch `codex/step3-localize-erp` (703f52a) and `git stash@{0}`; not merged.
 
 ## Known pitfalls
-- Claude's Bash tool needs `BASH_ENV` (set in `~/.claude/settings.json`) to get `mnedev` as `python`; takes effect
-  in new sessions. Otherwise call the full path.
-- `codex` on PATH is a launcher for the newest desktop-bundled CLI (`~/bin/codex{,.cmd}`); MCP codex uses
-  `cmd /c codex mcp-server`. astra review: `codex exec --skip-git-repo-check -m gpt-6-astra -c model_reasoning_effort=xhigh -s read-only -o <file> - < prompt` (the folder is not a git repo; without the flag codex exits at once).
-- Never fill `reference` / `time_locked_to` from memory: read the preprocessing script (metaphor data: linked
-  mastoids TP9/TP10, `scripts/preprocess_eeg.py:382`).
+- Heredoc Python in Git Bash eats backslashes (`\n`, `\1`, `\b`): write patch scripts to a file with raw strings.
+- `codex exec` needs `--skip-git-repo-check` outside git repos; it failed with 401 / timeouts on 2026-09-26.
+  agy (`C:/Users/ASUS/AppData/Local/agy/bin/agy.exe`, see the agy-delegate skill) worked for data tasks.
+- `gh repo create --public` is blocked by the auto-mode classifier: the user runs outward-facing commands.
+- Never fill `reference` / `time_locked_to` from memory: read the preprocessing script (metaphor: linked mastoids
+  TP9/TP10, `scripts/preprocess_eeg.py:382`).
