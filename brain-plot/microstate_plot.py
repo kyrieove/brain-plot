@@ -363,7 +363,8 @@ def plot_by_k(spec, data, info, meta, ms, sphere):
         for i, st in enumerate(order):
             framed_map(fig, W, H, side + lab_w + i * s * 1.18, y, s, centers[st], info, sphere, vmax,
                        IDENTITY_COLOURS[fam[k, st]], f"S{i + 1}", "", spec.get("cmap", "RdBu_r"))
-    stem = f"topo-by-K_K{'-'.join(map(str, ks)) if ks != list(range(ks[0], ks[-1] + 1)) else f'{ks[0]}-{ks[-1]}'}"
+    rng = f"{ks[0]}-{ks[-1]}" if len(ks) > 1 and ks == list(range(ks[0], ks[-1] + 1)) else "-".join(map(str, ks))
+    stem = f"topo-by-K_K{rng}"
     return fig, stem, paths, dict(families={f"K{k}": [fam[k, s] for s in o] for k, _, o in rows})
 
 
