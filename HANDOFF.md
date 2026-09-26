@@ -17,30 +17,31 @@ Two branches, both working, tests pass, everything committed and pushed
   `microstate/`, `specs/`; names say what the figure is; re-renders get `_vNN+1`, old versions move to `_history/`.
 
 ## Next (start here)
-- 2026-09-26 (cloud): external UX review fixed — items 1, 2, 4, 6–10 + doc (table at the end of the review log).
-  #5 done: same order on all 9 real specs, MS4 text aligned with the code. GN K5 v07 accepted. GN templates
-  (`centers_k05.npz`) have no ch_names → warning on every run; re-save them with ch_names if the order is known.
-- 2026-09-26 (cloud): README (en + zh-CN), synthetic demo (`examples/`), `requirements.txt`, spec-relative paths,
-  matplotlib 3.11 / no-Arial test fixes, grid right margin 6 mm (see review log). README images = the user's own metaphor figures (`docs/images/example-erp.png`, `example-microstate.png`,
-  copied by a local session; user: shared with classmates for testing, not a public release). Open for the user:
-  `CLAUDE.md` holds personal rules (Chinese replies, SendUserFile) that would apply to anyone opening the repo in
-  Claude Code; `HANDOFF.md` and `agent-test-*.md` at the root carry personal paths; ribbon labels under `hatch` are hard
-  to read.
+State at end of 2026-09-26: local `main` = GitHub `main` = cloud branch `claude/bold-gates-u9nx46` = `dfa1f7e` (plus this
+handoff). Both suites OK on Windows (mnedev) and in the cloud (matplotlib 3.10 and 3.11, no Arial).
 
-Everything is committed and pushed; `main` = cloud branch `claude/bold-gates-u9nx46` = f058705 (plus this handoff).
-Done on 2026-09-26 (details in `docs/review-log.md`, newest at the bottom): Lancet palette kept, T7 warns on normal
-vision only; per-panel caption facts (S9); flat-channel stop with `flat_channels` (S10); GFP label clear of traces
-(MS7c); reviewer-risk QA dropped (QA 6 = baseline visibility + dominated map scale only); every caption-only field
-optional (`claim`, `key_comparison`, `time_locked_to`, `reference`, `window_source`, exclusion reasons,
-`templates_source`); interview no longer asks statistics, figure role, journal or window source; S3/E3 no longer police
-window choice; microstate hatching opt-in (`hatch: true`, default off). Latest renders, QA passed: metaphor N400 v04
-(`open_items` empty), GN K5 v06 (no hatching, user approved).
+Done today (details in `docs/review-log.md`, newest at the bottom):
+- Palette: Lancet kept; T7 warns on normal vision only, compares colour + line style, strict JSON (no Infinity).
+- Captions: `## Whole figure` + `## Panels` by drawn letters (S9); every caption-only field optional.
+- Loader: flat-channel stop with `flat_channels` (S10); BIDS subject IDs; `inspect` covers every input layout.
+- Interview: always ask `claim` / `key_comparison` (they decide type, components, overlay, line pairing); never ask
+  time-locking, reference, display range (whole epoch), polarity or colours. Reviewer-risk QA dropped (user: writing
+  concerns, not figure concerns); QA 6 = baseline visibility + dominated map scale.
+- Microstate: GFP label clear of traces (MS7c); hatching opt-in; unique condition labels; one boundary definition
+  (half-way between samples) for ribbon, dotted lines, spans and caption; template md5 + channel-order note; MS4 text
+  matches the code (checked on 9 real specs).
+- Sharing: README (en + zh-CN) with the user's metaphor figures, `examples/` synthetic install check,
+  `requirements.txt`, spec-relative paths. Repo stays public; classmates get the GitHub link. `CLAUDE.md` stays as is
+  (user decision).
+- Latest accepted renders: metaphor N400 v04, GN K5 v07 (boundaries 1 ms earlier than v06, numbering unchanged).
 
 Nothing is waiting on the user. Optional:
-1. Round 7 review of the round-6 fixes and today's opt-outs (brief `docs/review-request-round6.md`).
-2. Run `brain-plot/evals/cases.md` in fresh sessions (manual).
-3. `qa` of the metaphor v01 figures (P200/N300/LPC) is still PENDING; superseded versions may not need it.
-4. Local commits show author `xburner23412`, not `kyrieove` — check `git config user.name/user.email` if unintended.
+1. `hatch: true`: ribbon S# labels are hard to read over the hatching.
+2. GN templates `centers_k05.npz` have no `ch_names` → warning on every run; re-export them with `ch_names` upstream.
+3. Run `brain-plot/evals/cases.md` in fresh sessions (manual); optional round 7 review.
+4. External audit (`docs/`, commit c6eee87): items not taken are listed in the review log (user decisions / out of
+   scope) — don't redo them.
+5. Local commits show author `xburner23412`, not `kyrieove` — check `git config user.name/user.email` if unintended.
 
 ## Use
 - Any session: `/brain-plot <data_dir>` (skill linked at `~/.claude/skills/brain-plot` → `C:\dev\brain-plot\brain-plot`).
