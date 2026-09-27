@@ -18,7 +18,9 @@ re-fitted; clustering is out of scope. Resting-state figures beyond the template
 
 Read the analysis's docs, locked config and model files: templates path, subjects and exclusions, `window_ms`,
 `polarity` (`"insensitive"` if the analysis ignored map polarity, e.g. pycrostates), `min_segment_ms`,
-`templates_source`. These must match the analysis — never ask the user what the config states.
+`templates_source`. These must match the analysis — never ask the user what the config states. If no file states
+`polarity`, `min_segment_ms` or `window_ms`, ask the user (they change the drawing); never fill them from the
+spec defaults or from what a toolbox usually does. `templates_source` unknown → leave it out.
 
 Ask only: which K (or K range for `by-K`), which conditions (and groups), which blocks.
 

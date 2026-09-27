@@ -354,3 +354,7 @@ OK on matplotlib 3.10.9 and 3.11.2 (Linux, DejaVu Sans).
 - Paths updated in the script docstrings, `_run.json` `rules` field (`docs/rules.md v1`), README (en + zh-CN),
   HANDOFF, research/exemplars.md. `spec.md` unchanged. Three suites OK in the cloud (matplotlib 3.10, DejaVu Sans).
 - To check: one fresh-session interview run with the split skill (Antigravity prompt in the chat).
+- Local check (Antigravity, 2026-09-27): e49a76e fast-forwarded, three suites OK on Windows; dry-run interviews for
+  eval cases 9 and 10 graded pass. Two caveats: nothing was drawn, so the PNG / `qa` items of case 9 were not
+  exercised; the demo data has no analysis config, yet the dry run filled `polarity: "insensitive"` as if read from
+  one. Fix: `microstate.md` now says to ask for `polarity` / `min_segment_ms` / `window_ms` when no file states them.
