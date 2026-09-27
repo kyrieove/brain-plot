@@ -66,8 +66,9 @@ Nothing is waiting on the user. Optional:
 ## Key files
 | File | What |
 |---|---|
-| `brain-plot/SKILL.md` | workflow for any agent (ERP interview rounds; microstate section) |
-| `brain-plot/references/rules.md` | the only rule list: S, L, K, E, T, O, MS (U = user rule, binding) |
+| `brain-plot/SKILL.md` | lean router + common workflow (inspect → interview → confirm → draw → QA) |
+| `brain-plot/references/erp.md`, `microstate.md` | agent-facing module files: what to ask / never ask, stops, QA lists |
+| `docs/rules.md` | the only rule list: S, L, K, E, T, O, MS (U = user rule, binding); developer reference, not read by the agent (split 2026-09-27) |
 | `brain-plot/references/spec.md` | spec keys for plot / explore / microstate |
 | `brain-plot/erp_plot.py`, `brain-plot/microstate_plot.py` | all computing and drawing |
 | `docs/plan-2026-09-26.md`, `docs/plan-microstate.md` | agreed plans (the first one revised: no localizer) |

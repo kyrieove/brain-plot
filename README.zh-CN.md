@@ -119,7 +119,7 @@ spec 里的相对路径（`data`、`templates`）按 spec 文件所在文件夹�
 
 ## 规则和测试
 
-- [`brain-plot/references/rules.md`](brain-plot/references/rules.md)：完整规则（科学、版面、风格、输出、微状态、QA）。
+- [`docs/rules.md`](docs/rules.md)：完整规则（科学、版面、风格、输出、微状态），开发参考，由脚本执行。agent 自己要遵守的部分（访谈、脚本停下时怎么办、QA 清单）在 [`brain-plot/references/erp.md`](brain-plot/references/erp.md) 和 [`brain-plot/references/microstate.md`](brain-plot/references/microstate.md)。
 - 测试：`python brain-plot/test/test_erp_plot.py`、`python brain-plot/test/test_microstate.py` 和
   `python brain-plot/test/test_layout.py`（接近真实规模：64 导、7 个条件、3 组；都应输出 `OK`）。
 - `docs/`、`HANDOFF.md`、`research/` 是开发笔记和审查记录。

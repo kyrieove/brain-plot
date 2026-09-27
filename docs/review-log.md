@@ -343,3 +343,14 @@ OK on matplotlib 3.10.9 and 3.11.2 (Linux, DejaVu Sans).
 - Local run (Windows, Arial): test_layout failed — the K = 8 range-omission case used short names ("NoGo 133–199",
   12.7 mm in Arial, 15.0 in DejaVu), which fit under the maps in Arial. Test now uses long names (17.5 / 21.3 mm) so the
   omission holds in any font; the figure itself was clean in both.
+
+## 2026-09-27 — rules split (user: rules.md too long; new modules paused)
+- `brain-plot/references/rules.md` (20.7 KB, 45 rules, mostly enforced by code) moved to `docs/rules.md` as the
+  developer reference; rule text and IDs unchanged, the QA section now points to the module files.
+- New agent-facing module files: `references/erp.md` (commands, explore, interview rounds, never-ask list, stops,
+  QA 1–7) and `references/microstate.md` (read-first list, what to ask, grid/hatch/per_group limits, stops, QA).
+- `SKILL.md` cut to a router + the common workflow (8.4 → 4.2 KB). Agent load per figure: ~37 KB → ~18 KB (ERP) /
+  ~15 KB (microstate).
+- Paths updated in the script docstrings, `_run.json` `rules` field (`docs/rules.md v1`), README (en + zh-CN),
+  HANDOFF, research/exemplars.md. `spec.md` unchanged. Three suites OK in the cloud (matplotlib 3.10, DejaVu Sans).
+- To check: one fresh-session interview run with the split skill (Antigravity prompt in the chat).

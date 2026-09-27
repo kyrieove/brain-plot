@@ -8,7 +8,7 @@
 <data_dir> holds one *-epo.fif or *-ave.fif per subject; sub-folders are groups. The subject ID is the file
 name up to the first "_", "-" or "." (BIDS: sub-01_… → sub-01). Input must be preprocessed EEG potentials (no bad channels left, one common
 channel set, time grid, baseline, filter and reference); the loader stops on any mismatch. The spec format and
-the rules this script enforces are in references/spec.md and references/rules.md. Outputs go to brain-plot/ next to
+the rules this script enforces are in references/spec.md and docs/rules.md (repository root). Outputs go to brain-plot/ next to
 the data folder (rules O1–O3).
 """
 import hashlib
@@ -1249,7 +1249,7 @@ def write_run(spec, meta, out, comp, ms, size, n_lines, n_maps, **extra):
     Path(f"{out}_run.json").write_text(json.dumps(dict(
         spec=spec, channels=comp["channels"], bands=bands, **extra, open_items=open_items(spec),
         inputs=meta["inputs"], ids=meta["ids"], contract=meta["contract"],
-        code_md5=hashlib.md5(Path(__file__).read_bytes()).hexdigest(), rules="references/rules.md v1",
+        code_md5=hashlib.md5(Path(__file__).read_bytes()).hexdigest(), rules="docs/rules.md v1",
         versions=dict(mne=mne.__version__, matplotlib=matplotlib.__version__, numpy=np.__version__),
         size_mm=size, lines=n_lines, maps=n_maps,
         qa="PENDING: the agent records the visual QA result here after checking the PNG"),

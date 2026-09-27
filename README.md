@@ -140,8 +140,10 @@ recently used, each can be tens of MB) makes later runs fast and is rebuilt when
 
 ## Rules and tests
 
-- [`brain-plot/references/rules.md`](brain-plot/references/rules.md): the complete rule list (science, layout, style,
-  outputs, microstate, QA checklist).
+- [`docs/rules.md`](docs/rules.md): the complete rule list (science, layout, style, outputs, microstate), a developer
+  reference enforced by the scripts. What the agent itself follows (interview, stops, QA checklists) is in
+  [`brain-plot/references/erp.md`](brain-plot/references/erp.md) and
+  [`brain-plot/references/microstate.md`](brain-plot/references/microstate.md).
 - Tests on synthetic data: `python brain-plot/test/test_erp_plot.py`, `python brain-plot/test/test_microstate.py` and
   `python brain-plot/test/test_layout.py` (realistic density: 64 channels, 7 conditions, 3 groups; each prints `OK`;
   tested with MNE 1.13 and matplotlib 3.10/3.11).

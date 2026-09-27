@@ -1,6 +1,9 @@
-# ERP figure rules — v1 (2026-09-25)
+# brain-plot rules — v1 (2026-09-25; developer reference since 2026-09-27)
 
-The only valid rule list; each rule is stated once. Type: **U** = the user's binding requirement; **M** = methods requirement; **D** = default design choice (a spec field can change it). "Code" = erp_plot.py enforces it or stops; "QA" = the agent checks the rendered figure.
+Developer reference, not read by the agent at run time: the scripts enforce these rules or stop, and the agent-facing
+part (what to ask, what to do when a script stops, the QA lists) is in `brain-plot/references/erp.md` and
+`brain-plot/references/microstate.md`. When a rule changes, update the code, this table and, if the agent's behaviour
+changes, the module file. The only valid rule list; each rule is stated once. Type: **U** = the user's binding requirement; **M** = methods requirement; **D** = default design choice (a spec field can change it). "Code" = erp_plot.py enforces it or stops; "QA" = the agent checks the rendered figure.
 
 **Scope.** `plot` with `kind: "combo"` (default) follows every rule. `kind: "erp"` and `kind: "topo"` follow the Science rules and those layout/style rules whose elements they draw (K1, K2). `explore` output is not a paper figure: it follows S1, S2, S8, the per-scale part of S5, T6 and E1–E3 only.
 
@@ -82,12 +85,7 @@ Rules S1 (input contract), S9 (caption structure), S10 (flat channels), T5 (PNG 
 | MS9 | Arrangement of the time panels: 1–2 rows are stacked with the maps in a left column; more rows need `grid` (rows × columns of condition keys, each once, e.g. a 2 × 3 design as 2 rows of 3) with at least two columns — the script stops otherwise. A grid with more than one column puts the template maps in one row above it (8 mm above the first panel titles), takes one time panel per condition — `butterfly` or `gfp`, not both — and labels y once per grid row; all three together only when the panels are stacked. (User rule, 2026-09-26: never stack six conditions.)  With `per_group`, more than 2 rows (conditions × groups) are not supported: draw one figure per group. | U | Code |
 | MS10 | Every time panel (butterfly and GFP alike) keeps width : height between 1.8 and 3.5; otherwise the script stops and lists every `height_mm` range that works (the map column can switch between 1 and 3 columns, so they need not be one range). Default height (a fixed table by layout, measured at 180 mm width over K = 2–10): 1 row with maps 62 mm, without 80; 2 rows with maps 110 (both panel types: 70), without 140 (both: 90); grid 100. A spec `height_mm` wins. (User rule, 2026-09-26; table the same day: one condition always stopped at 110.) | U | Code |
 
-## QA after every `plot` render (agent looks at the PNG)
+## QA after every render
 
-1. Nothing overlaps: legend vs lines, SEM shading, gray band and its label; tick labels vs lines; titles vs letters. The scripts check texts, legends and lines themselves (`layout_issues` in `_run.json`, printed as warnings; explore prints only): report every entry, fix what the spec can fix, and still look at the PNG for what the check cannot see (SEM shading, bands, hatching).
-2. Gray band, topomap window text and caption window agree.
-3. combo/topo: no dots or other electrode marks on the maps (rule L11).
-4. `open_items` in `_run.json` is empty, or every listed field (marked "to be confirmed" / "not recorded") is reported to the user as open.
-5. Colour warnings (T7): report a normal-vision `colour_distinctness` below 10 to the user with the two colours (deutan/protan values are not reported).
-6. Readability (report to the user, don't change the figure on your own): the display range (`xlim_ms`) hides part of the baseline interval; or one map dominates the shared scale (rule S5) so the others look near-white — correct, but readers may read it as no activity.
-7. `_run.json`: `lines`/`maps` fit the kind (combo: both = expected; erp: maps 0; topo: lines 0); `size_mm` equals the spec canvas; `legend` says where the legend went; then replace its `qa` field with the result ("passed" or the open problems).
+The QA checklists (what the agent checks on the PNG) are in `brain-plot/references/erp.md` (ERP) and
+`brain-plot/references/microstate.md` (microstate).
