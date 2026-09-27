@@ -30,3 +30,7 @@ them. The skill never computes a test or decides significance itself.
   cluster-averaged F with the cluster sensors marked, not a channel × time raster. So the "Crossref verified" labels
   and the per-dimension counts of the cluster section are not reliable; they are not used as grounds. PSD / TFR / MVPA
   sections are to be spot-checked before their rounds.
+
+## Paused (user, 2026-09-27)
+New modules are on hold; round 2 questions (cluster/raster) stay unanswered. Scope for now: ERP and microstate only.
+First priority: split the oversized `references/rules.md` (round-1 item 5, text part).
