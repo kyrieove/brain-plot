@@ -114,6 +114,10 @@ Nothing is waiting on the user. Optional:
   still use the Edit tool for any replacement whose text contains a backslash (a script file mangled one on 2026-09-26).
 - `codex exec` needs `--skip-git-repo-check` outside git repos; it failed with 401 / timeouts on 2026-09-26.
   agy (`C:/Users/ASUS/AppData/Local/agy/bin/agy.exe`, see the agy-delegate skill) worked for data tasks.
+- Local work goes to Antigravity, not a local Claude session (user, 2026-09-27): the cloud session writes a
+  self-contained prompt, the user runs it in Antigravity and pastes the result back. Claude quota is shared across
+  sessions; a local Claude session doing a 308,887-file snapshot plus two progress monitors used it up in minutes.
+  In prompts: no full-tree snapshots or monitors, read-only on data folders, write results to a named file.
 - `gh repo create --public` is blocked by the auto-mode classifier: the user runs outward-facing commands.
 - Cloud container (Linux, matplotlib 3.11): `inside_canvas` fails with `FigureCanvasBase ... get_renderer`; use
   `matplotlib<3.11` + `MPLBACKEND=Agg`. Even then the ERP 2 × 2 grid (`test_erp_plot.py:181`) puts its "ms" label
