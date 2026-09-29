@@ -362,3 +362,6 @@ OK on matplotlib 3.10.9 and 3.11.2 (Linux, DejaVu Sans).
   a full draw + QA run with the split skill on real data (GN or metaphor).
 - 2026-09-29: the two one-off agent test plans (`agent-test-PLAN.md`, `agent-test-interview-PLAN.md`) moved from the
   repo root to `docs/archive/` with an "archived, outdated paths" note; nothing referenced them.
+- 2026-09-29, end of session: HANDOFF rewritten for a new session (state incl. the split skill text and code layout,
+  next = the waiting Antigravity real-data run, saved as `docs/prompts/split-real-run.md`; 09-26 "done today" list
+  dropped from HANDOFF, it stays in this log). New user decision recorded: local work stays with Antigravity.

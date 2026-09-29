@@ -1,73 +1,63 @@
-# brain-plot — handoff (2026-09-26, end of day)
+# brain-plot — handoff (2026-09-29)
 
 Start of every new session: read this file, then `docs/review-log.md` (newest entries at the bottom).
 
 ## State
-Two branches, both working, tests pass, everything committed and pushed
-(https://github.com/kyrieove/brain-plot, public, branch `main`).
+Two modules, both working, three test suites pass, everything committed and pushed
+(https://github.com/kyrieove/brain-plot, public, branch `main` = `e35e8a7`; `claude/brave-cannon-ci83tc` = `main` + this handoff commit).
 - **ERP** (`erp_plot.py`): `combo` (waveforms + maps per component), `topo` (maps only), `erp` (waveforms by channel:
   `roi` mean / `single` incl. `channels: "all"` / `grid`, gray bands only if asked), `explore` (3 × 3 overview +
-  topomap table), `windows` (candidate windows, optional helper). The skill only draws — no localizer (user decision
-  2026-09-26: windows come from the analysis).
+  topomap table), `windows` (candidate windows, optional helper). The skill only draws — no localizer.
 - **Microstate** (`microstate_plot.py`, plan `docs/plan-microstate.md`, rules MS1–MS10): `figure: "states"` (template
-  maps + butterfly or GFP + segmentation ribbon; ≤ 2 conditions stacked with maps left, more need `grid` with maps on
-  top; one time-panel type per multi-column grid) and `"by-K"` (template rows across K, identity colours). Reads saved
-  templates (npz `centers`, optional `ch_names`), never re-fits.
-- Outputs (both branches, rules O1–O3): `brain-plot/` next to the data folder → `ERP/`, `topo/`, `ERP_topo/`,
-  `microstate/`, `specs/`; names say what the figure is; re-renders get `_vNN+1`, old versions move to `_history/`.
+  maps + butterfly or GFP + segmentation ribbon; ≤ 2 conditions stacked, more need `grid`) and `"by-K"` (template rows
+  across K, identity colours). Reads saved templates (npz `centers`, optional `ch_names`), never re-fits.
+- **Skill text (split 2026-09-27)**: `SKILL.md` = router + common workflow (inspect → interview → confirm → draw →
+  QA); agent-facing `references/erp.md`, `references/microstate.md` (what to ask / never ask, stops, QA lists) and
+  `references/spec.md`; the full rule table is `docs/rules.md` (developer reference, not read by the agent; rule IDs
+  in script messages point there).
+- **Code layout**: `erp_plot.py` (1569 lines) doubles as the shared core — `microstate_plot.py` imports ~18 of its
+  functions (`load`, `read_spec`, `versioned`/`archive`, `colour_check`, `report_layout`, `die`, …). A separate
+  `core.py` is planned only for when new modules resume.
+- Outputs (rules O1–O3): `brain-plot/` next to the data folder → `ERP/`, `topo/`, `ERP_topo/`, `microstate/`,
+  `specs/`, `.cache/`; names say what the figure is; re-renders get `_vNN+1`, old versions move to `_history/`.
+- Latest accepted renders: metaphor N400 v04, GN K5 v07.
 
 ## Next (start here)
-- 2026-09-27 (cloud, branch `claude/brave-cannon-ci83tc`): new modules (PSD, TFR, cluster/raster, MVPA) paused by
-  the user; round-2 questions stay unanswered in `docs/plan-modules.md` (agy's literature survey failed a spot-check:
-  don't cite its cluster counts). Rules split done: lean `SKILL.md`, agent-facing `references/erp.md` and
-  `references/microstate.md`, full table moved to `docs/rules.md` (developer reference). Verified locally
-  (Antigravity): three suites OK on Windows, dry-run interviews for eval cases 9/10 pass; local `main` = `daf4662`,
-  pushed. Not yet exercised: a full run (draw + QA) with the split skill on real data — optional next step.
-- 2026-09-26 (cloud, late): independent audit fixed — layout self-check (`layout_issues`), min panel height and y-tick
-  spacing, µV headroom, grid band/title, polarity-insensitive identity, subset file names (LOADER_VERSION 4: the
-  first run per dataset re-reads the files), microstate default heights, cache pruning, `check_env.py`, new
-  `test/test_layout.py` (table at the end of the review log). test_layout's range-omission case made
-  font-independent after it failed under Arial (8bcbf7e). Verified locally by the user: three suites OK on Windows
-  (mnedev, Arial), metaphor N400 and GN K5 re-rendered and checked.
-State at end of 2026-09-26: local `main` = GitHub `main` = cloud branch `claude/bold-gates-u9nx46` = `8bcbf7e` (plus this
-handoff). Three suites OK on Windows (matplotlib 3.10, Arial) and in the cloud (matplotlib 3.10/3.11, DejaVu Sans).
-Tests whose outcome depends on text width must hold in both fonts (Arial on Windows, DejaVu in the cloud).
+**Waiting on the user:** the Antigravity run in `docs/prompts/split-real-run.md` (split skill, full draw + QA on
+metaphor N400 and GN K5; report `C:\dev\agent-test-split-real-2026-09-29.md`). `main` already reached `e35e8a7`, so
+its step 0 may have run; ask the user for the report. Then: fix anything the report finds in `SKILL.md` /
+`erp.md` / `microstate.md` (not in `docs/rules.md` alone), and check that N400 v05 / K5 v08 match v04 / v07.
 
-Done today (details in `docs/review-log.md`, newest at the bottom):
-- Palette: Lancet kept; T7 warns on normal vision only, compares colour + line style, strict JSON (no Infinity).
-- Captions: `## Whole figure` + `## Panels` by drawn letters (S9); every caption-only field optional.
-- Loader: flat-channel stop with `flat_channels` (S10); BIDS subject IDs; `inspect` covers every input layout.
-- Interview: always ask `claim` / `key_comparison` (they decide type, components, overlay, line pairing); never ask
-  time-locking, reference, display range (whole epoch), polarity or colours. Reviewer-risk QA dropped (user: writing
-  concerns, not figure concerns); QA 6 = baseline visibility + dominated map scale.
-- Microstate: GFP label clear of traces (MS7c); hatching opt-in; unique condition labels; one boundary definition
-  (half-way between samples) for ribbon, dotted lines, spans and caption; template md5 + channel-order note; MS4 text
-  matches the code (checked on 9 real specs).
-- Sharing: README (en + zh-CN) with the user's metaphor figures, `examples/` synthetic install check,
-  `requirements.txt`, spec-relative paths. Repo stays public; classmates get the GitHub link. `CLAUDE.md` stays as is
-  (user decision).
-- Latest accepted renders: metaphor N400 v04, GN K5 v07 (boundaries 1 ms earlier than v06, numbering unchanged).
+Recent (details in `docs/review-log.md`):
+- 2026-09-29: two one-off agent test plans archived to `docs/archive/`. Architecture reviewed with the user (summary
+  under State). The user declined installing `addyosmani/agent-skills`.
+- 2026-09-27: new modules (PSD, TFR, cluster/raster, MVPA) paused by the user; round-1 decisions and the unanswered
+  round-2 questions are in `docs/plan-modules.md`. agy's literature survey (`docs/research-figure-conventions.md`)
+  failed a spot-check (one DOI not found, one paper only a preprint, the MNE tutorial has no raster): don't cite its
+  counts. `docs/gn-permutation-inventory.md` (GN cluster/TFCE result files) is a reliable inventory for later.
+  Rules split done and verified locally (three suites OK on Windows; dry-run interviews for eval cases 9/10 pass);
+  `microstate.md` now says to ask for `polarity` / `min_segment_ms` / `window_ms` when no file states them.
 
-Nothing is waiting on the user. Optional:
-1. `hatch: true`: ribbon S# labels are hard to read over the hatching.
+Optional, not urgent:
+1. `core.py` extraction — only when new modules resume (round-1 item 5, code part).
 2. GN templates `centers_k05.npz` have no `ch_names` → warning on every run; re-export them with `ch_names` upstream.
-3. Run `brain-plot/evals/cases.md` in fresh sessions (manual); optional round 7 review.
-4. External audit (`docs/`, commit c6eee87): items not taken are listed in the review log (user decisions / out of
-   scope) — don't redo them.
-5. Local commits show author `xburner23412`, not `kyrieove` — check `git config user.name/user.email` if unintended.
+3. `hatch: true`: ribbon S# labels are hard to read over the hatching.
+4. Run `brain-plot/evals/cases.md` in fresh sessions (manual).
+5. External audit (commit c6eee87): items not taken are listed in the review log — don't redo them.
+6. Local commits show author `xburner23412`, not `kyrieove` — check `git config user.name/user.email` if unintended.
 
 ## Use
 - Any session: `/brain-plot <data_dir>` (skill linked at `~/.claude/skills/brain-plot` → `C:\dev\brain-plot\brain-plot`).
 - Python: `C:\Users\ASUS\miniconda3\envs\mnedev\python.exe` (conda env `mnedev`, MNE dev — pycrostates 0.6.1 was added
   with `--no-deps` on 2026-09-26; MNE untouched).
-- Tests: `python brain-plot/test/test_erp_plot.py` and `python brain-plot/test/test_microstate.py` → both `OK`.
+- Tests: `python brain-plot/test/test_erp_plot.py`, `test_microstate.py`, `test_layout.py` → each `OK`. Tests whose
+  outcome depends on text width must hold in both fonts (Arial on Windows, DejaVu in the cloud).
 - Commit + push after every tested change set (user rule); commit messages end with the Co-Authored-By line.
 - `CLAUDE.md` (binding): all user-facing text in Chinese (files for agents stay English); every new figure is sent into
   the chat with SendUserFile (`display: "render"`), paths only as a footnote.
-- Cloud sessions work on a fresh clone (branch `claude/bold-gates-u9nx46`); the user merges it locally and runs
-  anything that needs the real data, pasting results back. After local commits, the local agent fast-forwards the cloud
-  branch itself (`git push origin main:claude/bold-gates-u9nx46`, only if it is an ancestor of main) — don't ask the
-  user to do it.
+- Cloud sessions work on a fresh clone, each on its own `claude/…` branch (last: `claude/brave-cannon-ci83tc`). The
+  user brings it into local `main` through Antigravity (step 0 of each prompt: fast-forward merge, then push `main`)
+  and runs anything that needs the real data, pasting results back.
 
 ## Key files
 | File | What |
@@ -78,6 +68,9 @@ Nothing is waiting on the user. Optional:
 | `brain-plot/references/spec.md` | spec keys for plot / explore / microstate |
 | `brain-plot/erp_plot.py`, `brain-plot/microstate_plot.py` | all computing and drawing |
 | `docs/plan-2026-09-26.md`, `docs/plan-microstate.md` | agreed plans (the first one revised: no localizer) |
+| `docs/plan-modules.md` | new modules: principle, round-1 decisions, paused round 2 |
+| `docs/prompts/` | Antigravity prompts waiting to be run |
+| `docs/archive/` | retired one-off plans (outdated paths) |
 | `docs/review-log.md`, `docs/astra-review-*.md` | every change with its reason; external reviews |
 
 ## Example data and outputs
@@ -105,6 +98,9 @@ Nothing is waiting on the user. Optional:
   for things that change or break the drawing (data contract, layout, spec syntax).
 - Figure QA stays about the figure: no reviewer-risk / manuscript-level checks (window justification, claim vs
   statistics, K choice) — user, 2026-09-26.
+- New modules paused (user, 2026-09-27): only ERP and microstate for now.
+- Local work stays with Antigravity (user, 2026-09-29): cloud subagents run in the cloud container and cannot reach
+  the local data, the `mnedev` env or Arial, so they don't replace it.
 - Rejected earlier: explore paging, right-hand legend column, topo "grid"/compact layouts, 8-mm colour bar, 89-mm
   waveform-only figure.
 
@@ -125,6 +121,9 @@ Nothing is waiting on the user. Optional:
   self-contained prompt, the user runs it in Antigravity and pastes the result back. Claude quota is shared across
   sessions; a local Claude session doing a 308,887-file snapshot plus two progress monitors used it up in minutes.
   In prompts: no full-tree snapshots or monitors, read-only on data folders, write results to a named file.
+- Cloud container: `api.crossref.org` and `mne.tools` are blocked by the network policy (WebSearch still works);
+  Python packages are not preinstalled: `pip install "matplotlib<3.11" mne scipy pandas`, run tests with
+  `MPLBACKEND=Agg`.
 - `gh repo create --public` is blocked by the auto-mode classifier: the user runs outward-facing commands.
 - Cloud container (Linux, matplotlib 3.11): `inside_canvas` fails with `FigureCanvasBase ... get_renderer`; use
   `matplotlib<3.11` + `MPLBACKEND=Agg`. Even then the ERP 2 × 2 grid (`test_erp_plot.py:181`) puts its "ms" label
