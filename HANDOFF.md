@@ -137,6 +137,10 @@ Nothing is waiting on the user. Optional:
 - Codex's abandoned localizer lives in branch `codex/step3-localize-erp` (703f52a) and `git stash@{0}`; not merged.
 
 ## Known pitfalls
+- Cloud can mimic the Windows font: Liberation Sans has Arial's metrics. Run every suite twice before pushing a layout
+  change, once as is (DejaVu) and once through a wrapper that sets `erp_plot.STYLE["font.sans-serif"] = ["Liberation Sans"]`
+  before `runpy`-ing the test file (2026-09-29: the "3 panels in a row need tighter spacing" assertion held only in DejaVu;
+  it now scans widths, because where the switch happens depends on the font).
 - Heredoc Python in Git Bash eats backslashes (`\n`, `\1`, `\b`): write patch scripts to a file, and
   still use the Edit tool for any replacement whose text contains a backslash (a script file mangled one on 2026-09-26).
 - `codex exec` needs `--skip-git-repo-check` outside git repos; it failed with 401 / timeouts on 2026-09-26.

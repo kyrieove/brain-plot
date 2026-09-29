@@ -210,8 +210,8 @@ with tempfile.TemporaryDirectory() as d:
             ("inset 2 × 3 design: two maps side by side, bar under them", dict(inset, conditions=six,
                                                                             grid=[["c1", "c2", "c3"], ["c4", "c5", "c6"]]), 6,
              ("below", 0)),
-            ("inset, panels = 3 groups in a row: spacing tightens", dict(inset, groups=["G1", "G2", "G3"], overlay="conditions",
-                                                                       conditions=c("c1", "c2")), 3, ("below", 1)),
+            ("inset, panels = 3 groups in a row", dict(inset, groups=["G1", "G2", "G3"], overlay="conditions",
+                                                     conditions=c("c1", "c2"), width_mm=185), 3, ("below", None)),
             ("inset 2 × 2, negative up, SEM, N1", dict(inset, conditions=c("c1", "c2", "c3", "c4"), polarity="negative_up",
                                                       error="sem", components=[dict(name="N1", tmin_ms=150, tmax_ms=200,
                                                                                     channels=["P7", "P8"])]), 4, ("right", 0)),
@@ -222,7 +222,8 @@ with tempfile.TemporaryDirectory() as d:
         run = json.loads(max(out.rglob("ERP-topo-inset_*_run.json"), key=lambda f: f.stat().st_mtime_ns).read_text("utf8"))
         per = len(spec["conditions"]) if spec.get("overlay") == "conditions" else len(spec["groups"])  # lines per panel
         lay = run["inset_layout"]
-        assert (lay["colour_bar"], lay["spacing_tier"]) == want and lay["maps_rows_columns"] == [1, per], (label, lay)
+        assert lay["colour_bar"] == want[0] and lay["spacing_tier"] in ((want[1],) if want[1] is not None else (0, 1)) \
+            and lay["maps_rows_columns"] == [1, per], (label, lay)  # (tier None: depends on the font's text widths)
         parts = n_panels * (per + (3 if lay["colour_bar"] == "below" else 2))  # maps, colour bar, window text (+ unit)
         assert run["maps"] == n_panels * per and run["inset_audit"] == dict(panels=n_panels, parts_checked=parts, clashes=[]), run["inset_audit"]
         assert inset_clear(SAVED[-1]) == parts, label
@@ -233,6 +234,21 @@ with tempfile.TemporaryDirectory() as d:
         mh = lambda a: a.get_window_extent(renderer(SAVED[-1])).height * 25.4 / SAVED[-1].dpi
         bars = [a for a in SAVED[-1].axes if not a.get_legend_handles_labels()[0] and min(mm(a), mh(a)) < 1.5]
         assert len(bars) == n_panels and all(abs(min(mm(b), mh(b)) - 0.9) < 0.05 for b in bars), "one colour bar per panel, 0.9 mm thick"
+    # adaptive spacing (user 2026-09-29): 3 panels in a row, narrower and narrower canvases. Where the switch to the tighter
+    # spacing happens depends on the font's text widths (Arial vs DejaVu), so: every width gives either a figure that
+    # passes all checks or the stop, and some width in the range must have needed the tighter spacing
+    tiers = set()
+    for w in (160, 165, 170, 175):
+        row = dict(inset, groups=["G1", "G2", "G3"], overlay="conditions", conditions=c("c1", "c2"), width_mm=w)
+        try:
+            clean(f"inset 3 panels in a row at {w} mm", ep.plot, row, out)
+        except SystemExit as e:
+            assert "in one row inside the waveform panels" in str(e), e
+            continue
+        run = json.loads(max(out.rglob("ERP-topo-inset_*_run.json"), key=lambda f: f.stat().st_mtime_ns).read_text("utf8"))
+        assert run["inset_audit"]["clashes"] == [] and inset_clear(SAVED[-1]) == 3 * (2 + 3), w
+        tiers.add(run["inset_layout"]["spacing_tier"])
+    assert 1 in tiers, f"no width needed the tighter spacing (tiers seen {tiers}): the adaptive spacing is untested"
     stops("inset grid missing a panel", ep.plot, dict(inset, conditions=c("c1", "c2", "c3"), grid=[["c1", "c2"], ["c1", "c3"]]),
           "grid must be rows of equal length holding each panel key once")
     stops("inset grid with another panel key", ep.plot, dict(inset, conditions=c("c1", "c2"), grid=[["c1", "cX"]]),
