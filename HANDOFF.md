@@ -19,7 +19,7 @@ Two branches, both working, tests pass, everything committed and pushed
 ## Next (start here)
 - 2026-09-29 (cloud, branch `claude/loving-johnson-7x5qrn`): full draw + QA run with the split skill on the synthetic
   demo (microstate K4): PNG and `qa` steps exercised, both files read fine. One defect found and fixed: the "GFP"
-  label could sit on a dotted boundary line (MS7c now avoids the lines, test 0f, `docs/review-log.md`). Three suites OK
+  label could sit on a dotted boundary line (MS7c now avoids the lines, tests 0f and 2b, `docs/review-log.md`, code-review follow-ups included). Three suites OK
   in the cloud. Still optional: the same run on real data (GN or metaphor) — a GN K5 re-render may move the GFP label.
 - 2026-09-27 (cloud, branch `claude/brave-cannon-ci83tc`): new modules (PSD, TFR, cluster/raster, MVPA) paused by
   the user; round-2 questions stay unanswered in `docs/plan-modules.md` (agy's literature survey failed a spot-check:

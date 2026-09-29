@@ -40,7 +40,7 @@ DEFAULT_HEIGHT = {(1, True, "butterfly"): 62, (1, True, "gfp"): 62, (1, True, "b
                   (2, True, "butterfly"): 110, (2, True, "gfp"): 110, (2, True, "both"): 70,
                   (2, False, "butterfly"): 140, (2, False, "gfp"): 140, (2, False, "both"): 90}
 GFP_LABEL_MM = (4.6, 2.3)  # "GFP" at 6 pt: width, height (rule MS7c placement)
-GFP_LABEL_GAP_MM = 1.0  # clear space kept between the label's right edge and a boundary line
+GFP_LABEL_GAP_MM = 1.0  # clear space kept between either edge of the label and a boundary line
 MM = ep.MM
 
 
@@ -244,11 +244,13 @@ def framed_map(fig, W, H, x, y, s, vec, info, sphere, vmax, colour, label, sub, 
 
 
 def gfp_label_spot(t, x, gfp, amp, pw, ph, bounds=()):
-    """Rule MS7c: sample at which the "GFP" label (right-aligned, 2 pt above the curve) crosses the fewest channel
-    samples and dotted boundary lines (`bounds`, in ms); ties go to the latest time. Returns (index, whether nothing
-    crosses it)."""
-    w_ms = GFP_LABEL_MM[0] / pw * (t[-1] - t[0])  # label box in data units of the panel
-    gap_ms = GFP_LABEL_GAP_MM / pw * (t[-1] - t[0])
+    """Rule MS7c: sample at which the "GFP" label (right-aligned, 2 pt above the curve) is crossed by the fewest dotted
+    boundary lines (`bounds`, in ms; a line must also keep `GFP_LABEL_GAP_MM` from both edges), then by the fewest
+    channel samples; ties go to the latest time. Returns (index, whether nothing crosses it)."""
+    span = t[-1] - t[0]
+    w_ms, gap_ms = GFP_LABEL_MM[0] / pw * span, GFP_LABEL_GAP_MM / pw * span  # label box and clearance, in data units
+    b = np.sort(np.asarray(bounds, float))
+    lines = np.searchsorted(b, t + gap_ms, "right") - np.searchsorted(b, t - w_ms - gap_ms, "left")  # per label spot
     h_uv, off = GFP_LABEL_MM[1] / ph * 2 * amp, 0.7 / ph * 2 * amp
     best = None
     for i in range(len(t) - 1, -1, -1):
@@ -258,13 +260,12 @@ def gfp_label_spot(t, x, gfp, amp, pw, ph, bounds=()):
         y0 = gfp[i] + off
         if y0 + h_uv > amp:  # the label would leave the panel
             continue
-        hits = int(((x[:, s] > y0) & (x[:, s] < y0 + h_uv)).sum() + (gfp[s] > y0).sum()
-                   + sum(t[i] - w_ms <= b <= t[i] + gap_ms for b in bounds))
-        if best is None or hits < best[1]:
-            best = (i, hits)
-        if hits == 0:
+        key = (int(lines[i]), int(((x[:, s] > y0) & (x[:, s] < y0 + h_uv)).sum() + (gfp[s] > y0).sum()))
+        if best is None or key < best[1]:
+            best = (i, key)
+        if key == (0, 0):
             break
-    return (best[0], best[1] == 0) if best else (len(t) - 1, False)
+    return (best[0], best[1] == (0, 0)) if best else (len(t) - 1, False)
 
 
 def hatch(ax, ms, mask, y0, y1):

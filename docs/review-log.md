@@ -367,15 +367,23 @@ OK on matplotlib 3.10.9 and 3.11.2 (Linux, DejaVu Sans).
 - Cloud container: `pip install -r requirements.txt "matplotlib<3.11"`, `MPLBACKEND=Agg`; three suites OK before and after.
   Followed `SKILL.md` + `references/microstate.md` on `examples/specs/microstate_k4.json` (K = 4, standard / target,
   butterfly + ribbon): PNG opened, QA 1–6 walked through, `layout_issues` and `open_items` empty.
-- Found: the Standard panel's "GFP" label (right-aligned at the last sample, 4.6 mm box) sat on the dotted boundary line
-  at 767 ms, cutting the "G"; `layout_issues` and the placement (MS7c) only looked at channel traces. Fix:
-  `gfp_label_spot(…, bounds)` counts dotted boundary lines inside the label box plus 1 mm (`GFP_LABEL_GAP_MM`) as
-  crossings, so the label moves to the latest clear spot (here between 718 and 767 ms). Test 0f: unit case (no boundary →
-  last sample; boundary at 767 ms → box clear of it with the gap; a boundary every 20 ms → no clear spot, outline);
-  `gfp_label_clear` now also checks the drawn dotted lines. Mutation: ignoring `bounds` fails 0f. Figures whose label
-  never met a boundary line are unchanged; a re-render of GN K5 may move the label if it did.
-- Doc drift fixed: MS7b did not say that ribbon segments narrower than 4.5 % of the window per column carry no label
-  (code did); MS7c text now names the boundary lines.
+- Found: the Standard panel's "GFP" label (right-aligned at the last sample, 4.6 mm box, ends at 800 ms) sat on the
+  dotted boundary line at 769 ms (S2 ends 768, S3 starts 770), 31 ms from the end, cutting the "G"; `layout_issues` and
+  the placement (MS7c) only looked at channel traces. Fix (5ad8668): `gfp_label_spot(…, bounds)` treats dotted boundary
+  lines inside the label box as obstacles.
+- Code review of 5ad8668 (`/code-review`, 6 findings), follow-up fixes:
+  | # | Finding | Action |
+  |---|---|---|
+  | 1 | a line counted as one channel sample, drowned by dozens of trace hits on real data | placement key is `(lines, trace samples)`: line-free first; a spot free of both is still preferred (test 0f: dense traces vs a line) |
+  | 2 | 1 mm gap only on the right of the label | gap on both sides (`GFP_LABEL_GAP_MM`); test 0f and `gfp_label_clear` check 1 mm on the drawn figure |
+  | 3 | test did not cover the `plot_states` call (dropping `bounds` left all suites OK) | test 2b: window 0–512 ms, `min_segment_ms` 10, the 498 ms boundary sits in the label box; the label must move left of it. Mutations: no `bounds` from `plot_states`, line counted as one sample, gap on one side — each fails a test |
+  | 4 | `layout_issues` ignores 2-point lines (vertical dotted lines) | not taken: adding a new check for every text × vertical line would flag gray band edges and zero lines in ERP figures too, and the user has not asked for more self-checks; the placement fix and the drawn-figure test cover this case |
+  | 5 | MS7b wording (threshold scales with the number of columns; span excludes one sample) and the boundary position in this log (767, "33 ms") | rules.md MS7b reworded; numbers here corrected |
+  | 6 | per-sample Python loop over `bounds` | one `np.searchsorted` per call |
+  A figure whose "GFP" label never met a boundary line is unchanged; a re-render of GN K5 may move the label if it did.
+  When no spot is free of both lines and traces (short windows), the label keeps off the lines and traces may cross it
+  (white outline).
+- Doc drift fixed: MS7b did not say that short ribbon segments carry no label (code did); MS7c text now names the
+  boundary lines.
 - Seen, not a defect (unchanged): map blocks fill column-wise (S1, S2 left column; S3, S4 right), so a 2 × 2 block reads
   S1 S3 / S2 S4 row-wise; the user accepted the K5 layout on 2026-09-26.
-
