@@ -68,6 +68,7 @@ mklink /J "%USERPROFILE%\.claude\skills\brain-plot" "%CD%\brain-plot"
 python examples/make_demo_data.py                                   # 2 groups × 12 subjects, standard/target
 python brain-plot/erp_plot.py plot examples/specs/p3_combo.json
 python brain-plot/erp_plot.py plot examples/specs/grid_by_condition.json
+python brain-plot/erp_plot.py plot examples/specs/p3_combo_inset.json     # maps inside the waveforms
 python brain-plot/microstate_plot.py plot examples/specs/microstate_k4.json
 ```
 

@@ -25,6 +25,7 @@ import numpy as np
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.gridspec import GridSpec
 from matplotlib.ticker import MaxNLocator
+from scipy.ndimage import maximum_filter1d, minimum_filter1d
 from scipy.signal import find_peaks, peak_widths
 
 LOADER_VERSION = 4  # 4: meta records every group and condition in the data (rule O3 names a subset)
@@ -44,7 +45,7 @@ STYLE = {
 REQUIRED = {"data", "conditions"}
 OPTIONAL = {"claim", "key_comparison", "time_locked_to", "reference", "kind", "groups", "exclude", "query", "overlay", "ordered", "colors", "xlim_ms", "polarity", "width_mm",
             "height_mm", "cmap", "stats_note", "group_by", "linestyles", "error", "components", "channels", "layout",
-            "flat_channels"}
+            "flat_channels", "map_placement", "grid"}
 COMPONENT_KEYS = {"name", "channels", "tmin_ms", "tmax_ms"}  # + optional window_source (caption only)
 TOPO = dict(contours=8, extrapolate="head", image_interp="cubic")  # recorded in every caption; sphere: common_sphere()
 
@@ -217,6 +218,18 @@ def check_spec(spec):
         die("kind must be 'combo', 'erp' or 'topo'")
     if spec.get("error", "none") not in ("none", "sem"):
         die("error must be 'none' or 'sem'")
+    if spec.get("map_placement", "side") not in ("side", "inset"):
+        die("map_placement must be 'side' or 'inset'")
+    if spec.get("map_placement", "side") == "inset" and spec.get("kind", "combo") != "combo":
+        die("map_placement 'inset' belongs to kind 'combo' (maps inside the waveform panels)")
+    if "grid" in spec:
+        g = spec["grid"]
+        if spec.get("map_placement", "side") != "inset":
+            die("'grid' arranges the panels of map_placement 'inset' (rows × columns of condition keys, or of group "
+                "names with overlay 'conditions')")
+        if not (isinstance(g, list) and g and all(isinstance(r, list) and r and all(text(k) for k in r) for r in g)
+                and len({len(r) for r in g}) == 1 and len(sum(g, [])) == len(set(sum(g, [])))):
+            die("grid must be rows of equal length holding each panel key once, e.g. [[\"a\", \"b\", \"c\"], [\"d\", \"e\", \"f\"]]")
     if spec.get("polarity", "positive_up") not in ("positive_up", "negative_up"):
         die("polarity must be 'positive_up' or 'negative_up'")
     if not isinstance(spec["conditions"], dict) or not spec["conditions"]:
@@ -880,6 +893,11 @@ def wave_panel_mm(H, n):
     return (avail - (n - 1) * need) / n
 
 
+def inset_mode(spec):
+    """Rule L12: topomaps drawn inside the waveform panels, panels in a grid, instead of a map column per panel."""
+    return spec.get("kind", "combo") == "combo" and spec.get("map_placement", "side") == "inset"
+
+
 def canvas(spec, n, n_lines, gap=GAP_MM, maps=True):
     """Fixed physical canvas, all widths in mm (wspace 0): waveforms | gap (8 mm, widened for the legend by rule L7)
     | topomaps (~19 mm per head column, at most 55 % of what is left) | spacer | colour bar. Stops when the stacked
@@ -933,6 +951,342 @@ def obstacles_of(fig):
     return boxes
 
 
+# ---------- rule L12: panels in a grid, each with its topomaps inside it (map_placement "inset") ----------
+INSET_MAX_MM, INSET_MIN_MM, INSET_MAX_SHARE = 22.0, 7.0, 0.16  # map side: at most this share of the panel width
+INSET_LABEL_MM, INSET_COL_GAP_MM, INSET_HEAD_MM = 2.8, 1.5, 3.0  # line name under a map; between maps; window above
+INSET_BAR_MM, INSET_BAR_GAP_MM = 0.9, 1.4  # colour bar: width, and its distance from the maps
+INSET_BAR_BLOCK_MM = 8.6  # room right of the maps: gap + bar + tick labels up to "−12.5"
+INSET_SHARE_W, INSET_SHARE_H = 0.62, 0.6  # the block takes at most this share of the panel's width and height
+INSET_RES_MM = 0.5  # raster of the free-space search
+INSET_CLEAR_MM = 0.8  # clearance kept between the block and every obstacle
+INSET_GROWTH = 2.2  # the y-range may grow to this multiple of the data range to make room; beyond that, no room
+INSET_ASPECT = 1.45  # waveform panel width : height when height_mm is not given
+GRID_GAP_MM = (9.0, 13.0)  # between panels: across (room for "ms"), down (facet name, electrodes title, letter)
+
+
+def inset_rows(spec, keys):
+    """Rows of panel keys: the spec's `grid`, else automatic (up to 3 panels in a row, up to 8 in two rows, then 3)."""
+    if spec.get("grid"):
+        return [list(r) for r in spec["grid"]]
+    n = len(keys)
+    nrow = 1 if n <= 3 else 2 if n <= 8 else 3
+    ncol = int(np.ceil(n / nrow))
+    return [keys[i:i + ncol] for i in range(0, n, ncol)]
+
+
+def inset_group(s, shape, tw=(0.0, 0.0)):
+    """(width, height) in mm of the block: the window text above, maps of side s in shape = (rows, columns) with their
+    labels, the colour bar to their right. tw = (widest map label, window text): both can widen the block."""
+    nrow, ncol = shape
+    return (max(ncol * max(s, tw[0]) + (ncol - 1) * INSET_COL_GAP_MM + INSET_BAR_BLOCK_MM, tw[1]),
+            INSET_HEAD_MM + nrow * s + (nrow - 1) * MAP_GAP_MM + INSET_LABEL_MM)
+
+
+def inset_top(shape, pw, ph, tw=(0.0, 0.0)):
+    """Largest map side of `shape` in a pw × ph mm panel: at most INSET_MAX_SHARE of the width (never below the
+    minimum) and INSET_MAX_MM, the block within INSET_SHARE_W / INSET_SHARE_H of the panel, and every column at least as
+    wide as the widest label. 0 if the labels or the window text alone do not fit."""
+    nrow, ncol = shape
+    col = (INSET_SHARE_W * pw - INSET_BAR_BLOCK_MM - (ncol - 1) * INSET_COL_GAP_MM) / ncol  # width of one column
+    if col < tw[0] or tw[1] > INSET_SHARE_W * pw:
+        return 0.0
+    return min(INSET_MAX_MM, max(INSET_MIN_MM, INSET_MAX_SHARE * pw), col,
+               (INSET_SHARE_H * ph - INSET_HEAD_MM - INSET_LABEL_MM - (nrow - 1) * MAP_GAP_MM) / nrow)
+
+
+def inset_shapes(n_lines, pw, ph, tw=(0.0, 0.0)):
+    """Shapes (rows, columns) of the maps of one panel that fit at the minimum size, the one with the largest maps
+    first, fewer rows on a tie (wide panels want one row)."""
+    cand = [(inset_top((r, int(np.ceil(n_lines / r))), pw, ph, tw), -r) for r in range(1, n_lines + 1)]
+    return [(-r, int(np.ceil(n_lines / -r))) for top, r in sorted(cand, reverse=True) if top >= INSET_MIN_MM - 1e-9]
+
+
+def inset_min_block(n_lines, pw, tw=(0.0, 0.0)):
+    """Height (mm) of the smallest block (minimum size) that the panel width allows, in the shape with the fewest rows;
+    0 if the width rules out every shape."""
+    for r in range(1, n_lines + 1):
+        c = int(np.ceil(n_lines / r))
+        if INSET_SHARE_W * pw >= inset_group(INSET_MIN_MM, (r, c), tw)[0]:
+            return INSET_HEAD_MM + r * INSET_MIN_MM + (r - 1) * MAP_GAP_MM + INSET_LABEL_MM
+    return 0.0
+
+
+def text_widths_mm(texts, size):
+    """Widths (mm) of texts at `size` pt in the figure font, measured on a throwaway figure."""
+    tmp = plt.figure()
+    out = [tmp.text(0, 0, x, fontsize=size).get_window_extent(tmp.canvas.get_renderer()).width * 25.4 / tmp.dpi
+           for x in texts]
+    plt.close(tmp)
+    return out
+
+
+def inset_geometry(spec, rows, labels, window):
+    """Canvas and panels in mm: (W, H, pw, ph, xs, ys, tw); panel (r, c) has its lower-left corner at (xs[c], ys[r]);
+    tw: (widest map label, window text). Height: the spec's, else the one that gives INSET_ASPECT panels, or taller if
+    the maps need it. The legend takes the strip under the grid."""
+    n_lines = len(labels)
+    tw = (max(text_widths_mm(labels, 6)), text_widths_mm([window], 6)[0])
+    W = spec.get("width_mm", 180)
+    R, C = len(rows), max(len(r) for r in rows)
+    top, bottom = 9.0, 10.5 + 3.6 * int(np.ceil(n_lines / 4))
+    pw = (W - 24 - (C - 1) * GRID_GAP_MM[0]) / C
+    block = inset_min_block(n_lines, pw, tw)  # curves keep ~60 % of the panel height: it holds the block and its margins
+    ph = max(pw / INSET_ASPECT, (block + 3.2) / 0.38, 1.05 * block / INSET_SHARE_H)
+    H = spec.get("height_mm") or (top + bottom + R * ph + (R - 1) * GRID_GAP_MM[1])
+    ph = (H - top - bottom - (R - 1) * GRID_GAP_MM[1]) / R
+    if not inset_shapes(n_lines, pw, ph, tw):
+        need = block / INSET_SHARE_H
+        die(f"a waveform panel ({pw:.0f} × {ph:.0f} mm) is too small for {n_lines} maps inside it (rule L12: "
+            + (f"at least {need:.0f} mm tall" if block else f"wider than {pw:.0f} mm")
+            + "): use fewer panels per row (grid), a larger width_mm" + (" or height_mm" if block else "")
+            + ", fewer lines, shorter line names, or map_placement 'side'")
+    return (W, H, pw, ph, [12 + c * (pw + GRID_GAP_MM[0]) for c in range(C)],
+            [H - top - (r + 1) * ph - r * GRID_GAP_MM[1] for r in range(R)], tw)
+
+
+def inset_obstacles(pw, ph, x, series, lo, hi, ylim, negative_up, band_ms):
+    """Boolean raster (columns × rows of INSET_RES_MM) over a pw × ph mm waveform panel: True where the block would
+    touch something. Occupied: the gray window band over its full height; the envelope of every visible line (mean ±
+    SEM if drawn, the whole vertical extent between the lowest and highest line), and more at the x tick columns
+    where a label may sit just past lines on both sides of the axis; the x-axis with its tick labels; the y-axis with
+    its tick labels and "µV". The block also keeps INSET_CLEAR_MM from each."""
+    r = INSET_RES_MM
+    nx, ny = int(np.ceil(pw / r)), int(np.ceil(ph / r))
+    xm, ym = (np.arange(nx) + 0.5) * r, (np.arange(ny) + 0.5) * r
+    xd = lo + xm / pw * (hi - lo)
+    span = ylim[1] - ylim[0]
+
+    def to_mm(v):  # µV → mm above the panel's bottom edge
+        f = (np.asarray(v) - ylim[0]) / span
+        return (1 - f if negative_up else f) * ph
+    a = to_mm(np.min([np.interp(xd, x, m - e) for m, e in series], axis=0))
+    b = to_mm(np.max([np.interp(xd, x, m + e) for m, e in series], axis=0))
+    low, high = np.minimum(a, b), np.maximum(a, b)
+    step = 200 if hi - lo >= 600 else 100 if hi - lo >= 300 else 50  # the tick steps of cross_axes (before any doubling)
+    x_of = lambda ms: (ms - lo) / (hi - lo) * pw
+    near_tick = np.zeros(nx, bool)
+    for v in np.arange(np.ceil(lo / step) * step, hi + 1e-9, step):
+        if v != 0:
+            near_tick |= np.abs(xm - x_of(v)) <= 3.6
+    y0 = float(to_mm(0.0))
+    pad = INSET_CLEAR_MM + np.where(near_tick & (low <= y0) & (high >= y0), 3.2, 0.0)  # a label past lines on both sides
+    k = int(round(2 * INSET_CLEAR_MM / r)) | 1
+    low, high = minimum_filter1d(low - pad, k), maximum_filter1d(high + pad, k)
+    occ = (ym[None, :] >= low[:, None]) & (ym[None, :] <= high[:, None])
+    occ |= (np.abs(ym - y0) <= 3.4)[None, :]  # x-axis and its labels
+    x0 = x_of(0.0)
+    occ[(xm >= x0 - 5.5) & (xm <= x0 + 1.5), :] = True  # y-axis and its labels
+    occ[np.ix_((xm >= x0 - 0.5) & (xm <= x0 + 6.5), ym >= ph - 4.4)] = True  # "µV"
+    if band_ms:  # the gray window band, full height
+        occ[(xm >= x_of(band_ms[0]) - INSET_CLEAR_MM) & (xm <= x_of(band_ms[1]) + INSET_CLEAR_MM), :] = True
+    return occ
+
+
+def inset_slot(occ, pw, ph, gw, gh, window_mm, prefer_top):
+    """Lower-left corner (mm) of the best free gw × gh block, or None. Free = no obstacle within INSET_CLEAR_MM and
+    inside the panel with 0.8 mm to spare. Best = nearest to the middle of the component window, on the side (above or
+    below the lines) that the component points to."""
+    r, c = INSET_RES_MM, int(np.ceil(INSET_CLEAR_MM / INSET_RES_MM))
+    nx, ny = occ.shape
+    ii = np.zeros((nx + 1, ny + 1), int)
+    ii[1:, 1:] = occ.cumsum(0).cumsum(1)
+    wi, hi_ = int(np.ceil(gw / r)), int(np.ceil(gh / r))
+    m = int(np.ceil(0.8 / r))
+    I, J = np.meshgrid(np.arange(m, nx - wi - m + 1), np.arange(m, ny - hi_ - m + 1), indexing="ij")
+    if I.size == 0:
+        return None
+    x0, y0, x1, y1 = (np.clip(I - c, 0, nx), np.clip(J - c, 0, ny), np.clip(I + wi + c, 0, nx),
+                      np.clip(J + hi_ + c, 0, ny))
+    free = (ii[x1, y1] - ii[x0, y1] - ii[x1, y0] + ii[x0, y0]) == 0
+    if not free.any():
+        return None
+    xa, ya = I * r, J * r
+    cost = (np.abs(xa + gw / 2 - (window_mm[0] + window_mm[1]) / 2) / pw
+            + 0.3 * np.abs(ya + gh / 2 - (0.85 if prefer_top else 0.15) * ph) / ph)
+    i, j = np.unravel_index(np.argmin(np.where(free, cost, np.inf)), cost.shape)
+    return float(I[i, j] * r), float(J[i, j] * r)
+
+
+def inset_plan(comp, p, lines, stats, ms_t, lo, hi, negative_up, pw, ph, shape, tw, ylim, side=None, cap=None):
+    """Rule L12 for one panel p (pw × ph mm): the map size and the free place of the block, or None. `ylim` is grown in
+    place while the block needs room, up to span `cap` (None: not at all). With `side` the maps have exactly that
+    size, otherwise the largest that fits (down to INSET_MIN_MM). Returns (side_mm, (x0, y0) mm from the panel's
+    lower-left corner)."""
+    ser = [stats[p, l] if stats[p, l][1] is not None else (stats[p, l][0], np.zeros_like(stats[p, l][0]))
+           for l, _ in lines]
+    w = (ms_t >= comp["tmin_ms"] - 1e-6) & (ms_t <= comp["tmax_ms"] + 1e-6)
+    prefer_top = (float(np.mean([m[w].mean() for m, _ in ser])) > 0) != negative_up  # the component points up on screen
+    win = ((comp["tmin_ms"] - lo) / (hi - lo) * pw, (comp["tmax_ms"] - lo) / (hi - lo) * pw)
+    sizes = [side] if side else list(np.arange(np.floor(2 * inset_top(shape, pw, ph, tw)) / 2, INSET_MIN_MM - 1e-9, -0.5))
+    for _ in range(30):
+        occ = inset_obstacles(pw, ph, ms_t, ser, lo, hi, ylim, negative_up, (comp["tmin_ms"], comp["tmax_ms"]))
+        for sz in sizes:
+            slot = inset_slot(occ, pw, ph, *inset_group(sz, shape, tw), win, prefer_top)
+            if slot:
+                return float(sz), slot
+        if cap is None or ylim[1] - ylim[0] > cap:
+            return None
+        d = 0.12 * (ylim[1] - ylim[0])  # make room on the side the component points to
+        if prefer_top:
+            ylim[1] += d
+        else:
+            ylim[0] -= d
+    return None
+
+
+def inset_settle(comp, keys, lines, stats, ms_t, lo, hi, negative_up, pw, ph, tw):
+    """One y-range, one map size and one shape of the maps for all the panels of a figure (they are meant to be
+    compared). For each shape in order of preference: start from the shared data range, plan every panel, keep the
+    widest range and the smallest size, repeat until nothing changes; the first shape for which every panel has a place
+    (without growing the y-range past INSET_GROWTH times the data range) wins. Returns (ylim, side, shape)."""
+    base = data_ylim(stats, ph * 72 / 25.4, negative_up)
+    cap = INSET_GROWTH * (base[1] - base[0])
+    for shape in inset_shapes(len(lines), pw, ph, tw):
+        ylim, side, ok = list(base), None, True
+        for _ in range(8):
+            before, sides = (list(ylim), side), []
+            for p in keys:
+                yl = list(ylim)
+                got = inset_plan(comp, p, lines, stats, ms_t, lo, hi, negative_up, pw, ph, shape, tw, yl, side, cap)
+                if got is None:
+                    ok = False
+                    break
+                ylim = [min(ylim[0], yl[0]), max(ylim[1], yl[1])]
+                sides.append(got[0])
+            if not ok:
+                break
+            side = min(sides + ([side] if side else []))
+            if (list(ylim), side) == before:
+                return ylim, side, shape
+    die(f"no free place for {len(lines)} maps inside the waveform panels (rule L12: the block must clear the curves, "
+        f"the axes and the gray window band, which is full height; panels are {pw:.0f} × {ph:.0f} mm): use fewer panels "
+        "per row (grid), a larger width_mm or height_mm, fewer lines, shorter line names, or map_placement 'side'")
+
+
+def inset_audit(fig, ax, items, series, x):
+    """Rule L12, checked on the drawn panel: every part of the map block (`items`: name → display box: each map with
+    its label, the colour bar with its ticks and unit, the window text) against the curves (mean ± SEM), the gray
+    window band, the two axis lines, every text of the panel, its neighbours in the block, and the panel's own edge.
+    Returns the clashes found, as text."""
+    R = fig.canvas.get_renderer()
+    pts = np.vstack([path_points(ax.transData.transform(np.c_[x, y])) for m, e in series for y in (m - e, m, m + e)])
+    fixed = {"the gray window band": p.get_window_extent(R) for p in ax.patches}
+    fixed |= {f"the {n} axis": ax.spines[n].get_window_extent(R) for n in ("left", "bottom")}
+    fixed |= {f"the text {t.get_text()!r}": t.get_window_extent(R) for t in ax.texts if t.get_visible() and t.get_text()}
+    inside, out, names = ax.get_window_extent(R), [], list(items)
+    for i, n in enumerate(names):
+        bb = items[n]
+        if ((pts[:, 0] > bb.x0) & (pts[:, 0] < bb.x1) & (pts[:, 1] > bb.y0) & (pts[:, 1] < bb.y1)).any():
+            out.append(f"{n} covers a line")
+        out += [f"{n} overlaps {o}" for o, ob in fixed.items() if bb.overlaps(ob)]
+        out += [f"{n} overlaps {m}" for m in names[i + 1:] if bb.overlaps(items[m])]
+        if bb.x0 < inside.x0 - 0.5 or bb.x1 > inside.x1 + 0.5 or bb.y0 < inside.y0 - 0.5 or bb.y1 > inside.y1 + 0.5:
+            out.append(f"{n} leaves the panel")
+    return out
+
+
+def draw_inset(spec, comp, rows, names, lines, colors, stats, topo, v, info, ms, t, lo, hi, negative_up, sphere,
+               shared, geo):
+    """Rule L12: one figure with the waveform panels in a grid (`rows` of panel keys, `names`: key → label), each with
+    its maps and their colour bar inside it, and one legend under the grid. `shared`: the y-range and map size of the
+    panels; `geo`: inset_geometry(). Returns the figure, the largest |value| of the interpolated maps, line and map
+    counts, the size in mm and the self-check record (every part of every map block against everything it must
+    clear, rule L12; a clash stops the script)."""
+    W, H, pw, ph, xs, ys, tw = geo
+    fig = plt.figure(figsize=(W * MM, H * MM))
+    levels = np.linspace(-v, v, TOPO["contours"] + 1)  # one set of contour levels for every map
+    styles = line_styles(spec, len(lines))
+    n_lines = n_maps = 0
+    peak = 0.0
+    axes = []
+    for r, row in enumerate(rows):
+        for c, key in enumerate(row):
+            ax = fig.add_axes([xs[c] / W, ys[r] / H, pw / W, ph / H])
+            letter(ax, len(axes))
+            axes.append((ax, key, ys[r], xs[c]))
+            for b in comp["bands"]:
+                ax.axvspan(b["tmin_ms"], b["tmax_ms"], color="0.88", lw=0, zorder=0)  # full-height window band
+                ax.text((b["tmin_ms"] + b["tmax_ms"]) / 2, 1.0, b["name"], transform=ax.get_xaxis_transform(),
+                        ha="center", va="bottom", fontsize=6.5, fontweight="bold")
+            for (l, lab), col, ls in zip(lines, colors, styles):
+                m, e = stats[key, l]
+                if e is not None:
+                    ax.fill_between(ms[t], m - e, m + e, color=col, alpha=0.15, lw=0)
+                ax.plot(ms[t], m, color=col, ls=ls, lw=0.9, label=lab)
+                n_lines += 1
+            ax.set_title(", ".join(comp["channels"]), pad=11, fontsize=7)  # rule L5: electrodes above the panel
+            ax.annotate(names[key], (0.5, 0), xycoords="axes fraction", xytext=(0, -min(0.06 * ph * 72 / 25.4, 7.1)),
+                        textcoords="offset points", ha="center", va="top", fontsize=7.5, fontweight="bold")  # rule L6
+            ax.set_xlim(lo, hi)
+    for ax, key, _, _ in axes:  # ticks last: the y-range is the shared one
+        env = [(m, np.zeros_like(m) if e is None else e) for (pp, _), (m, e) in stats.items() if pp == key]
+        cross_axes(ax, fig, lo, hi, shared["ylim"], negative_up, ms[t],
+                   np.min([m - e for m, e in env], axis=0), np.max([m + e for m, e in env], axis=0))
+    shape = shared["shape"]
+    nrow_t, ncol_t = shape
+    side, R = shared["side"], fig.canvas.get_renderer()
+    audit = dict(panels=len(axes), parts_checked=0, clashes=[])
+    for ax, key, y0, x0 in axes:  # maps, colour bar and window text, once the panel is final
+        got = inset_plan(comp, key, lines, stats, ms[t], lo, hi, negative_up, pw, ph, shape, tw, list(shared["ylim"]), side)
+        if got is None:
+            die(f"no free place for the maps inside panel {key!r} at the shared size and y-range (rule L12); "
+                "use map_placement 'side'")
+        size_mm, slot = got
+        left, bottom = x0 + slot[0], y0 + slot[1]
+        boxes = {}
+        for j, (l, lab) in enumerate(lines):
+            row, col = j // ncol_t, j % ncol_t
+            mx = left + col * (max(size_mm, tw[0]) + INSET_COL_GAP_MM) + (max(size_mm, tw[0]) - size_mm) / 2
+            my = bottom + INSET_LABEL_MM + (nrow_t - 1 - row) * (size_mm + MAP_GAP_MM)
+            tax = fig.add_axes([mx / W, my / H, size_mm / W, size_mm / H])
+            im, _ = mne.viz.plot_topomap(topo[key, l], info, axes=tax, show=False, cmap=spec.get("cmap", "RdBu_r"),
+                                         vlim=(-v, v), contours=levels, sensors=False, extrapolate=TOPO["extrapolate"],
+                                         image_interp=TOPO["image_interp"], sphere=sphere,
+                                         mask_params=dict(markeredgewidth=0.3))  # rule L11: no marks
+            a_ = im.get_array()
+            if np.ma.count(a_):
+                peak = max(peak, float(np.ma.abs(a_).max()))
+            tax.text(0.5, -0.04, lab, transform=tax.transAxes, ha="center", va="top", fontsize=6)
+            n_maps += 1
+            boxes[f"the map {lab!r}"] = tax.get_tightbbox(R)
+        area = nrow_t * size_mm + (nrow_t - 1) * MAP_GAP_MM  # the colour bar belongs to the maps: right of them
+        cax = fig.add_axes([(left + ncol_t * max(size_mm, tw[0]) + (ncol_t - 1) * INSET_COL_GAP_MM + INSET_BAR_GAP_MM) / W,
+                            (bottom + INSET_LABEL_MM + 0.06 * area) / H, INSET_BAR_MM / W, 0.62 * area / H])
+        cb = fig.colorbar(im, cax=cax, ticks=[-v, 0, v])
+        cb.ax.set_yticklabels([f"{-v:.1f}".replace("-", "−"), "0", f"{v:.1f}"])
+        cb.ax.set_title("µV", fontsize=6, pad=3)
+        cb.outline.set_linewidth(0.4)
+        cb.ax.tick_params(labelsize=6, width=0.4, length=2)
+        boxes["the colour bar"] = cax.get_tightbbox(R)
+        head = fig.text(left / W, (bottom + INSET_HEAD_MM + area + INSET_LABEL_MM - 0.4) / H,
+                        f"{comp['tmin_ms']:g}–{comp['tmax_ms']:g} ms", ha="left", va="top", fontsize=6)  # rule S4
+        boxes["the window text"] = head.get_window_extent(R)
+        ser = [(m, np.zeros_like(m) if e is None else e) for (pp, _), (m, e) in stats.items() if pp == key]
+        clash = inset_audit(fig, ax, boxes, ser, ms[t])  # the self-check: a clash is never shipped
+        audit["parts_checked"] += len(boxes)
+        if clash:
+            die(f"maps inside the waveform panel {key!r} fail their own check (rule L12): {clash}; use map_placement 'side'")
+    h, lab = axes[0][0].get_legend_handles_labels()  # one legend for the whole grid, centred under it
+    fig.legend(h, lab, loc="lower center", bbox_to_anchor=(0.5, 1.5 / H), ncol=min(len(lab), 4), columnspacing=1.5,
+               borderaxespad=0, handlelength=1.2, labelspacing=0.3)
+    return fig, peak, n_lines, n_maps, [W, H], audit
+
+
+def grow_for_legend(ylim, stats, p, lines, ms_t, lo, hi, comp, leg_size, corner):
+    """Single panel, legend inside at the upper/lower right: grow the y-range on that side until the legend has room
+    above (or below) the visible lines (rule L7); re-measured after each step because the axis band is fixed in points."""
+    high = corner == "high"
+    need = leg_size[1] + 0.03
+    for _ in range(10):
+        room = legend_room([stats[p, l] for l, _ in lines], ms_t, lo, hi, ylim, leg_size[0],
+                           [(b["tmin_ms"], b["tmax_ms"]) for b in comp["bands"]], leg_size[2])
+        free, span = room[0 if high else 1], ylim[1] - ylim[0]
+        if free >= need - 1e-3:
+            break
+        d = (need - free) * span / (1 - need)
+        ylim[1 if high else 0] += d if high else -d
+
+
 def draw(spec, comp, panels, lines, colors, stats, topo, v, info, ms, t, lo, hi, negative_up, sphere, leg_size,
          corner, gap_mm):
     """Render one component figure with colour limit v. Returns the figure, the largest |value| of the interpolated
@@ -961,20 +1315,13 @@ def draw(spec, comp, panels, lines, colors, stats, topo, v, info, ms, t, lo, hi,
             ax.plot(ms[t], m, color=col, ls=ls, lw=0.9, label=lab)
             n_lines += 1
         ax.set_title(", ".join(comp["channels"]), pad=11, fontsize=7)  # rule L5: electrodes above the panel
-        ax.text(0.5, -0.06, plabel, transform=ax.transAxes, ha="center", va="top", fontsize=7.5,
-                fontweight="bold")  # rule L6: facet name below its panel
+        below_pt = min(0.06 * gs[r_i, 0].get_position(fig).height * fig.get_figheight() * 72, 7.1)  # a tall panel: not
+        ax.annotate(plabel, (0.5, 0), xycoords="axes fraction", xytext=(0, -below_pt), textcoords="offset points",
+                    ha="center", va="top", fontsize=7.5, fontweight="bold")  # rule L6: facet name below its panel
         ax.set_xlim(lo, hi)
         if corner in ("high", "low"):  # single panel: inside, upper/lower right; grow the y-range on that side
             high = corner == "high"
-            need = leg_size[1] + 0.03
-            for _ in range(10):  # the axis band is fixed in points, so re-measure after each extension
-                room = legend_room([stats[p, l] for l, _ in lines], ms[t], lo, hi, ylim, leg_size[0],
-                                   [(b["tmin_ms"], b["tmax_ms"]) for b in comp["bands"]], leg_size[2])
-                free, span = room[0 if high else 1], ylim[1] - ylim[0]
-                if free >= need - 1e-3:
-                    break
-                d = (need - free) * span / (1 - need)
-                ylim[1 if high else 0] += d if high else -d
+            grow_for_legend(ylim, stats, p, lines, ms[t], lo, hi, comp, leg_size, corner)
             ax.legend(loc=("upper" if high != negative_up else "lower") + " right", **LEGEND_KW)
         if not maps:
             continue
@@ -1139,6 +1486,15 @@ def plot(spec):
         die(f"{len(lines)} overlaid lines; at most {MAX_LINES} and one colour each ({len(colors)} available)")
     labels = [lab for _, lab in lines]  # rule L10: names only; n goes in the caption facts
     kind, comps = spec.get("kind", "combo"), spec.get("components", [])
+    inset = inset_mode(spec)  # rule L12: panels in a grid, the maps inside each panel
+    rows = None
+    if inset:
+        keys = [k for k, _ in panels]
+        rows = inset_rows(spec, keys)
+        flat = sum(rows, [])
+        if sorted(flat) != sorted(keys):
+            die(f"grid must hold every panel once: the panels are {keys}, the grid has {flat}")
+        panels = [(k, dict(panels)[k]) for k in flat]  # reading order = panel letters
     for comp in comps:  # preflight every window before drawing anything
         w = sample_mask(ms, comp["tmin_ms"], comp["tmax_ms"])
         if not w.any() or comp["tmin_ms"] < ms[0] - tol or comp["tmax_ms"] > ms[-1] + tol:
@@ -1169,8 +1525,8 @@ def plot(spec):
                 e = e if spec.get("error", "none") == "sem" else None  # rule S2: no band unless asked
                 stats[p, l], topo[p, l] = (m, e), tp
         computed.append((comp, w, stats, topo))
-    leg_size = corner = None  # kind "topo" has no waveforms, so no legend to place
-    if kind != "topo":
+    leg_size = corner = None  # kind "topo" has no waveforms, so no legend to place; inset: one legend under the grid
+    if kind != "topo" and not inset:
         leg_size = legend_size(spec, len(panels), labels, colors)
         corner = "between" if len(panels) >= 2 else single_panel_corner(
             [[st[panels[0][0], l] for l, _ in lines] for _, _, st, _ in computed],
@@ -1184,10 +1540,21 @@ def plot(spec):
     for comp, w, stats, topo in computed:
         v = v_sensor = max(max(np.abs(a).max() for a in topo.values()), 1e-6)
         gap_mm = GAP_MM
+        geo = shared = None
+        if inset:  # rule L12: the panels of a figure are meant to be compared: one y-range, one map size
+            geo = inset_geometry(spec, rows, labels, f"{comp['tmin_ms']:g}–{comp['tmax_ms']:g} ms")
+            shared = dict(zip(("ylim", "side", "shape"), inset_settle(comp, [k for k, _ in panels], lines, stats, ms[t],
+                                                                      lo, hi, negative_up, geo[2], geo[3], geo[6])))
         for _ in range(3 if kind != "topo" else 0):  # at most: widen colour limit, widen gap, final check
-            fig, peak, n_lines, n_maps, size, placed = draw(spec, comp, panels, lines, colors, stats, topo, v, info,
-                                                            ms, t, lo, hi, negative_up, sphere, leg_size, corner,
-                                                            gap_mm)
+            if inset:
+                fig, peak, n_lines, n_maps, size, audit = draw_inset(spec, comp, rows, dict(panels), lines, colors, stats,
+                                                                     topo, v, info, ms, t, lo, hi, negative_up, sphere,
+                                                                     shared, geo)
+                placed = "below the grid"
+            else:
+                fig, peak, n_lines, n_maps, size, placed = draw(spec, comp, panels, lines, colors, stats, topo, v, info,
+                                                                ms, t, lo, hi, negative_up, sphere, leg_size, corner,
+                                                                gap_mm)
             changed = False
             if peak > v:  # interpolation overshoots the sensor range: the colour limit must cover the maps
                 v, changed = peak, True
@@ -1215,7 +1582,7 @@ def plot(spec):
             out = batch / f"{stem}{batch.name[-4:]}" if batch else versioned(out_root(spec) / "ERP", stem)
         else:
             win = f"{comp['tmin_ms']:g}-{comp['tmax_ms']:g}ms"
-            stem = {"combo": f"ERP-topo_{comp['name']}_{chans}_{win}",
+            stem = {"combo": f"ERP-topo{'-inset' if inset else ''}_{comp['name']}_{chans}_{win}",
                     "topo": f"topo_{comp['name']}_{win}"}[kind] + f"_{comparison(spec)}{subset}"
             out = versioned(out_root(spec) / KIND_DIR[kind], stem)
         issues = report_layout(fig, out.name)  # rule QA 1, in code
@@ -1228,7 +1595,9 @@ def plot(spec):
                   colour_distinctness=colour_check(colors[:len(lines)], "line colours", line_styles(spec, len(lines)))
                   if kind != "topo" else None,
                   colour_limit_uV=float(v), sensor_max_uV=float(v_sensor), interpolated_max_uV=float(peak),
-                  sphere_m=sphere)
+                  sphere_m=sphere, **(dict(grid=rows, inset_map_side_mm=shared["side"], inset_map_shape=shared["shape"],
+                                           inset_ylim_uV=[float(y) for y in shared["ylim"]], inset_audit=audit)
+                                      if inset else {}))
         if not batch:
             archive(out)
         outs.append(out)
@@ -1330,6 +1699,8 @@ def caption(spec, comp, meta, groups, conds, out, ms, v, sphere, kind, level=Non
         L.append("- Lines: mean across subjects (no error band)")
     if kind != "erp":
         per = "one per waveform line (same subjects and condition)" if kind == "combo" else "one per group × condition"
+        if inset_mode(spec):
+            per += ", drawn inside each waveform panel where the lines leave room"
         L.append(f"- Topographies: {per}, mean over the window; no electrode marks; shared "
                  f"symmetric colour scale ±{v:.1f} µV and {TOPO['contours']} shared contour intervals; interpolation "
                  f"{TOPO['image_interp']}, extrapolation {TOPO['extrapolate']}, head sphere "
@@ -1343,6 +1714,9 @@ def caption(spec, comp, meta, groups, conds, out, ms, v, sphere, kind, level=Non
     panels = [(c, spec["conditions"][c]) for c in conds] if by_groups else [(g, g) for g in groups]
     if level is not None:
         panels = [p for p in panels if p[0] == level]
+    if inset_mode(spec) and spec.get("grid"):  # letters follow the grid's reading order (rule L12)
+        order = sum(spec["grid"], [])
+        panels = sorted(panels, key=lambda p: order.index(p[0]))
 
     def cells(p):  # the panel's lines as (group, condition, label), each with its n and trials
         pairs = [(g, p, g) for g in groups] if by_groups else [(p, c, spec["conditions"][c]) for c in conds]
@@ -1360,7 +1734,9 @@ def caption(spec, comp, meta, groups, conds, out, ms, v, sphere, kind, level=Non
         wave = f"{plabel} — waveforms, {where}; lines: {cells(p)}" + (f"; gray band: {bands}" if bands else "")
         maps = f"{plabel} — topographies, {bands}; one map per line"
         abc = "abcdefghijklmnopqrstuvwxyz"  # same letters as letter() draws: combo 2r / 2r + 1, erp and topo r
-        if kind == "combo":
+        if kind == "combo" and inset_mode(spec):  # maps sit inside the waveform panel: one letter for both
+            L.append(f"- ({abc[r % 26]}) {wave}; inside the panel: {maps}")
+        elif kind == "combo":
             L += [f"- ({abc[2 * r % 26]}) {wave}", f"- ({abc[(2 * r + 1) % 26]}) {maps}"]
         elif kind == "erp":
             L.append(f"- ({abc[r % 26]}) {wave}")

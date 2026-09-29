@@ -28,7 +28,7 @@ components and windows, exclusions, reference and stimulus timing.
 
 | Round | Decide |
 |---|---|
-| 1 | Figure type: `combo` (waveforms + maps, one figure per component), `topo` (maps only), or `erp` (waveforms by channel: `layout` `roi` mean, `single` one figure per channel incl. `channels: "all"`, or `grid`; channels asked here). Width (`width_mm`, e.g. 180 for double column). What the reader must see first (one sentence → `claim`; always ask — it decides the figure type, components and channels). |
+| 1 | Figure type: `combo` (waveforms + maps, one figure per component), `topo` (maps only), or `erp` (waveforms by channel: `layout` `roi` mean, `single` one figure per channel incl. `channels: "all"`, or `grid`; channels asked here). For `combo`, the maps go beside each waveform panel (default `map_placement: "side"`); when the user wants the maps inside the waveforms, in one multi-panel figure, use `"inset"` with a `grid` for the design (e.g. a 2 × 3 design as 2 rows of 3; not asked by default). Width (`width_mm`, e.g. 180 for double column). What the reader must see first (one sentence → `claim`; always ask — it decides the figure type, components and channels). |
 | 2 | Key comparison → `key_comparison` (always ask), which decides `overlay` (the compared variable goes in the same panel) and how lines pair up in `colors`/`linestyles` (e.g. colour = task, line style = level); groups and order (first = reference, drawn black); exclusions; trial selection (all trials or e.g. correct only → `query`, epochs only). |
 | 3 | Components (one figure each); channels per component (ROI); windows. `kind: "erp"`: gray component bands only if the user wants them once windows are confirmed — default none. |
 
@@ -77,6 +77,10 @@ Fix the cause, never work around it; tell the user when the fix changes the figu
    recorded, not reported). The palette stays the user's choice.
 6. Readability (report, don't change the figure on your own): `xlim_ms` hides part of the baseline; or one map
    dominates the shared colour scale so the others look near-white — correct, but readers may read it as no activity.
-7. `_run.json`: `lines`/`maps` fit the kind (combo: both = expected; erp: maps 0; topo: lines 0); `size_mm` equals
+7. `map_placement: "inset"`: `inset_audit` in `_run.json` has no clashes (the script has already stopped on any: maps
+   over the gray band, a curve, an axis or a text, rule L13); look anyway. One legend under the grid, panel letters in
+   reading order, and the same y-range and map size in every panel. If the script stops because nothing fits, follow
+   its message (fewer panels per row, larger canvas, fewer lines) — never fall back to overlapping maps.
+8. `_run.json`: `lines`/`maps` fit the kind (combo: both = expected; erp: maps 0; topo: lines 0); `size_mm` equals
    the spec canvas; `legend` says where the legend went; then replace its `qa` field with the result ("passed" or the
    open problems).

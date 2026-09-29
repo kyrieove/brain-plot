@@ -14,6 +14,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+import matplotlib.backends.backend_agg
 import matplotlib.figure
 import mne
 import numpy as np
@@ -61,6 +62,57 @@ def make_data(root):
                                            baseline=(None, 0)))
             mne.write_evokeds(root / f"G{g + 1}" / f"G{g + 1}s{s:02d}_x-ave.fif", evs, overwrite=True)
     return info
+
+
+def renderer(fig):
+    """The figure's renderer; matplotlib ≥ 3.11 detaches a closed pyplot figure from its Agg canvas."""
+    if not hasattr(fig.canvas, "get_renderer"):
+        matplotlib.backends.backend_agg.FigureCanvasAgg(fig)
+    return fig.canvas.get_renderer()
+
+
+def inset_clear(fig):
+    """Rule L12, measured again on the saved figure with code of its own (not the script's audit): every map, colour bar
+    and window text lies inside a waveform panel and touches neither the gray band, nor a curve (mean ± SEM), nor an
+    axis line, nor any text of that panel, nor another part of the block. Returns the number of parts checked."""
+    R = renderer(fig)
+    waves = [a for a in fig.axes if a.get_legend_handles_labels()[0]]
+    heads = [a for a in fig.axes if a not in waves]
+    assert waves and heads, "no waveform panels or no maps"
+    parts = [(a.get_tightbbox(R), a) for a in heads] + [(t.get_window_extent(R), None) for t in fig.texts
+                                                       if "ms" in t.get_text() and "–" in t.get_text()]
+    checked = 0
+    for bb, ax in parts:
+        host = [w for w in waves if w.get_window_extent(R).x0 <= (bb.x0 + bb.x1) / 2 <= w.get_window_extent(R).x1
+                and w.get_window_extent(R).y0 <= (bb.y0 + bb.y1) / 2 <= w.get_window_extent(R).y1]
+        assert len(host) == 1, f"a map part belongs to {len(host)} panels"
+        w, inner = host[0], host[0].get_window_extent(R)
+        assert inner.x0 - 0.5 <= bb.x0 and bb.x1 <= inner.x1 + 0.5 and inner.y0 - 0.5 <= bb.y0 and bb.y1 <= inner.y1 + 0.5, \
+            "a map part leaves its panel"
+        for p_ in w.patches:  # the gray window band
+            assert not bb.overlaps(p_.get_window_extent(R)), "a map part overlaps the gray window band"
+        for n in ("left", "bottom"):
+            assert not bb.overlaps(w.spines[n].get_window_extent(R)), f"a map part overlaps the {n} axis"
+        for t in w.texts:
+            if t.get_visible() and t.get_text():
+                assert not bb.overlaps(t.get_window_extent(R)), f"a map part overlaps the text {t.get_text()!r}"
+        for ln in w.lines:
+            xy = w.transData.transform(ln.get_xydata())
+            xs = np.linspace(xy[0, 0], xy[-1, 0], 20 * len(xy))
+            ys = np.interp(xs, xy[:, 0], xy[:, 1])
+            assert not ((xs > bb.x0) & (xs < bb.x1) & (ys > bb.y0) & (ys < bb.y1)).any(), "a map part covers a curve"
+        for coll in w.collections:  # SEM bands
+            box = coll.get_window_extent(R)
+            if box.width > 0:
+                v = coll.get_paths()[0].vertices
+                pts = w.transData.transform(v)
+                assert not ((pts[:, 0] > bb.x0) & (pts[:, 0] < bb.x1) & (pts[:, 1] > bb.y0) & (pts[:, 1] < bb.y1)).any(), \
+                    "a map part covers an error band"
+        checked += 1
+    for i, (b0, _) in enumerate(parts):
+        for b1, _ in parts[i + 1:]:
+            assert not b0.overlaps(b1), "two parts of the map blocks overlap"
+    return checked
 
 
 def quiet(fn, *a):
@@ -139,6 +191,48 @@ with tempfile.TemporaryDirectory() as d:
                                                 dict(name="N400", tmin_ms=350, tmax_ms=500)],
                                     differences=[["c1", "c2"]]))
     assert "WARNING: layout" not in log, log
+
+    # ERP, maps inside the panels (rule L12; user rules 2026-09-29): panels in a grid, each with its maps and colour bar
+    # inside it, nothing over the gray band, curves, axes or texts; the script audits every figure and stops on a clash
+    inset = dict(base, groups=["G1", "G2"], map_placement="inset", components=[n400])
+    c = lambda *ks: {k: COND[k] for k in ks}
+    for label, spec, n_panels in (
+            ("inset 2 × 2 design", dict(inset, conditions=c("c1", "c2", "c3", "c4"), grid=[["c1", "c2"], ["c3", "c4"]]), 4),
+            ("inset 2 × 3 design", dict(inset, conditions=c(*(f"c{i}" for i in range(1, 7))),
+                                        grid=[["c1", "c2", "c3"], ["c4", "c5", "c6"]]), 6),
+            ("inset, panels = 3 groups in a row, conditions overlaid", dict(inset, groups=["G1", "G2", "G3"],
+                                                                         overlay="conditions", conditions=c("c1", "c2")), 3),
+            ("inset 2 × 2, negative up, SEM, N1", dict(inset, conditions=c("c1", "c2", "c3", "c4"), polarity="negative_up",
+                                                      error="sem", components=[dict(name="N1", tmin_ms=150, tmax_ms=200,
+                                                                                    channels=["P7", "P8"])]), 4),
+            ("inset, one panel", dict(inset, conditions=c("c1")), 1),
+            ("inset 2 × 3, 3 lines per panel", dict(inset, groups=["G1", "G2", "G3"],
+                                                    conditions=c(*(f"c{i}" for i in range(1, 7))),
+                                                    grid=[["c1", "c2", "c3"], ["c4", "c5", "c6"]]), 6)):
+        clean(label, ep.plot, spec, out)
+        run = json.loads(max(out.rglob("ERP-topo-inset_*_run.json"), key=lambda f: f.stat().st_mtime_ns).read_text("utf8"))
+        per = len(spec["conditions"]) if spec.get("overlay") == "conditions" else len(spec["groups"])  # lines per panel
+        parts = n_panels * (per + 2)  # each panel: its maps, the colour bar, the window text
+        assert run["maps"] == n_panels * per and run["inset_audit"] == dict(panels=n_panels, parts_checked=parts, clashes=[]), run["inset_audit"]
+        assert inset_clear(SAVED[-1]) == parts, label
+        cap = max(out.rglob("ERP-topo-inset_*_caption.md"), key=lambda f: f.stat().st_mtime_ns).read_text("utf8")
+        if label == "inset 2 × 3 design":  # letters follow the grid's reading order: a b c / d e f
+            assert "- (a) Cond 1 —" in cap and "- (c) Cond 3 —" in cap and "- (d) Cond 4 —" in cap and "inside the panel" in cap, cap
+        mm = lambda a: a.get_window_extent(renderer(SAVED[-1])).width * 25.4 / SAVED[-1].dpi
+        bars = [a for a in SAVED[-1].axes if not a.get_legend_handles_labels()[0] and mm(a) < 1.5]  # user: half as wide
+        assert len(bars) == n_panels and all(abs(mm(b) - 0.9) < 0.05 for b in bars), "one colour bar per panel, 0.9 mm wide"
+    stops("inset grid missing a panel", ep.plot, dict(inset, conditions=c("c1", "c2", "c3"), grid=[["c1", "c2"], ["c1", "c3"]]),
+          "grid must be rows of equal length holding each panel key once")
+    stops("inset grid with another panel key", ep.plot, dict(inset, conditions=c("c1", "c2"), grid=[["c1", "cX"]]),
+          "grid must hold every panel once")
+    stops("grid without inset", ep.plot, dict(base, groups=["G1"], conditions=c("c1", "c2"), grid=[["c1", "c2"]],
+                                              components=[n400]), "'grid' arranges the panels of map_placement 'inset'")
+    stops("inset on a narrow canvas: 3 lines cannot fit", ep.plot,
+          dict(inset, groups=["G1", "G2", "G3"], conditions=c(*(f"c{i}" for i in range(1, 7))),
+               grid=[["c1", "c2", "c3"], ["c4", "c5", "c6"]], width_mm=89), "rule L12")
+    stops("inset with long line names in narrow panels", ep.plot,
+          dict(inset, conditions={f"c{i}": f"A very long condition name {i}" for i in range(1, 7)},
+               overlay="conditions", groups=["G1", "G2", "G3"], grid=[["G1", "G2", "G3"]], width_mm=120), "rule L12")
 
     # microstate: templates from the data at five latencies (named channels), K = 3–8
     x = np.mean([e.data for e in mne.read_evokeds(next((root / "G1").iterdir()))], 0)

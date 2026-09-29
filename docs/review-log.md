@@ -401,3 +401,28 @@ OK on matplotlib 3.10.9 and 3.11.2 (Linux, DejaVu Sans).
 - Not redone: `docs/images/example-microstate-butterfly.png` (README; real metaphor data, drawn with the old code) still
   shows "GFP" labels — re-render it locally with the current code before the README is next updated.
 
+## 2026-09-29 (later) — ERP combo: maps inside the waveforms (`map_placement: "inset"`, rules L12, L13)
+User reference: a published figure with the topomaps placed inside the waveform panels, near the component, each map
+group with its own colour bar. Built and shown to the user in four rounds; what the user said each time is why the
+final rules read as they do.
+| User feedback | Change |
+|---|---|
+| "一个 combo 一张图，上下叠放不好看，ERP 太宽" (then, after a per-panel-figure version) "单个图不行，必须多张图组合到一起才美观，单张、两张都太长或太宽；试试 2 × 3、2 × 2" | one figure with the panels in a grid (`grid`, rows × columns of condition keys, like microstate MS9; automatic 1 × n up to 3, 2 × 2 for 4, two rows up to 8), one legend under the grid, letters in reading order, one y-range / map size / colour scale for all panels; default height gives 1.45 : 1 panels, taller when the maps need it |
+| "colorbar 是跟随地形图的，你仔细看示例图" | the colour bar belongs to each map block (right of the maps, per panel), not a column at the figure's edge |
+| "1 2 都有重叠现象 … 不是我提出一次改一次，应该写入规则，一次画好，要有自检功能" | the gray window band (full height) is now a hard obstacle in the search, not a soft cost; rule L13 lists what a map block must clear (band, curves incl. SEM, both axis lines, every text, each other, the panel edge); `inset_audit` measures every part against all of them on the drawn panel and the script stops on a clash; parts checked and clashes go to `_run.json`; when no shape or size fits it stops naming the fixes |
+| "colorbar 要更窄一些，变为原来的一半" | 1.8 → 0.9 mm (L13); test asserts 0.9 mm |
+- Search: a raster of free places per panel (curve envelope + clearance, x tick columns where a label sits past lines on
+  both sides, axes and labels, band); block shapes tried in order of map size (one row, then stacked), first one that
+  fits every panel with the y-range grown at most 2.2 × the data range wins; nearest to the window's middle, on the side
+  the component points to.
+- Found on the way, fixed: the facet name sat at 6 % of the panel height below it and left the canvas when a panel was
+  tall (now capped at 2.5 mm; panels < 42 mm unchanged); `draw()` and `canvas()` are unchanged for the side layout.
+- Tests (`test_layout.py`, realistic 64-channel data): 2 × 2, 2 × 3, panels = 3 groups, negative up + SEM, one panel,
+  3 lines per panel — each must pass `layout_issues`, the script's audit and `inset_clear()`, a separate re-measurement
+  in the test (maps/bar/window text inside a panel and off band, curves, SEM bands, axes, texts, each other), 0.9-mm bars,
+  caption letters in grid order; stops: grid with a wrong key set, grid without inset, 3 lines on an 89-mm canvas, long
+  line names in narrow panels. Mutations: band not an obstacle → the script's audit stops the figure; band not an
+  obstacle and audit blind → the test's own check fails; bar 1.8 mm → test fails.
+- Known limit: panels of ~46 mm (2 × 3 at 180 mm) hold one or two lines' maps; three lines make the default height 173 mm
+  — use 3 rows × 2 columns instead. Not asked, not done: side layout untouched; README figures not redrawn.
+

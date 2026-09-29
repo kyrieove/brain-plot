@@ -66,6 +66,7 @@ mklink /J "%USERPROFILE%\.claude\skills\brain-plot" "%CD%\brain-plot"
 python examples/make_demo_data.py
 python brain-plot/erp_plot.py plot examples/specs/p3_combo.json
 python brain-plot/erp_plot.py plot examples/specs/grid_by_condition.json
+python brain-plot/erp_plot.py plot examples/specs/p3_combo_inset.json     # 地形图嵌入波形图
 python brain-plot/microstate_plot.py plot examples/specs/microstate_k4.json
 ```
 

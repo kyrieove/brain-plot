@@ -17,6 +17,13 @@ Two branches, both working, tests pass, everything committed and pushed
   `microstate/`, `specs/`; names say what the figure is; re-renders get `_vNN+1`, old versions move to `_history/`.
 
 ## Next (start here)
+- 2026-09-29 (cloud, branch `claude/loving-johnson-7x5qrn`, not merged to main): **ERP combo, maps inside the waveforms**
+  (`map_placement: "inset"` + `grid`, rules L12/L13, `docs/review-log.md` last entry). The user reviewed 2 × 2 / 2 × 3
+  synthetic figures over four rounds; the last feedback (overlaps, narrower colour bar) is implemented with a self-check
+  (`inset_audit`) and an independent test, but the user has not yet seen the final 2 × 2 / 2 × 3 renders. Lesson (user):
+  new layout behaviour goes into rules and self-checks first, not fixed one complaint at a time. Next: user review, then
+  try it on real data (metaphor 2 × 3 design: `grid` of the six condition keys) — expect to check panel size / line count
+  (3 lines per panel need 3 rows × 2 columns). Not done: README figures, side layout unchanged.
 - 2026-09-29 (cloud, branch `claude/loving-johnson-7x5qrn`): full draw + QA run with the split skill on the synthetic
   demo (microstate K4): PNG and `qa` steps exercised, both files read fine. It showed the butterfly "GFP" label sitting
   on a boundary line; a placement fix and its code-review follow-ups were written, then the user dropped the label
@@ -97,6 +104,9 @@ Nothing is waiting on the user. Optional:
 | Resting test `D:\1-python_datasets\77_microstate\a_clean_2s` (pycrostates K = 4, 10 subj) | `…\77_microstate\pycrostates_k4_n10\`, figure `…\77_microstate\brain-plot\microstate\topo-by-K_K4_v02` |
 
 ## User decisions to respect (don't redo)
+- ERP inset layout (2026-09-29): several combos in ONE figure in a grid (never a figure per panel, never only stacked
+  1–2 panels); colour bar belongs to each map block, 0.9 mm wide; nothing of a map block may overlap the gray band,
+  curves, axes or texts — enforced by the planner and a self-check, stop instead of shipping an overlap (L13).
 - Paper figures: condition names only in titles/legends, never N (L10, MS7d). No electrode marks on maps (L11).
   PNG + SVG only (T5). Fixed canvas from the spec (T6).
 - ERP: no localizer; `windows`/`explore` stay optional. Explore: one 3 × 3 page, legend under the grid.
