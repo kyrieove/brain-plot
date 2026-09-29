@@ -436,3 +436,15 @@ final rules read as they do.
   spacing), 3 × 2 with 3 lines, one panel; maps of a panel in one row (independent check); mutations: two maps allowed to
   stack, no tighter spacing tier — both fail a test.
 
+## 2026-09-29 (end of day) — inset layout on real data (metaphor N400), merged to main
+- Local agent (Antigravity) ran it in a git worktree of the branch (its `C:\dev\brain-plot` had uncommitted work of the
+  user, which it correctly refused to touch; worktree `C:\dev\brain-plot-inset` at `4811d80`, removed afterwards).
+  Suites OK on Windows. Figure A (2 × 3, groups as lines): drawn, bar under the maps, side 7.0 mm, audit 30 / 0 clashes,
+  14 s. Figure B (panels = groups, six lines): stopped as rule L13 requires, because six maps do not fit one row with
+  18-mm labels ("Repetition (high)"; panels 74–79 mm; height alone cannot help, width would need ≈ 212 mm).
+- Found while preparing the prompt: an assertion of test_layout held only with DejaVu (where the switch to the tighter
+  spacing happens depends on text widths); now scans widths, verified in DejaVu and in Liberation Sans (Arial metrics);
+  HANDOFF says how to mimic the Windows font in the cloud.
+- User looked at figure A and found problems (to be listed on the next session); daily reminder set. Candidate change
+  for B (not done): wrap long map labels onto two lines.
+

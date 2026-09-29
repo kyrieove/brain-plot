@@ -17,14 +17,29 @@ Two branches, both working, tests pass, everything committed and pushed
   `microstate/`, `specs/`; names say what the figure is; re-renders get `_vNN+1`, old versions move to `_history/`.
 
 ## Next (start here)
-- 2026-09-29 (cloud, branch `claude/loving-johnson-7x5qrn`, not merged to main): **ERP combo, maps inside the waveforms**
-  (`map_placement: "inset"` + `grid`, rules L12/L13, `docs/review-log.md` last entry). The user reviewed 2 × 2 / 2 × 3
-  synthetic figures over four rounds; the last feedback (overlaps, narrower colour bar) is implemented with a self-check
-  (`inset_audit`) and an independent test, but the user has not yet seen the final 2 × 2 / 2 × 3 renders. Lesson (user):
-  new layout behaviour goes into rules and self-checks first, not fixed one complaint at a time. Next: user review, then
-  try it on real data (metaphor 2 × 3 design: `grid` of the six condition keys) — expect to check panel size / line count
-  (3 lines per panel need 3 rows × 2 columns). Round 5: maps always in one row; when they do not fit, spacing tightens,
-  then the colour bar goes under the maps (`inset_layout` in `_run.json`). Not done: README figures, side layout unchanged.
+- **DAILY (user, 2026-09-29): a daily reminder (routine) asks the user to look at the real-data inset figures and go on
+  modifying. The user said they found "some problems" in the figure and has not listed them yet — ask first.**
+- 2026-09-29 end of day (cloud; merged to `main`): **ERP combo, maps inside the waveforms** (`map_placement: "inset"`
+  + `grid`, rules L12/L13, `docs/review-log.md` last entries). Built with the user over five rounds on synthetic
+  figures; layout rules: maps of a panel in one row (never two stacked), colour bar 0.9 mm right of or under the maps,
+  nothing over the gray band / curves / axes / texts, spacing between panels tightens when the block does not fit,
+  `inset_audit` in `_run.json`, independent geometry test; suites OK in DejaVu and in Liberation Sans (Arial metrics).
+  Lesson (user): new layout behaviour goes into rules and self-checks, not one complaint at a time.
+  Real-data run (local agent, Antigravity, worktree of the branch at `4811d80`, metaphor N400, `n400_spec.json` as base;
+  RESULT.md in `C:\dev\brain-plot-inset-results\`): 3 suites OK on Windows. **Figure A** (2 × 3 design: `overlay:
+  "groups"`, `grid` Hmet Hlit Hrep / Lmet Llit Lrep, no colors/linestyles): drawn, 180 × 120 mm, two maps side by side
+  (7.0 mm) with the colour bar under them, tier 0, audit 30 parts / 0 clashes, layout_issues empty; the agent judged it
+  clean — **the user looked at it and found problems (not yet listed)**. **Figure B** (accepted N400 layout, panels = 2
+  groups, six lines each, `colors`/`linestyles` kept): the script stops ("no free place for 6 maps in one row … panels
+  tried 74 × 51, 79 × 54 mm"): map labels like "Repetition (high)" are ~18 mm wide, three columns need panels ≳ 90 mm.
+  Idea, not done: wrap long map labels at the space (two lines, column ~10 mm) so B fits. Other open points: README
+  figures not redrawn; side layout untouched.
+  Local `main` (Windows, `C:\dev\brain-plot`) has uncommitted work of the user: only `brain-plot/erp_plot.py` has real
+  changes (+23/−10 lines, not seen by the cloud); README(s), SKILL.md, erp.md, spec.md, rules.md show as modified only
+  through LF/CRLF; untracked `promo/`, `research/gn-extension-preview/`, `research/preview_gn_extensions.py`,
+  `agent-test-split-2026-09-27.md`. The merge into `main` was done on GitHub (fast-forward): **before `git pull` locally,
+  commit or stash those changes; conflicts can only come from `erp_plot.py`** — get `git diff brain-plot/erp_plot.py`
+  from the user first and check it against the inset code (functions `inset_*`, `draw_inset`, `plot()`, `caption()`).
 - 2026-09-29 (cloud, branch `claude/loving-johnson-7x5qrn`): full draw + QA run with the split skill on the synthetic
   demo (microstate K4): PNG and `qa` steps exercised, both files read fine. It showed the butterfly "GFP" label sitting
   on a boundary line; a placement fix and its code-review follow-ups were written, then the user dropped the label
