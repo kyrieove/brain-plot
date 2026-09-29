@@ -40,6 +40,7 @@ DEFAULT_HEIGHT = {(1, True, "butterfly"): 62, (1, True, "gfp"): 62, (1, True, "b
                   (2, True, "butterfly"): 110, (2, True, "gfp"): 110, (2, True, "both"): 70,
                   (2, False, "butterfly"): 140, (2, False, "gfp"): 140, (2, False, "both"): 90}
 GFP_LABEL_MM = (4.6, 2.3)  # "GFP" at 6 pt: width, height (rule MS7c placement)
+GFP_LABEL_GAP_MM = 1.0  # clear space kept between the label's right edge and a boundary line
 MM = ep.MM
 
 
@@ -242,10 +243,12 @@ def framed_map(fig, W, H, x, y, s, vec, info, sphere, vmax, colour, label, sub, 
     return ax
 
 
-def gfp_label_spot(t, x, gfp, amp, pw, ph):
+def gfp_label_spot(t, x, gfp, amp, pw, ph, bounds=()):
     """Rule MS7c: sample at which the "GFP" label (right-aligned, 2 pt above the curve) crosses the fewest channel
-    samples; ties go to the latest time. Returns (index, whether no channel crosses it)."""
+    samples and dotted boundary lines (`bounds`, in ms); ties go to the latest time. Returns (index, whether nothing
+    crosses it)."""
     w_ms = GFP_LABEL_MM[0] / pw * (t[-1] - t[0])  # label box in data units of the panel
+    gap_ms = GFP_LABEL_GAP_MM / pw * (t[-1] - t[0])
     h_uv, off = GFP_LABEL_MM[1] / ph * 2 * amp, 0.7 / ph * 2 * amp
     best = None
     for i in range(len(t) - 1, -1, -1):
@@ -255,7 +258,8 @@ def gfp_label_spot(t, x, gfp, amp, pw, ph):
         y0 = gfp[i] + off
         if y0 + h_uv > amp:  # the label would leave the panel
             continue
-        hits = int(((x[:, s] > y0) & (x[:, s] < y0 + h_uv)).sum() + (gfp[s] > y0).sum())
+        hits = int(((x[:, s] > y0) & (x[:, s] < y0 + h_uv)).sum() + (gfp[s] > y0).sum()
+                   + sum(t[i] - w_ms <= b <= t[i] + gap_ms for b in bounds))
         if best is None or hits < best[1]:
             best = (i, hits)
         if hits == 0:
@@ -405,7 +409,7 @@ def plot_states(spec, data, info, meta, ms, sphere):
                 if p == "butterfly":
                     ax.plot(t, x[:, w].T, color=TRACE, alpha=0.42, lw=0.28, zorder=2)
                     ax.plot(t, gfp, color=TRACE, lw=1.0, zorder=3)
-                    i, clear = gfp_label_spot(t, x[:, w], gfp, amp, pw, ph)
+                    i, clear = gfp_label_spot(t, x[:, w], gfp, amp, pw, ph, bounds)
                     ax.annotate("GFP", (t[i], gfp[i]), xytext=(0, 2), textcoords="offset points", fontsize=6,
                                 ha="right", va="bottom", color=TRACE,  # rule MS7c: inside the panel, off the traces
                                 path_effects=[] if clear else [patheffects.withStroke(linewidth=1.5, foreground="white")])

@@ -362,3 +362,20 @@ OK on matplotlib 3.10.9 and 3.11.2 (Linux, DejaVu Sans).
   a full draw + QA run with the split skill on real data (GN or metaphor).
 - 2026-09-29: the two one-off agent test plans (`agent-test-PLAN.md`, `agent-test-interview-PLAN.md`) moved from the
   repo root to `docs/archive/` with an "archived, outdated paths" note; nothing referenced them.
+
+## 2026-09-29 — full draw + QA run with the split skill (cloud, synthetic demo data)
+- Cloud container: `pip install -r requirements.txt "matplotlib<3.11"`, `MPLBACKEND=Agg`; three suites OK before and after.
+  Followed `SKILL.md` + `references/microstate.md` on `examples/specs/microstate_k4.json` (K = 4, standard / target,
+  butterfly + ribbon): PNG opened, QA 1–6 walked through, `layout_issues` and `open_items` empty.
+- Found: the Standard panel's "GFP" label (right-aligned at the last sample, 4.6 mm box) sat on the dotted boundary line
+  at 767 ms, cutting the "G"; `layout_issues` and the placement (MS7c) only looked at channel traces. Fix:
+  `gfp_label_spot(…, bounds)` counts dotted boundary lines inside the label box plus 1 mm (`GFP_LABEL_GAP_MM`) as
+  crossings, so the label moves to the latest clear spot (here between 718 and 767 ms). Test 0f: unit case (no boundary →
+  last sample; boundary at 767 ms → box clear of it with the gap; a boundary every 20 ms → no clear spot, outline);
+  `gfp_label_clear` now also checks the drawn dotted lines. Mutation: ignoring `bounds` fails 0f. Figures whose label
+  never met a boundary line are unchanged; a re-render of GN K5 may move the label if it did.
+- Doc drift fixed: MS7b did not say that ribbon segments narrower than 4.5 % of the window per column carry no label
+  (code did); MS7c text now names the boundary lines.
+- Seen, not a defect (unchanged): map blocks fill column-wise (S1, S2 left column; S3, S4 right), so a 2 × 2 block reads
+  S1 S3 / S2 S4 row-wise; the user accepted the K5 layout on 2026-09-26.
+

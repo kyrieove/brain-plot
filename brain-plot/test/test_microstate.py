@@ -74,12 +74,17 @@ def inside_canvas(fig):
 
 
 def gfp_label_clear(fig):
-    """Rule MS7c: no channel trace (nor the GFP curve) passes through the "GFP" label box, measured on the drawn figure."""
+    """Rule MS7c: no channel trace (nor the GFP curve) and no dotted boundary line passes through the "GFP" label box,
+    measured on the drawn figure."""
     R, n = renderer(fig), 0
     for ax in fig.axes:
         for tx in [t for t in ax.texts if t.get_text() == "GFP"]:
             b, n = tx.get_window_extent(R), n + 1
             for ln in ax.lines:
+                if ln.get_linestyle() == ":":  # boundary line: vertical, x only
+                    x = ax.transData.transform((ln.get_xdata()[0], 0))[0]
+                    assert not b.x0 + 0.5 < x < b.x1 - 0.5, f"a boundary line crosses the GFP label at {b}"
+                    continue
                 xy = ax.transData.transform(ln.get_xydata())
                 xs = np.linspace(xy[0, 0], xy[-1, 0], 20 * len(xy))  # densify: segments between samples count too
                 ys = np.interp(xs, xy[:, 0], xy[:, 1])
@@ -102,6 +107,19 @@ for bad, text in ((dict(conditions={"A": "a", "B": "b", "C": "c"}, grid=[["A"], 
         raise AssertionError(f"check accepted {bad}")
     except SystemExit as e:
         assert text in str(e), e
+
+# 0f. demo-data QA (2026-09-29): a boundary 33 ms before the end of the window ran through the "GFP"
+# label at the right edge (the label box is 35 ms wide there); it must move left of the line, and only then
+tg = np.arange(0.0, 800.0, 2.0)
+flat = np.zeros((8, len(tg)))
+i0, ok0 = msp.gfp_label_spot(tg, flat, flat[0], 5.0, 105.8, 30.0)
+assert i0 == len(tg) - 1 and ok0  # no boundary: right-aligned at the last sample
+i1, ok1 = msp.gfp_label_spot(tg, flat, flat[0], 5.0, 105.8, 30.0, bounds=[767.0])
+w_box = msp.GFP_LABEL_MM[0] / 105.8 * (tg[-1] - tg[0])
+gap = msp.GFP_LABEL_GAP_MM / 105.8 * (tg[-1] - tg[0])
+assert ok1 and not (tg[i1] - w_box <= 767.0 <= tg[i1] + gap), (tg[i1], w_box)  # and not hard against the line
+i2, ok2 = msp.gfp_label_spot(tg, flat, flat[0], 5.0, 105.8, 30.0, bounds=list(np.arange(10.0, 800.0, 20.0)))
+assert not ok2  # a boundary every 20 ms leaves no clear spot: the label keeps the fewest crossings and gets an outline
 
 # 0b. longest runs use the drawn boundaries (half-way between samples), like the ribbon (MS2)
 assert msp.longest_runs({"c": np.array([0, 0, 1, 1])}, tt, 2) == {"c": {0: (0.0, 6.0), 1: (6.0, 14.0)}}
