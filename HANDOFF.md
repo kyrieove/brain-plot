@@ -18,9 +18,13 @@ Two branches, both working, tests pass, everything committed and pushed
 
 ## Next (start here)
 - 2026-09-29 (cloud, branch `claude/loving-johnson-7x5qrn`): full draw + QA run with the split skill on the synthetic
-  demo (microstate K4): PNG and `qa` steps exercised, both files read fine. One defect found and fixed: the "GFP"
-  label could sit on a dotted boundary line (MS7c now avoids the lines, tests 0f and 2b, `docs/review-log.md`, code-review follow-ups included). Three suites OK
-  in the cloud. Still optional: the same run on real data (GN or metaphor) — a GN K5 re-render may move the GFP label.
+  demo (microstate K4): PNG and `qa` steps exercised, both files read fine. It showed the butterfly "GFP" label sitting
+  on a boundary line; a placement fix and its code-review follow-ups were written, then the user dropped the label
+  altogether ("GFP 这个不要了"): butterfly panels carry no "GFP" text (MS7c), the caption facts say "thick line = GFP",
+  the placement code and its tests are deleted (details and what is superseded: `docs/review-log.md`, last two
+  entries). Three suites OK in the cloud. Open: README image `docs/images/example-microstate-butterfly.png` (real
+  metaphor data) still shows the old "GFP" labels — re-render locally. Next: the user is studying how to extend
+  brain-plot; nothing is pending from the cloud side (new modules stay paused, see below).
 - 2026-09-27 (cloud, branch `claude/brave-cannon-ci83tc`): new modules (PSD, TFR, cluster/raster, MVPA) paused by
   the user; round-2 questions stay unanswered in `docs/plan-modules.md` (agy's literature survey failed a spot-check:
   don't cite its cluster counts). Rules split done: lean `SKILL.md`, agent-facing `references/erp.md` and
@@ -44,7 +48,7 @@ Done today (details in `docs/review-log.md`, newest at the bottom):
 - Interview: always ask `claim` / `key_comparison` (they decide type, components, overlay, line pairing); never ask
   time-locking, reference, display range (whole epoch), polarity or colours. Reviewer-risk QA dropped (user: writing
   concerns, not figure concerns); QA 6 = baseline visibility + dominated map scale.
-- Microstate: GFP label clear of traces (MS7c); hatching opt-in; unique condition labels; one boundary definition
+- Microstate: GFP label clear of traces (MS7c; the label itself was dropped 2026-09-29); hatching opt-in; unique condition labels; one boundary definition
   (half-way between samples) for ribbon, dotted lines, spans and caption; template md5 + channel-order note; MS4 text
   matches the code (checked on 9 real specs).
 - Sharing: README (en + zh-CN) with the user's metaphor figures, `examples/` synthetic install check,
@@ -97,7 +101,7 @@ Nothing is waiting on the user. Optional:
   PNG + SVG only (T5). Fixed canvas from the spec (T6).
 - ERP: no localizer; `windows`/`explore` stay optional. Explore: one 3 × 3 page, legend under the grid.
   Topo-only: block layout, 4-mm colour bar.
-- Microstate: never stack more than 2 conditions (use `grid`); butterfly and GFP not both in a multi-column grid;
+- Microstate: no "GFP" text label on butterfly panels (user, 2026-09-29; the caption names the thick line); never stack more than 2 conditions (use `grid`); butterfly and GFP not both in a multi-column grid;
   panel width:height 1.8–3.5; no low-GFP hatching unless the spec says `hatch: true` (user saw K5 v06 without it and
   approved); resting-state figures beyond the template row are not wanted for now.
 - Interview: always ask `claim` and `key_comparison` (they decide type, components, overlay, line pairing); never ask

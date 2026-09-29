@@ -387,3 +387,17 @@ OK on matplotlib 3.10.9 and 3.11.2 (Linux, DejaVu Sans).
   boundary lines.
 - Seen, not a defect (unchanged): map blocks fill column-wise (S1, S2 left column; S3, S4 right), so a 2 × 2 block reads
   S1 S3 / S2 S4 row-wise; the user accepted the K5 layout on 2026-09-26.
+
+## 2026-09-29 (later) — "GFP" text label dropped (user decision)
+- User: "GFP 这个不要了" → chosen scope: butterfly panels no longer carry a "GFP" text label. Supersedes MS7c and the
+  two commits above (5ad8668, ebe00cd): `gfp_label_spot`, `GFP_LABEL_MM`, `GFP_LABEL_GAP_MM`, the annotation and the
+  `patheffects` import are deleted; tests 0f, 2b and `gfp_label_clear` are removed. In the table above, rows 1, 2, 3 and 6
+  describe code that no longer exists; rows 4 (not taken) and 5 (MS7b wording, corrected numbers) stand.
+- Replaced by: rule MS7c now says there is no label; the microstate caption facts state "thin lines = every channel of the
+  grand average, thick line = GFP" whenever a butterfly panel is drawn (the figure itself no longer says it); test 1 asserts
+  that no axes text contains "GFP" and that the caption line exists (mutation: the previous code fails it). The GFP-only
+  panel keeps its "GFP" title and "GFP (µV)" axis label (they name a panel, not a trace).
+- Suites OK (matplotlib 3.10.9, DejaVu Sans); demo K4 re-rendered (v05): `layout_issues` and `open_items` empty.
+- Not redone: `docs/images/example-microstate-butterfly.png` (README; real metaphor data, drawn with the old code) still
+  shows "GFP" labels — re-render it locally with the current code before the README is next updated.
+

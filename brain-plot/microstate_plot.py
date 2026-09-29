@@ -17,7 +17,6 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import mne
 import numpy as np
-from matplotlib import patheffects
 from matplotlib.patches import FancyBboxPatch, Rectangle
 
 import erp_plot as ep
@@ -39,8 +38,6 @@ DEFAULT_HEIGHT = {(1, True, "butterfly"): 62, (1, True, "gfp"): 62, (1, True, "b
                   (1, False, "butterfly"): 80, (1, False, "gfp"): 80, (1, False, "both"): 80,
                   (2, True, "butterfly"): 110, (2, True, "gfp"): 110, (2, True, "both"): 70,
                   (2, False, "butterfly"): 140, (2, False, "gfp"): 140, (2, False, "both"): 90}
-GFP_LABEL_MM = (4.6, 2.3)  # "GFP" at 6 pt: width, height (rule MS7c placement)
-GFP_LABEL_GAP_MM = 1.0  # clear space kept between either edge of the label and a boundary line
 MM = ep.MM
 
 
@@ -243,31 +240,6 @@ def framed_map(fig, W, H, x, y, s, vec, info, sphere, vmax, colour, label, sub, 
     return ax
 
 
-def gfp_label_spot(t, x, gfp, amp, pw, ph, bounds=()):
-    """Rule MS7c: sample at which the "GFP" label (right-aligned, 2 pt above the curve) is crossed by the fewest dotted
-    boundary lines (`bounds`, in ms; a line must also keep `GFP_LABEL_GAP_MM` from both edges), then by the fewest
-    channel samples; ties go to the latest time. Returns (index, whether nothing crosses it)."""
-    span = t[-1] - t[0]
-    w_ms, gap_ms = GFP_LABEL_MM[0] / pw * span, GFP_LABEL_GAP_MM / pw * span  # label box and clearance, in data units
-    b = np.sort(np.asarray(bounds, float))
-    lines = np.searchsorted(b, t + gap_ms, "right") - np.searchsorted(b, t - w_ms - gap_ms, "left")  # per label spot
-    h_uv, off = GFP_LABEL_MM[1] / ph * 2 * amp, 0.7 / ph * 2 * amp
-    best = None
-    for i in range(len(t) - 1, -1, -1):
-        s = (t >= t[i] - w_ms) & (t <= t[i])
-        if t[i] - w_ms < t[0]:
-            break
-        y0 = gfp[i] + off
-        if y0 + h_uv > amp:  # the label would leave the panel
-            continue
-        key = (int(lines[i]), int(((x[:, s] > y0) & (x[:, s] < y0 + h_uv)).sum() + (gfp[s] > y0).sum()))
-        if best is None or key < best[1]:
-            best = (i, key)
-        if key == (0, 0):
-            break
-    return (best[0], best[1] == (0, 0)) if best else (len(t) - 1, False)
-
-
 def hatch(ax, ms, mask, y0, y1):
     """Rule MS3: diagonal white hatch over low-GFP runs; the state colour stays visible underneath."""
     for a, b, v in runs(mask.astype(int)):
@@ -410,10 +382,6 @@ def plot_states(spec, data, info, meta, ms, sphere):
                 if p == "butterfly":
                     ax.plot(t, x[:, w].T, color=TRACE, alpha=0.42, lw=0.28, zorder=2)
                     ax.plot(t, gfp, color=TRACE, lw=1.0, zorder=3)
-                    i, clear = gfp_label_spot(t, x[:, w], gfp, amp, pw, ph, bounds)
-                    ax.annotate("GFP", (t[i], gfp[i]), xytext=(0, 2), textcoords="offset points", fontsize=6,
-                                ha="right", va="bottom", color=TRACE,  # rule MS7c: inside the panel, off the traces
-                                path_effects=[] if clear else [patheffects.withStroke(linewidth=1.5, foreground="white")])
                     ax.set_ylim(-amp, amp)
                     ax.set_title(cell, fontsize=7, fontweight="bold", pad=2.5)  # rule MS7d: condition only, n in the caption
                     for b in bounds:
@@ -554,6 +522,9 @@ def caption(spec, meta, out, paths, facts):
              f"highest {'signed' if spec.get('polarity', 'sensitive') == 'sensitive' else 'absolute'} spatial correlation; "
              f"runs shorter than {spec.get('min_segment_ms', 30)} ms take the better-fitting neighbour; window "
              f"{spec.get('window_ms', [0, 800])} ms" + (f", time-locked to {spec['time_locked_to']}" if spec.get("time_locked_to") else ""))
+    if "spans" in facts and "butterfly" in spec.get("blocks", ["topo", "butterfly", "ribbon"]):
+        L.append("- Butterfly panels: thin lines = every channel of the grand average, thick line = GFP (standard deviation "
+                 "across channels); the figure carries no text label for it (user rule, 2026-09-29)")
     if "low_gfp_fraction" in facts:
         L.append("- Hatched: GFP below the 95th percentile of the same average's pre-stimulus GFP")
     if "spans" not in facts:

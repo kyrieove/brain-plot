@@ -73,29 +73,6 @@ def inside_canvas(fig):
     assert not out, f"outside the canvas: {out[:2]}"
 
 
-def gfp_label_clear(fig, traces=True):
-    """Rule MS7c: no dotted boundary line comes within 1 mm of the "GFP" label and (`traces`) no channel trace nor the
-    GFP curve passes through it, measured on the drawn figure. Lines come first in the placement: a figure with no
-    spot free of both keeps the label off the lines and lets traces cross it (`traces=False` checks only the lines)."""
-    R, n = renderer(fig), 0
-    for ax in fig.axes:
-        for tx in [t for t in ax.texts if t.get_text() == "GFP"]:
-            b, n = tx.get_window_extent(R), n + 1
-            for ln in ax.lines:
-                if ln.get_linestyle() == ":":  # boundary line: vertical, x only; keeps 1 mm from the drawn text
-                    x, gap = ax.transData.transform((ln.get_xdata()[0], 0))[0], 0.95 * fig.dpi / 25.4
-                    assert not b.x0 - gap < x < b.x1 + gap, f"a boundary line is within 1 mm of the GFP label at {b}"
-                    continue
-                if not traces:
-                    continue
-                xy = ax.transData.transform(ln.get_xydata())
-                xs = np.linspace(xy[0, 0], xy[-1, 0], 20 * len(xy))  # densify: segments between samples count too
-                ys = np.interp(xs, xy[:, 0], xy[:, 1])
-                inside = (xs > b.x0 + 0.5) & (xs < b.x1 - 0.5) & (ys > b.y0 + 0.5) & (ys < b.y1 - 0.5)
-                assert not inside.any(), f"a trace crosses the GFP label at {b}"
-    assert n, "no GFP label drawn"
-
-
 # 0a. round 6: run edges sit half-way between samples, so no sample is drawn in two states (MS2)
 tt = np.array([0.0, 4.0, 8.0, 12.0])
 assert msp.edges(tt, 0, 2) == (0.0, 6.0) and msp.edges(tt, 2, 4) == (6.0, 14.0)
@@ -110,28 +87,6 @@ for bad, text in ((dict(conditions={"A": "a", "B": "b", "C": "c"}, grid=[["A"], 
         raise AssertionError(f"check accepted {bad}")
     except SystemExit as e:
         assert text in str(e), e
-
-# 0f. review 2026-09-29: the "GFP" label keeps off dotted boundary lines. Demo data: the Standard panel has a boundary
-# at 769 ms and the panel ends at 800 ms, 31 ms from it, less than the label box (35 ms) — the line cut the "G"
-tg = np.arange(0.0, 800.0, 2.0)
-flat = np.zeros((8, len(tg)))
-PW, PH = 105.8, 30.0
-w_box = msp.GFP_LABEL_MM[0] / PW * (tg[-1] - tg[0])
-gap = msp.GFP_LABEL_GAP_MM / PW * (tg[-1] - tg[0])
-i0, ok0 = msp.gfp_label_spot(tg, flat, flat[0], 5.0, PW, PH)
-assert i0 == len(tg) - 1 and ok0  # no boundary: right-aligned at the last sample
-i1, ok1 = msp.gfp_label_spot(tg, flat, flat[0], 5.0, PW, PH, bounds=[769.0])
-assert ok1 and not (tg[i1] - w_box - gap <= 769.0 <= tg[i1] + gap), (tg[i1], w_box)  # clear of the line, both sides
-i2, ok2 = msp.gfp_label_spot(tg, flat, flat[0], 5.0, PW, PH, bounds=[tg[-1] - w_box - 0.5 * gap])
-assert not (tg[i2] - w_box - gap <= tg[-1] - w_box - 0.5 * gap <= tg[i2] + gap) and ok2  # a line just left of the box
-i3, ok3 = msp.gfp_label_spot(tg, flat, flat[0], 5.0, PW, PH, bounds=list(np.arange(10.0, 800.0, 20.0)))
-assert not ok3  # a boundary every 20 ms leaves no clear spot: the label keeps the fewest crossings and gets an outline
-# one line outweighs any number of channel samples: with traces dense everywhere but the last 40 ms, the label goes to
-# the dense part (line-free) rather than onto the line at 769 ms, although that costs many trace crossings
-dense = np.tile(np.linspace(0.0, 4.0, 40)[:, None], (1, len(tg)))
-dense[:, tg > 760] = 0.0
-i4, ok4 = msp.gfp_label_spot(tg, dense, flat[0], 5.0, PW, PH, bounds=[769.0])
-assert not ok4 and tg[i4] + gap < 769.0, (tg[i4], ok4)
 
 # 0b. longest runs use the drawn boundaries (half-way between samples), like the ribbon (MS2)
 assert msp.longest_runs({"c": np.array([0, 0, 1, 1])}, tt, 2) == {"c": {0: (0.0, 6.0), 1: (6.0, 14.0)}}
@@ -190,7 +145,9 @@ with tempfile.TemporaryDirectory() as d:
     assert "signed" in cap and "Hatched" in cap and "synthetic" in cap
     assert "## Panels (no letters; by title)" in cap and "- NoGo: n = " in cap and "S2" not in cap.split("- NoGo")[1].split("hatched")[0]
     inside_canvas(SAVED[-1])
-    gfp_label_clear(SAVED[-1])
+    # user rule 2026-09-29: no "GFP" text label on the butterfly panels; the caption says which line it is
+    assert not [t for ax in SAVED[-1].axes for t in ax.texts if "GFP" in t.get_text()], "a GFP label was drawn"
+    assert "thick line = GFP" in cap
     # review 2026-09-26: one boundary definition — dotted lines sit half-way between a run's first sample and the
     # previous run's last sample, like the ribbon; spans say so too
     for ax in [a for a in SAVED[-1].axes if a.get_title() in ("Go", "NoGo")]:
@@ -213,14 +170,6 @@ with tempfile.TemporaryDirectory() as d:
     assert run2["templates_meta"][0]["channel_order"].startswith("by name")
     assert "no channel names stored" not in Path(f"{out2}_caption.md").read_text(encoding="utf8")
     assert "low_gfp_fraction" not in run2 and "atched" not in Path(f"{out2}_caption.md").read_text(encoding="utf8")  # MS3 opt-in
-
-    # 2b. review 2026-09-29, end to end: Go's boundary at 498 ms lies 14 ms before the window's end (512 ms; the last
-    # run, 500–512 ms, survives because min_segment_ms is 10), inside the "GFP" label's box, so plot_states must hand
-    # the boundaries to the placement (dropping them leaves the label at 512 ms, on the line)
-    msp.plot(spec(root, exclude=[], window_ms=[0, 512], min_segment_ms=10))
-    gfp_label_clear(SAVED[-1], traces=False)  # the short window has no spot free of both: lines first, traces may cross
-    lab = [tx for a in SAVED[-1].axes if a.get_title() == "Go" for tx in a.texts if tx.get_text() == "GFP"][0]
-    assert lab.xy[0] < 498, lab.xy  # moved left of the line
 
     # 3. GFP block, per-group rows, across-K identity colours (K=2's templates are K=3's T2 and T1)
     fails(spec(root, blocks=["topo", "butterfly", "gfp", "ribbon"], per_group=True, groups=["G1"], width_mm=254,
