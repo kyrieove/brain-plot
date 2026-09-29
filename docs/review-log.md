@@ -446,6 +446,7 @@ final rules read as they do.
   spacing happens depends on text widths); now scans widths, verified in DejaVu and in Liberation Sans (Arial metrics);
   HANDOFF says how to mimic the Windows font in the cloud.
 - User looked at figure A and found problems (to be listed on the next session). No scheduled reminder (offered a daily
-  routine; user: "不用发给我，你知道就行"): the session opens with the reminder instead (HANDOFF, first "Next" bullet).
+  routine; user: "不用发给我，你知道就行", then "只需要这一次就够了"): the next session opens with one reminder, said once
+  (HANDOFF, first "Next" bullet, deleted after it is said).
   Candidate change for B (not done): wrap long map labels onto two lines.
 
