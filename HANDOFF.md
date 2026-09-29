@@ -1,6 +1,7 @@
 # brain-plot — handoff (2026-09-26, end of day)
 
-Start of every new session: read this file, then `docs/review-log.md` (newest entries at the bottom).
+Start of every new session: read this file, then `docs/review-log.md` (newest entries at the bottom), then **remind the
+user (in Chinese) about the pending figure review below before anything else** — see "Next", first bullet.
 
 ## State
 Two branches, both working, tests pass, everything committed and pushed
@@ -17,8 +18,12 @@ Two branches, both working, tests pass, everything committed and pushed
   `microstate/`, `specs/`; names say what the figure is; re-renders get `_vNN+1`, old versions move to `_history/`.
 
 ## Next (start here)
-- **DAILY (user, 2026-09-29): a daily reminder (routine) asks the user to look at the real-data inset figures and go on
-  modifying. The user said they found "some problems" in the figure and has not listed them yet — ask first.**
+- **EVERY SESSION START (user, 2026-09-29: "每天再提醒我看图继续修改"; then, when asked about a schedule: "不用发给我，你知道就行"):
+  no routine or notification exists and none is wanted — the reminder is YOU raising it when the user shows up.** Say
+  it first, in Chinese: please look at the real-data inset figure A (`D:\1-python_datasets\metaphor production\
+  derivatives\brain-plot\ERP_topo\ERP-topo-inset_N400_Pz-CPz_350-500ms_groups-by-condition_v01.png`, copy in
+  `C:\dev\brain-plot-inset-results\`), tell me the problems you found (not listed yet), and we continue; figure B
+  (accepted N400 layout) still stops. Keep reminding at the start of each session until the user says it is done.
 - 2026-09-29 end of day (cloud; merged to `main`): **ERP combo, maps inside the waveforms** (`map_placement: "inset"`
   + `grid`, rules L12/L13, `docs/review-log.md` last entries). Built with the user over five rounds on synthetic
   figures; layout rules: maps of a panel in one row (never two stacked), colour bar 0.9 mm right of or under the maps,
