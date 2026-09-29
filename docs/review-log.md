@@ -425,4 +425,14 @@ final rules read as they do.
   obstacle and audit blind → the test's own check fails; bar 1.8 mm → test fails.
 - Known limit: panels of ~46 mm (2 × 3 at 180 mm) hold one or two lines' maps; three lines make the default height 173 mm
   — use 3 rows × 2 columns instead. Not asked, not done: side layout untouched; README figures not redrawn.
+- Round 5 (user: "第二个不行，只有两个的时候不能竖着排列，另外两个看着还不错"; then "放不下就自适应调整子图之间的间距"): the
+  2 × 3 figure had stacked its two maps in a column to fit beside the gray band. Now the maps of a panel stand in one row
+  (up to 4 lines; two are never stacked), and when the block does not fit the layout adapts: colour bar right at the
+  default spacing → the same with tighter spacing between panels (9/13 → 6.5/12 mm, margin 12 → 8 mm) → colour bar under the
+  maps (horizontal) at each spacing → stop. `_run.json` `inset_layout` records the choice. Findings on the way: the
+  script's own audit stopped a first version of the bar-under-maps layout ("the unit overlaps the colour bar", the "µV" text
+  box against the tick label's box) — moved 1.2 mm, then it passed. Three lines per panel do not fit the 2 × 3 panels
+  (the script says so; use 3 rows × 2 columns). Tests: 2 × 2 (bar right), 2 × 3 (bar under), 3 panels in a row (tighter
+  spacing), 3 × 2 with 3 lines, one panel; maps of a panel in one row (independent check); mutations: two maps allowed to
+  stack, no tighter spacing tier — both fail a test.
 

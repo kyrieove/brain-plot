@@ -79,8 +79,15 @@ def inset_clear(fig):
     waves = [a for a in fig.axes if a.get_legend_handles_labels()[0]]
     heads = [a for a in fig.axes if a not in waves]
     assert waves and heads, "no waveform panels or no maps"
-    parts = [(a.get_tightbbox(R), a) for a in heads] + [(t.get_window_extent(R), None) for t in fig.texts
-                                                       if "ms" in t.get_text() and "–" in t.get_text()]
+    parts = [(a.get_tightbbox(R), a) for a in heads] + [
+        (t.get_window_extent(R), None) for t in fig.texts if ("ms" in t.get_text() and "–" in t.get_text()) or t.get_text() == "µV"]
+    mm = lambda v: v * 25.4 / fig.dpi
+    maps = [a for a in heads if min(mm(a.get_window_extent(R).width), mm(a.get_window_extent(R).height)) > 3]  # not bars
+    for w in waves:  # maps of a panel stand in one row (up to 4): two maps are never stacked
+        inside = [a for a in maps if w.get_window_extent(R).x0 <= a.get_window_extent(R).x0 <= w.get_window_extent(R).x1
+                  and w.get_window_extent(R).y0 <= a.get_window_extent(R).y0 <= w.get_window_extent(R).y1]
+        if len(inside) <= 4:
+            assert len({round(a.get_window_extent(R).y0, 1) for a in inside}) == 1, "maps of one panel are stacked"
     checked = 0
     for bb, ax in parts:
         host = [w for w in waves if w.get_window_extent(R).x0 <= (bb.x0 + bb.x1) / 2 <= w.get_window_extent(R).x1
@@ -196,40 +203,47 @@ with tempfile.TemporaryDirectory() as d:
     # inside it, nothing over the gray band, curves, axes or texts; the script audits every figure and stops on a clash
     inset = dict(base, groups=["G1", "G2"], map_placement="inset", components=[n400])
     c = lambda *ks: {k: COND[k] for k in ks}
-    for label, spec, n_panels in (
-            ("inset 2 × 2 design", dict(inset, conditions=c("c1", "c2", "c3", "c4"), grid=[["c1", "c2"], ["c3", "c4"]]), 4),
-            ("inset 2 × 3 design", dict(inset, conditions=c(*(f"c{i}" for i in range(1, 7))),
-                                        grid=[["c1", "c2", "c3"], ["c4", "c5", "c6"]]), 6),
-            ("inset, panels = 3 groups in a row, conditions overlaid", dict(inset, groups=["G1", "G2", "G3"],
-                                                                         overlay="conditions", conditions=c("c1", "c2")), 3),
+    six = c(*(f"c{i}" for i in range(1, 7)))
+    for label, spec, n_panels, want in (
+            ("inset 2 × 2 design", dict(inset, conditions=c("c1", "c2", "c3", "c4"), grid=[["c1", "c2"], ["c3", "c4"]]), 4,
+             ("right", 0)),
+            ("inset 2 × 3 design: two maps side by side, bar under them", dict(inset, conditions=six,
+                                                                            grid=[["c1", "c2", "c3"], ["c4", "c5", "c6"]]), 6,
+             ("below", 0)),
+            ("inset, panels = 3 groups in a row: spacing tightens", dict(inset, groups=["G1", "G2", "G3"], overlay="conditions",
+                                                                       conditions=c("c1", "c2")), 3, ("below", 1)),
             ("inset 2 × 2, negative up, SEM, N1", dict(inset, conditions=c("c1", "c2", "c3", "c4"), polarity="negative_up",
                                                       error="sem", components=[dict(name="N1", tmin_ms=150, tmax_ms=200,
-                                                                                    channels=["P7", "P8"])]), 4),
-            ("inset, one panel", dict(inset, conditions=c("c1")), 1),
-            ("inset 2 × 3, 3 lines per panel", dict(inset, groups=["G1", "G2", "G3"],
-                                                    conditions=c(*(f"c{i}" for i in range(1, 7))),
-                                                    grid=[["c1", "c2", "c3"], ["c4", "c5", "c6"]]), 6)):
+                                                                                    channels=["P7", "P8"])]), 4, ("right", 0)),
+            ("inset, one panel", dict(inset, conditions=c("c1")), 1, ("right", 0)),
+            ("inset 3 × 2 design, 3 lines per panel", dict(inset, groups=["G1", "G2", "G3"], conditions=six,
+                                                           grid=[["c1", "c2"], ["c3", "c4"], ["c5", "c6"]]), 6, ("below", 0))):
         clean(label, ep.plot, spec, out)
         run = json.loads(max(out.rglob("ERP-topo-inset_*_run.json"), key=lambda f: f.stat().st_mtime_ns).read_text("utf8"))
         per = len(spec["conditions"]) if spec.get("overlay") == "conditions" else len(spec["groups"])  # lines per panel
-        parts = n_panels * (per + 2)  # each panel: its maps, the colour bar, the window text
+        lay = run["inset_layout"]
+        assert (lay["colour_bar"], lay["spacing_tier"]) == want and lay["maps_rows_columns"] == [1, per], (label, lay)
+        parts = n_panels * (per + (3 if lay["colour_bar"] == "below" else 2))  # maps, colour bar, window text (+ unit)
         assert run["maps"] == n_panels * per and run["inset_audit"] == dict(panels=n_panels, parts_checked=parts, clashes=[]), run["inset_audit"]
         assert inset_clear(SAVED[-1]) == parts, label
         cap = max(out.rglob("ERP-topo-inset_*_caption.md"), key=lambda f: f.stat().st_mtime_ns).read_text("utf8")
-        if label == "inset 2 × 3 design":  # letters follow the grid's reading order: a b c / d e f
+        if n_panels == 6 and per == 2:  # letters follow the grid's reading order: a b c / d e f
             assert "- (a) Cond 1 —" in cap and "- (c) Cond 3 —" in cap and "- (d) Cond 4 —" in cap and "inside the panel" in cap, cap
         mm = lambda a: a.get_window_extent(renderer(SAVED[-1])).width * 25.4 / SAVED[-1].dpi
-        bars = [a for a in SAVED[-1].axes if not a.get_legend_handles_labels()[0] and mm(a) < 1.5]  # user: half as wide
-        assert len(bars) == n_panels and all(abs(mm(b) - 0.9) < 0.05 for b in bars), "one colour bar per panel, 0.9 mm wide"
+        mh = lambda a: a.get_window_extent(renderer(SAVED[-1])).height * 25.4 / SAVED[-1].dpi
+        bars = [a for a in SAVED[-1].axes if not a.get_legend_handles_labels()[0] and min(mm(a), mh(a)) < 1.5]
+        assert len(bars) == n_panels and all(abs(min(mm(b), mh(b)) - 0.9) < 0.05 for b in bars), "one colour bar per panel, 0.9 mm thick"
     stops("inset grid missing a panel", ep.plot, dict(inset, conditions=c("c1", "c2", "c3"), grid=[["c1", "c2"], ["c1", "c3"]]),
           "grid must be rows of equal length holding each panel key once")
     stops("inset grid with another panel key", ep.plot, dict(inset, conditions=c("c1", "c2"), grid=[["c1", "cX"]]),
           "grid must hold every panel once")
     stops("grid without inset", ep.plot, dict(base, groups=["G1"], conditions=c("c1", "c2"), grid=[["c1", "c2"]],
                                               components=[n400]), "'grid' arranges the panels of map_placement 'inset'")
-    stops("inset on a narrow canvas: 3 lines cannot fit", ep.plot,
-          dict(inset, groups=["G1", "G2", "G3"], conditions=c(*(f"c{i}" for i in range(1, 7))),
-               grid=[["c1", "c2", "c3"], ["c4", "c5", "c6"]], width_mm=89), "rule L12")
+    stops("inset, 3 lines in the 2 × 3 panels: maps are never stacked, so it must stop", ep.plot,
+          dict(inset, groups=["G1", "G2", "G3"], conditions=six, grid=[["c1", "c2", "c3"], ["c4", "c5", "c6"]]),
+          "in one row inside the waveform panels")
+    stops("inset on a narrow canvas: 2 lines cannot fit", ep.plot,
+          dict(inset, conditions=six, grid=[["c1", "c2", "c3"], ["c4", "c5", "c6"]], width_mm=89), "rule L12")
     stops("inset with long line names in narrow panels", ep.plot,
           dict(inset, conditions={f"c{i}": f"A very long condition name {i}" for i in range(1, 7)},
                overlay="conditions", groups=["G1", "G2", "G3"], grid=[["G1", "G2", "G3"]], width_mm=120), "rule L12")

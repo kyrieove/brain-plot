@@ -954,14 +954,18 @@ def obstacles_of(fig):
 # ---------- rule L12: panels in a grid, each with its topomaps inside it (map_placement "inset") ----------
 INSET_MAX_MM, INSET_MIN_MM, INSET_MAX_SHARE = 22.0, 7.0, 0.16  # map side: at most this share of the panel width
 INSET_LABEL_MM, INSET_COL_GAP_MM, INSET_HEAD_MM = 2.8, 1.5, 3.0  # line name under a map; between maps; window above
-INSET_BAR_MM, INSET_BAR_GAP_MM = 0.9, 1.4  # colour bar: width, and its distance from the maps
-INSET_BAR_BLOCK_MM = 8.6  # room right of the maps: gap + bar + tick labels up to "−12.5"
+INSET_BAR_MM, INSET_BAR_GAP_MM = 0.9, 1.4  # colour bar: thickness, and its distance from the maps
+INSET_BAR_BLOCK_MM = 8.6  # bar to the right of the maps: room for gap + bar + tick labels up to "−12.5"
+INSET_BELOW_MM = 5.2  # bar under the maps: gap + bar + tick labels
+INSET_UNIT_MM = 5.6  # bar under the maps: "µV" right of it, clear of the last tick label (1.8 mm past the bar end)
 INSET_SHARE_W, INSET_SHARE_H = 0.62, 0.6  # the block takes at most this share of the panel's width and height
 INSET_RES_MM = 0.5  # raster of the free-space search
 INSET_CLEAR_MM = 0.8  # clearance kept between the block and every obstacle
 INSET_GROWTH = 2.2  # the y-range may grow to this multiple of the data range to make room; beyond that, no room
 INSET_ASPECT = 1.45  # waveform panel width : height when height_mm is not given
-GRID_GAP_MM = (9.0, 13.0)  # between panels: across (room for "ms"), down (facet name, electrodes title, letter)
+# spacing tiers, used in order while the maps do not fit: (gap across, gap down, side margin) in mm; across holds "ms" and
+# the next panel's first tick label, down the facet name, electrodes title and letter, the margin "−200" and "ms"
+INSET_SPACING = ((9.0, 13.0, 12.0), (6.5, 12.0, 8.0))
 
 
 def inset_rows(spec, keys):
@@ -974,41 +978,52 @@ def inset_rows(spec, keys):
     return [keys[i:i + ncol] for i in range(0, n, ncol)]
 
 
-def inset_group(s, shape, tw=(0.0, 0.0)):
+def inset_shape(n_lines):
+    """(rows, columns) of the maps of one panel: one row up to 4 lines — two maps are never stacked (user, 2026-09-29) —
+    beyond that balanced rows of at most 4."""
+    nrow = int(np.ceil(n_lines / 4))
+    return nrow, int(np.ceil(n_lines / nrow))
+
+
+def inset_group(s, lay, tw=(0.0, 0.0)):
     """(width, height) in mm of the block: the window text above, maps of side s in shape = (rows, columns) with their
-    labels, the colour bar to their right. tw = (widest map label, window text): both can widen the block."""
-    nrow, ncol = shape
-    return (max(ncol * max(s, tw[0]) + (ncol - 1) * INSET_COL_GAP_MM + INSET_BAR_BLOCK_MM, tw[1]),
-            INSET_HEAD_MM + nrow * s + (nrow - 1) * MAP_GAP_MM + INSET_LABEL_MM)
+    labels, the colour bar to their right or under them (lay = (shape, bar)). tw = (widest map label, window text):
+    both can widen the block."""
+    (nrow, ncol), bar = lay
+    mw = ncol * max(s, tw[0]) + (ncol - 1) * INSET_COL_GAP_MM  # width of the maps
+    return (max(mw + INSET_BAR_BLOCK_MM if bar == "right" else mw, tw[1]),
+            INSET_HEAD_MM + nrow * s + (nrow - 1) * MAP_GAP_MM + INSET_LABEL_MM + (INSET_BELOW_MM if bar == "below" else 0.0))
 
 
-def inset_top(shape, pw, ph, tw=(0.0, 0.0)):
-    """Largest map side of `shape` in a pw × ph mm panel: at most INSET_MAX_SHARE of the width (never below the
-    minimum) and INSET_MAX_MM, the block within INSET_SHARE_W / INSET_SHARE_H of the panel, and every column at least as
-    wide as the widest label. 0 if the labels or the window text alone do not fit."""
-    nrow, ncol = shape
-    col = (INSET_SHARE_W * pw - INSET_BAR_BLOCK_MM - (ncol - 1) * INSET_COL_GAP_MM) / ncol  # width of one column
+def inset_top(lay, pw, ph, tw=(0.0, 0.0)):
+    """Largest map side of a layout in a pw × ph mm panel: at most INSET_MAX_SHARE of the width (never below the
+    minimum) and INSET_MAX_MM, the block within INSET_SHARE_W / INSET_SHARE_H of the panel, every column as wide as the
+    widest label. 0 if the labels or the window text alone do not fit, or a colour bar under the maps would be shorter
+    than 5 mm."""
+    (nrow, ncol), bar = lay
+    col = (INSET_SHARE_W * pw - (INSET_BAR_BLOCK_MM if bar == "right" else 0.0) - (ncol - 1) * INSET_COL_GAP_MM) / ncol
     if col < tw[0] or tw[1] > INSET_SHARE_W * pw:
         return 0.0
+    if bar == "below" and ncol * col + (ncol - 1) * INSET_COL_GAP_MM < 5.0 + INSET_UNIT_MM + 2.2:
+        return 0.0
     return min(INSET_MAX_MM, max(INSET_MIN_MM, INSET_MAX_SHARE * pw), col,
-               (INSET_SHARE_H * ph - INSET_HEAD_MM - INSET_LABEL_MM - (nrow - 1) * MAP_GAP_MM) / nrow)
+               (INSET_SHARE_H * ph - INSET_HEAD_MM - INSET_LABEL_MM - (nrow - 1) * MAP_GAP_MM
+                - (INSET_BELOW_MM if bar == "below" else 0.0)) / nrow)
 
 
-def inset_shapes(n_lines, pw, ph, tw=(0.0, 0.0)):
-    """Shapes (rows, columns) of the maps of one panel that fit at the minimum size, the one with the largest maps
-    first, fewer rows on a tie (wide panels want one row)."""
-    cand = [(inset_top((r, int(np.ceil(n_lines / r))), pw, ph, tw), -r) for r in range(1, n_lines + 1)]
-    return [(-r, int(np.ceil(n_lines / -r))) for top, r in sorted(cand, reverse=True) if top >= INSET_MIN_MM - 1e-9]
+def inset_layouts(n_lines, pw, ph, tw=(0.0, 0.0)):
+    """Layouts (shape, bar) that fit at the minimum size, in order of preference: the colour bar right of the maps
+    (the panel wide enough), else under them."""
+    lay = [(inset_shape(n_lines), b) for b in ("right", "below")]
+    return [x for x in lay if inset_top(x, pw, ph, tw) >= INSET_MIN_MM - 1e-9]
 
 
 def inset_min_block(n_lines, pw, tw=(0.0, 0.0)):
-    """Height (mm) of the smallest block (minimum size) that the panel width allows, in the shape with the fewest rows;
-    0 if the width rules out every shape."""
-    for r in range(1, n_lines + 1):
-        c = int(np.ceil(n_lines / r))
-        if INSET_SHARE_W * pw >= inset_group(INSET_MIN_MM, (r, c), tw)[0]:
-            return INSET_HEAD_MM + r * INSET_MIN_MM + (r - 1) * MAP_GAP_MM + INSET_LABEL_MM
-    return 0.0
+    """Height (mm) of the smallest block (minimum size) that the panel width allows; 0 if the width rules out every
+    layout."""
+    ok = [inset_group(INSET_MIN_MM, x, tw) for x in [(inset_shape(n_lines), b) for b in ("right", "below")]
+          if inset_top(x, pw, 1e4, tw) >= INSET_MIN_MM - 1e-9]
+    return min((h for _, h in ok), default=0.0)
 
 
 def text_widths_mm(texts, size):
@@ -1020,28 +1035,22 @@ def text_widths_mm(texts, size):
     return out
 
 
-def inset_geometry(spec, rows, labels, window):
+def inset_geometry(spec, rows, labels, window, tier=0):
     """Canvas and panels in mm: (W, H, pw, ph, xs, ys, tw); panel (r, c) has its lower-left corner at (xs[c], ys[r]);
-    tw: (widest map label, window text). Height: the spec's, else the one that gives INSET_ASPECT panels, or taller if
-    the maps need it. The legend takes the strip under the grid."""
+    tw: (widest map label, window text). `tier`: which INSET_SPACING. Height: the spec's, else the one that gives
+    INSET_ASPECT panels, or taller if the maps need it. The legend takes the strip under the grid."""
     n_lines = len(labels)
     tw = (max(text_widths_mm(labels, 6)), text_widths_mm([window], 6)[0])
     W = spec.get("width_mm", 180)
+    gx, gy, mx = INSET_SPACING[tier]
     R, C = len(rows), max(len(r) for r in rows)
     top, bottom = 9.0, 10.5 + 3.6 * int(np.ceil(n_lines / 4))
-    pw = (W - 24 - (C - 1) * GRID_GAP_MM[0]) / C
+    pw = (W - 2 * mx - (C - 1) * gx) / C
     block = inset_min_block(n_lines, pw, tw)  # curves keep ~60 % of the panel height: it holds the block and its margins
     ph = max(pw / INSET_ASPECT, (block + 3.2) / 0.38, 1.05 * block / INSET_SHARE_H)
-    H = spec.get("height_mm") or (top + bottom + R * ph + (R - 1) * GRID_GAP_MM[1])
-    ph = (H - top - bottom - (R - 1) * GRID_GAP_MM[1]) / R
-    if not inset_shapes(n_lines, pw, ph, tw):
-        need = block / INSET_SHARE_H
-        die(f"a waveform panel ({pw:.0f} × {ph:.0f} mm) is too small for {n_lines} maps inside it (rule L12: "
-            + (f"at least {need:.0f} mm tall" if block else f"wider than {pw:.0f} mm")
-            + "): use fewer panels per row (grid), a larger width_mm" + (" or height_mm" if block else "")
-            + ", fewer lines, shorter line names, or map_placement 'side'")
-    return (W, H, pw, ph, [12 + c * (pw + GRID_GAP_MM[0]) for c in range(C)],
-            [H - top - (r + 1) * ph - r * GRID_GAP_MM[1] for r in range(R)], tw)
+    H = spec.get("height_mm") or (top + bottom + R * ph + (R - 1) * gy)
+    ph = (H - top - bottom - (R - 1) * gy) / R
+    return (W, H, pw, ph, [mx + c * (pw + gx) for c in range(C)], [H - top - (r + 1) * ph - r * gy for r in range(R)], tw)
 
 
 def inset_obstacles(pw, ph, x, series, lo, hi, ylim, negative_up, band_ms):
@@ -1107,7 +1116,7 @@ def inset_slot(occ, pw, ph, gw, gh, window_mm, prefer_top):
     return float(I[i, j] * r), float(J[i, j] * r)
 
 
-def inset_plan(comp, p, lines, stats, ms_t, lo, hi, negative_up, pw, ph, shape, tw, ylim, side=None, cap=None):
+def inset_plan(comp, p, lines, stats, ms_t, lo, hi, negative_up, pw, ph, lay, tw, ylim, side=None, cap=None):
     """Rule L12 for one panel p (pw × ph mm): the map size and the free place of the block, or None. `ylim` is grown in
     place while the block needs room, up to span `cap` (None: not at all). With `side` the maps have exactly that
     size, otherwise the largest that fits (down to INSET_MIN_MM). Returns (side_mm, (x0, y0) mm from the panel's
@@ -1117,11 +1126,11 @@ def inset_plan(comp, p, lines, stats, ms_t, lo, hi, negative_up, pw, ph, shape, 
     w = (ms_t >= comp["tmin_ms"] - 1e-6) & (ms_t <= comp["tmax_ms"] + 1e-6)
     prefer_top = (float(np.mean([m[w].mean() for m, _ in ser])) > 0) != negative_up  # the component points up on screen
     win = ((comp["tmin_ms"] - lo) / (hi - lo) * pw, (comp["tmax_ms"] - lo) / (hi - lo) * pw)
-    sizes = [side] if side else list(np.arange(np.floor(2 * inset_top(shape, pw, ph, tw)) / 2, INSET_MIN_MM - 1e-9, -0.5))
+    sizes = [side] if side else list(np.arange(np.floor(2 * inset_top(lay, pw, ph, tw)) / 2, INSET_MIN_MM - 1e-9, -0.5))
     for _ in range(30):
         occ = inset_obstacles(pw, ph, ms_t, ser, lo, hi, ylim, negative_up, (comp["tmin_ms"], comp["tmax_ms"]))
         for sz in sizes:
-            slot = inset_slot(occ, pw, ph, *inset_group(sz, shape, tw), win, prefer_top)
+            slot = inset_slot(occ, pw, ph, *inset_group(sz, lay, tw), win, prefer_top)
             if slot:
                 return float(sz), slot
         if cap is None or ylim[1] - ylim[0] > cap:
@@ -1134,33 +1143,50 @@ def inset_plan(comp, p, lines, stats, ms_t, lo, hi, negative_up, pw, ph, shape, 
     return None
 
 
-def inset_settle(comp, keys, lines, stats, ms_t, lo, hi, negative_up, pw, ph, tw):
-    """One y-range, one map size and one shape of the maps for all the panels of a figure (they are meant to be
-    compared). For each shape in order of preference: start from the shared data range, plan every panel, keep the
-    widest range and the smallest size, repeat until nothing changes; the first shape for which every panel has a place
-    (without growing the y-range past INSET_GROWTH times the data range) wins. Returns (ylim, side, shape)."""
+def inset_settle(comp, keys, lines, stats, ms_t, lo, hi, negative_up, pw, ph, tw, lay):
+    """One y-range and one map size for all the panels of a figure (they are meant to be compared), for the layout
+    `lay` = (shape, colour bar right or under): start from the shared data range, plan every panel, keep the widest
+    range and the smallest size, repeat until nothing changes. None when some panel has no place (without growing the
+    y-range past INSET_GROWTH times the data range). Returns (ylim, side)."""
     base = data_ylim(stats, ph * 72 / 25.4, negative_up)
     cap = INSET_GROWTH * (base[1] - base[0])
-    for shape in inset_shapes(len(lines), pw, ph, tw):
-        ylim, side, ok = list(base), None, True
-        for _ in range(8):
-            before, sides = (list(ylim), side), []
-            for p in keys:
-                yl = list(ylim)
-                got = inset_plan(comp, p, lines, stats, ms_t, lo, hi, negative_up, pw, ph, shape, tw, yl, side, cap)
-                if got is None:
-                    ok = False
-                    break
-                ylim = [min(ylim[0], yl[0]), max(ylim[1], yl[1])]
-                sides.append(got[0])
-            if not ok:
-                break
-            side = min(sides + ([side] if side else []))
-            if (list(ylim), side) == before:
-                return ylim, side, shape
-    die(f"no free place for {len(lines)} maps inside the waveform panels (rule L12: the block must clear the curves, "
-        f"the axes and the gray window band, which is full height; panels are {pw:.0f} × {ph:.0f} mm): use fewer panels "
-        "per row (grid), a larger width_mm or height_mm, fewer lines, shorter line names, or map_placement 'side'")
+    ylim, side = list(base), None
+    for _ in range(8):
+        before, sides = (list(ylim), side), []
+        for p in keys:
+            yl = list(ylim)
+            got = inset_plan(comp, p, lines, stats, ms_t, lo, hi, negative_up, pw, ph, lay, tw, yl, side, cap)
+            if got is None:
+                return None
+            ylim = [min(ylim[0], yl[0]), max(ylim[1], yl[1])]
+            sides.append(got[0])
+        side = min(sides + ([side] if side else []))
+        if (list(ylim), side) == before:
+            return ylim, side
+    return None
+
+
+def inset_fit(spec, comp, rows, keys, labels, lines, stats, ms_t, lo, hi, negative_up):
+    """What to do when the maps do not fit (user, 2026-09-29: adapt the spacing between the panels): try the colour bar
+    right of the maps at the default spacing, then at each tighter spacing (INSET_SPACING), and only then the bar under
+    the maps, again at each spacing; the first that gives every panel a place wins. Maps stay in one row (up to 4).
+    Returns (geo, shared) with shared = ylim, side, layout, spacing tier; stops with the fixes if nothing fits."""
+    window = f"{comp['tmin_ms']:g}–{comp['tmax_ms']:g} ms"
+    tried = []
+    for bar in ("right", "below"):
+        for tier in range(len(INSET_SPACING)):
+            geo = inset_geometry(spec, rows, labels, window, tier)
+            lay = (inset_shape(len(lines)), bar)
+            tried.append(f"{geo[2]:.0f} × {geo[3]:.0f} mm")
+            if inset_top(lay, geo[2], geo[3], geo[6]) < INSET_MIN_MM - 1e-9:
+                continue
+            got = inset_settle(comp, keys, lines, stats, ms_t, lo, hi, negative_up, geo[2], geo[3], geo[6], lay)
+            if got:
+                return geo, dict(ylim=got[0], side=got[1], layout=lay, tier=tier)
+    die(f"no free place for {len(lines)} maps in one row inside the waveform panels (rule L12: the block must clear the "
+        f"curves, the axes and the gray window band, which is full height; panels tried: {', '.join(dict.fromkeys(tried))}"
+        "): use fewer panels per row (grid), a larger width_mm or height_mm, fewer lines, shorter line names, or "
+        "map_placement 'side'")
 
 
 def inset_audit(fig, ax, items, series, x):
@@ -1222,22 +1248,24 @@ def draw_inset(spec, comp, rows, names, lines, colors, stats, topo, v, info, ms,
         env = [(m, np.zeros_like(m) if e is None else e) for (pp, _), (m, e) in stats.items() if pp == key]
         cross_axes(ax, fig, lo, hi, shared["ylim"], negative_up, ms[t],
                    np.min([m - e for m, e in env], axis=0), np.max([m + e for m, e in env], axis=0))
-    shape = shared["shape"]
-    nrow_t, ncol_t = shape
+    lay = shared["layout"]
+    (nrow_t, ncol_t), bar = lay
     side, R = shared["side"], fig.canvas.get_renderer()
     audit = dict(panels=len(axes), parts_checked=0, clashes=[])
     for ax, key, y0, x0 in axes:  # maps, colour bar and window text, once the panel is final
-        got = inset_plan(comp, key, lines, stats, ms[t], lo, hi, negative_up, pw, ph, shape, tw, list(shared["ylim"]), side)
+        got = inset_plan(comp, key, lines, stats, ms[t], lo, hi, negative_up, pw, ph, lay, tw, list(shared["ylim"]), side)
         if got is None:
             die(f"no free place for the maps inside panel {key!r} at the shared size and y-range (rule L12); "
                 "use map_placement 'side'")
         size_mm, slot = got
         left, bottom = x0 + slot[0], y0 + slot[1]
+        gh = inset_group(size_mm, lay, tw)[1]  # the block's height: window text, maps and labels, bar if under them
+        below = INSET_BELOW_MM if bar == "below" else 0.0
         boxes = {}
         for j, (l, lab) in enumerate(lines):
             row, col = j // ncol_t, j % ncol_t
             mx = left + col * (max(size_mm, tw[0]) + INSET_COL_GAP_MM) + (max(size_mm, tw[0]) - size_mm) / 2
-            my = bottom + INSET_LABEL_MM + (nrow_t - 1 - row) * (size_mm + MAP_GAP_MM)
+            my = bottom + below + INSET_LABEL_MM + (nrow_t - 1 - row) * (size_mm + MAP_GAP_MM)
             tax = fig.add_axes([mx / W, my / H, size_mm / W, size_mm / H])
             im, _ = mne.viz.plot_topomap(topo[key, l], info, axes=tax, show=False, cmap=spec.get("cmap", "RdBu_r"),
                                          vlim=(-v, v), contours=levels, sensors=False, extrapolate=TOPO["extrapolate"],
@@ -1249,17 +1277,29 @@ def draw_inset(spec, comp, rows, names, lines, colors, stats, topo, v, info, ms,
             tax.text(0.5, -0.04, lab, transform=tax.transAxes, ha="center", va="top", fontsize=6)
             n_maps += 1
             boxes[f"the map {lab!r}"] = tax.get_tightbbox(R)
-        area = nrow_t * size_mm + (nrow_t - 1) * MAP_GAP_MM  # the colour bar belongs to the maps: right of them
-        cax = fig.add_axes([(left + ncol_t * max(size_mm, tw[0]) + (ncol_t - 1) * INSET_COL_GAP_MM + INSET_BAR_GAP_MM) / W,
-                            (bottom + INSET_LABEL_MM + 0.06 * area) / H, INSET_BAR_MM / W, 0.62 * area / H])
-        cb = fig.colorbar(im, cax=cax, ticks=[-v, 0, v])
-        cb.ax.set_yticklabels([f"{-v:.1f}".replace("-", "−"), "0", f"{v:.1f}"])
-        cb.ax.set_title("µV", fontsize=6, pad=3)
+        area = nrow_t * size_mm + (nrow_t - 1) * MAP_GAP_MM  # the colour bar belongs to the maps
+        mw = ncol_t * max(size_mm, tw[0]) + (ncol_t - 1) * INSET_COL_GAP_MM
+        ticks = [f"{-v:.1f}".replace("-", "−"), "0", f"{v:.1f}"]
+        if bar == "right":  # a vertical bar right of the maps, 62 % of their height, µV above it
+            cax = fig.add_axes([(left + mw + INSET_BAR_GAP_MM) / W, (bottom + INSET_LABEL_MM + 0.06 * area) / H,
+                                INSET_BAR_MM / W, 0.62 * area / H])
+            cb = fig.colorbar(im, cax=cax, ticks=[-v, 0, v])
+            cb.ax.set_yticklabels(ticks)
+            cb.ax.set_title("µV", fontsize=6, pad=3)
+            cb.ax.tick_params(labelsize=6, width=0.4, length=2)
+        else:  # a horizontal bar under the maps (panels too narrow for one beside them), µV right of it
+            bx, blen = left + 2.2, mw - 2.2 - INSET_UNIT_MM
+            cax = fig.add_axes([bx / W, (bottom + 2.9) / H, blen / W, INSET_BAR_MM / H])
+            cb = fig.colorbar(im, cax=cax, orientation="horizontal", ticks=[-v, 0, v])
+            cb.ax.set_xticklabels([ticks[0], "", ticks[2]])  # the ends only: three labels would touch on a short bar
+            cb.ax.tick_params(labelsize=6, width=0.4, length=1.5, pad=1)
+            unit = fig.text((bx + blen + 2.2) / W, (bottom + 2.9 + INSET_BAR_MM / 2) / H, "µV", ha="left", va="center",
+                            fontsize=6)
+            boxes["the unit"] = unit.get_window_extent(R)
         cb.outline.set_linewidth(0.4)
-        cb.ax.tick_params(labelsize=6, width=0.4, length=2)
         boxes["the colour bar"] = cax.get_tightbbox(R)
-        head = fig.text(left / W, (bottom + INSET_HEAD_MM + area + INSET_LABEL_MM - 0.4) / H,
-                        f"{comp['tmin_ms']:g}–{comp['tmax_ms']:g} ms", ha="left", va="top", fontsize=6)  # rule S4
+        head = fig.text(left / W, (bottom + gh - 0.4) / H, f"{comp['tmin_ms']:g}–{comp['tmax_ms']:g} ms", ha="left",
+                        va="top", fontsize=6)  # rule S4
         boxes["the window text"] = head.get_window_extent(R)
         ser = [(m, np.zeros_like(m) if e is None else e) for (pp, _), (m, e) in stats.items() if pp == key]
         clash = inset_audit(fig, ax, boxes, ser, ms[t])  # the self-check: a clash is never shipped
@@ -1542,9 +1582,8 @@ def plot(spec):
         gap_mm = GAP_MM
         geo = shared = None
         if inset:  # rule L12: the panels of a figure are meant to be compared: one y-range, one map size
-            geo = inset_geometry(spec, rows, labels, f"{comp['tmin_ms']:g}–{comp['tmax_ms']:g} ms")
-            shared = dict(zip(("ylim", "side", "shape"), inset_settle(comp, [k for k, _ in panels], lines, stats, ms[t],
-                                                                      lo, hi, negative_up, geo[2], geo[3], geo[6])))
+            geo, shared = inset_fit(spec, comp, rows, [k for k, _ in panels], labels, lines, stats, ms[t], lo, hi,
+                                    negative_up)
         for _ in range(3 if kind != "topo" else 0):  # at most: widen colour limit, widen gap, final check
             if inset:
                 fig, peak, n_lines, n_maps, size, audit = draw_inset(spec, comp, rows, dict(panels), lines, colors, stats,
@@ -1595,8 +1634,11 @@ def plot(spec):
                   colour_distinctness=colour_check(colors[:len(lines)], "line colours", line_styles(spec, len(lines)))
                   if kind != "topo" else None,
                   colour_limit_uV=float(v), sensor_max_uV=float(v_sensor), interpolated_max_uV=float(peak),
-                  sphere_m=sphere, **(dict(grid=rows, inset_map_side_mm=shared["side"], inset_map_shape=shared["shape"],
-                                           inset_ylim_uV=[float(y) for y in shared["ylim"]], inset_audit=audit)
+                  sphere_m=sphere, **(dict(grid=rows, inset_map_side_mm=shared["side"], inset_ylim_uV=[float(y) for y in shared["ylim"]],
+                                           inset_layout=dict(maps_rows_columns=shared["layout"][0], colour_bar=shared["layout"][1],
+                                                             spacing_tier=shared["tier"],
+                                                             gaps_and_margin_mm=INSET_SPACING[shared["tier"]]),
+                                           inset_audit=audit)
                                       if inset else {}))
         if not batch:
             archive(out)
