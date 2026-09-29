@@ -1,3 +1,5 @@
+> **Archived 2026-09-29.** One-off agent test from 2026-09-25/26; paths predate the rules split (rules now in `docs/rules.md`, agent-facing parts in `brain-plot/references/erp.md` / `microstate.md`). Kept for the record, not for reuse.
+
 # Task: full brain-plot run from raw data, interviewing the user in chat (agent reproducibility test, part 2)
 
 Use the `brain-plot` skill from the start, as if a user had typed `/brain-plot <data_dir>`. Follow

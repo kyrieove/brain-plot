@@ -360,3 +360,5 @@ OK on matplotlib 3.10.9 and 3.11.2 (Linux, DejaVu Sans).
   one. Fix: `microstate.md` now says to ask for `polarity` / `min_segment_ms` / `window_ms` when no file states them.
 - User merged `daf4662` into local `main` and pushed (via Antigravity). New modules stay paused; optional next step:
   a full draw + QA run with the split skill on real data (GN or metaphor).
+- 2026-09-29: the two one-off agent test plans (`agent-test-PLAN.md`, `agent-test-interview-PLAN.md`) moved from the
+  repo root to `docs/archive/` with an "archived, outdated paths" note; nothing referenced them.

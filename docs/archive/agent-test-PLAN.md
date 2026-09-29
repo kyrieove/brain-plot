@@ -1,3 +1,5 @@
+> **Archived 2026-09-29.** One-off agent test from 2026-09-25/26; paths predate the rules split (rules now in `docs/rules.md`, agent-facing parts in `brain-plot/references/erp.md` / `microstate.md`). Kept for the record, not for reuse.
+
 # Task: draw one figure with the brain-plot skill (agent reproducibility test)
 
 You are testing whether an agent can use the `brain-plot` skill on its own. Follow the skill exactly.
