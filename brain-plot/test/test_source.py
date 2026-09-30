@@ -48,7 +48,24 @@ def count_colored(img):
     return int(np.sum(non_white & non_grey))
 
 
+def test_source_layout_selfcheck():
+    fig = sp.plt.figure(figsize=(60 * sp.ep.MM, 60 * sp.ep.MM))
+    valid = fig.add_axes([10 / 60, 10 / 60, 16 / 60, 8 / 60])
+    assert sp.source_layout_issues(fig, [valid], 0.5) == []
+
+    too_wide = fig.add_axes([30 / 60, 10 / 60, 21 / 60, 10.5 / 60])
+    wrong_aspect = fig.add_axes([10 / 60, 30 / 60, 16 / 60, 9 / 60])
+    fig.text(0.5, 0.9, "small", fontsize=6)
+    issues = sp.source_layout_issues(fig, [valid, too_wide, wrong_aspect], 0.5)
+    assert any("width outside 12–20 mm" in issue for issue in issues), issues
+    assert any("aspect ratio changed" in issue for issue in issues), issues
+    assert any("text below 7 pt" in issue for issue in issues), issues
+    sp.plt.close(fig)
+    print("assertion (layout) passed: brain size, aspect ratio, and minimum text size self-check")
+
+
 def main():
+    test_source_layout_selfcheck()
     print("Setting up coarse fsaverage source space (oct4)...")
     src = mne.setup_source_space("fsaverage", spacing="oct4", subjects_dir=SUBJECTS_DIR, add_dist=False, verbose="error")
     labels = mne.read_labels_from_annot("fsaverage", parc="aparc", hemi="lh", subjects_dir=SUBJECTS_DIR, verbose="error")

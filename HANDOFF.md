@@ -27,8 +27,8 @@ Figures (59 subjects, sub27 excluded): `…rain_plot_preprocessed_epochs_verb\s
 User decisions: P200 kept although weak (+0.5 µV); no late window (`specs\sn_check.txt`: centro-parietal negativity
 400–2000 ms, continuous with the N400 — not an SN or LPC); per-column scales in the timeline; 16-mm brains, 8-pt text.
 **Open (small):** (1) neighbouring colour bars' end ticks sit ~1 mm apart ("2.40 2.46") — consider fewer ticks or
-wider block gaps; (2) the plan-3 size self-check has no dedicated test in `test_source.py`; (3) the user's reference
-figure stacks L above R per condition — offered as an alternative layout, not requested; (4) `.mne-test-profile/`
+wider block gaps; (2) the user's reference
+figure stacks L above R per condition — offered as an alternative layout, not requested; (3) `.mne-test-profile/`
 in the repo root is a codex leftover (untracked) — delete.
 
 **Markers (user, final, 2026-09-30 22:30; matches the recording S15 0 / S1 +350 / S7 +2900 ms):** S15–20 = **verb
