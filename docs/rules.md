@@ -100,6 +100,7 @@ Rules S1 (input contract), S9 (caption structure), T5 (PNG + SVG), T6 (fixed can
 | TF5 | Windows and topomap rows: each window (`name`, `fmin`, `fmax`, `tmin_ms`, `tmax_ms`) is drawn as a dashed black rectangle (lw 0.6) on every panel with its name at top-left. For each window, one row of topomaps is drawn underneath the grid: one map per condition (in grid reading order), with a shared symmetric color scale and right-edge color bar; topomaps follow rule L11 (no sensor dots, `common_sphere`). | U/M | Code |
 | TF6 | Cache policy: per-subject Morlet results (power and ITC, all conditions) cached as `.h5` files in `.cache/tfr/<hash>/`. Directory-level cache pruning retains the most recent `CACHE_KEEP` parameter runs. | M | Code |
 | TF7 | Canvas and QA: default width 180 mm; height auto (~1.4 : 1 panel aspect ratio plus 26 mm per topomap row); self-checks layout using `ep.layout_issues` and records result in `_run.json`. | U | Code + test |
+| TF8 | Figure identity and rendering (user, 2026-09-30): one figure per group with the group label as a bold 8-pt title at the top; TF maps drawn smooth (`pcolormesh` gouraud), not as blocks. Baseline before the trial's first stimulus (fixation or preceding word), not just before the marker; windows from the hypothesis or cut at trial events, never read off the grand average. | U | Code + agent guide |
 
 ## QA after every render
 
