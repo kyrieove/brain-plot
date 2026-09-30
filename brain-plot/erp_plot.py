@@ -439,6 +439,20 @@ def subset_part(spec, meta, parts=("groups", "conditions")):
     return part
 
 
+def query_epochs(epochs, f, conditions, query):
+    """Epochs after `query`, with every condition still holding trials; else a stop naming the fix. (MNE raises a
+    KeyError, not an empty result, when a query or a condition matches nothing.)"""
+    if query:
+        try:
+            epochs = epochs[query]
+        except KeyError:
+            die(f"{f.name}: query {query!r} leaves no trials; add this subject to 'exclude' or change the query")
+    empty = [c for c in conditions if not (epochs.events[:, 2] == epochs.event_id.get(c, -1)).any()]
+    if empty:
+        die(f"{f.name}: no trials left for {empty} (query={query!r}); add this subject to 'exclude' or change the query")
+    return epochs
+
+
 def read_conditions(f, conditions, query):
     """Evoked per condition and trial counts for one subject (a file, or {condition: file})."""
     if isinstance(f, dict):  # split layout: the folder names the condition; one averaged Evoked per file
@@ -451,14 +465,8 @@ def read_conditions(f, conditions, query):
                 die(f"{f[c].name}: needs exactly one Evoked of kind 'average'")
             evs.append(e[0])
     elif f.name.endswith("-epo.fif"):
-        ep = mne.read_epochs(f, proj=False, verbose="error")
-        if query:
-            ep = ep[query]
-        evs = []
-        for c in conditions:
-            if len(ep[c]) == 0:
-                die(f"{f.name}: no trials left for '{c}' (query={query!r})")
-            evs.append(ep[c].average())
+        ep = query_epochs(mne.read_epochs(f, proj=False, verbose="error"), f, conditions, query)
+        evs = [ep[c].average() for c in conditions]
     else:
         if query:
             die(f"{f.name}: 'query' cannot be applied to averaged (-ave.fif) files")

@@ -177,13 +177,10 @@ def load_and_compute(spec):
                     print(f"WARNING: skipping unreadable/incomplete file {f.name}: {e}")
                     continue
 
-                if spec.get("query"):
-                    ep_sub = ep_sub[spec["query"]]
+                ep_sub = ep.query_epochs(ep_sub, f, spec["conditions"], spec.get("query"))
 
                 objs_to_save = []
                 for c in spec["conditions"]:
-                    if len(ep_sub[c]) == 0:
-                        ep.die(f"{f.name}: no trials left for '{c}' (query={spec.get('query')!r})")
                     p, itc = ep_sub[c].compute_tfr(
                         "morlet", freqs=freqs, n_cycles=n_cycles, decim=decim,
                         return_itc=True, average=True,
