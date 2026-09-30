@@ -479,3 +479,6 @@ final rules read as they do.
   panels sat on the `800`/`1000` tick labels — `obstacles_of` now uses the tight box (tick labels, titles) of panels
   that carry an x title, so the clash is seen and the legend moves to the widened gap (+10 mm in box mode, `1000`
   pokes into it). Suites OK (erp_plot, layout, microstate). Renders: inset v19, side combo v09 (specs `*_box.json`).
+- Then (user: every ERP figure needs the box style): `wave_grid` (kind `erp` layout `grid`, explore overview) got it too —
+  wider left margin and gaps, axis titles on the outer panels only; `axes` accepted in explore specs. New test cases
+  (erp grid 3 × 3 box, explore box); suites OK. Real data: `specs/erp_grid_3x3_box.json` → ERP grid v01 (HWM, LWM).

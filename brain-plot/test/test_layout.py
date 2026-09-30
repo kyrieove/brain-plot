@@ -196,6 +196,10 @@ with tempfile.TemporaryDirectory() as d:
           dict(base, groups=["G1", "G2"], conditions=six, overlay="conditions", kind="erp", layout="grid",
                channels=[["F3", "Fz", "F4"], ["C3", "Cz", "C4"], ["P3", "Pz", "P4"]],
                components=[{k: v for k, v in n400.items() if k != "channels"}], **pairs), out)
+    clean("erp grid 3 × 3, box axes", ep.plot,
+          dict(base, groups=["G1", "G2"], conditions=six, overlay="conditions", kind="erp", layout="grid",
+               channels=[["F3", "Fz", "F4"], ["C3", "Cz", "C4"], ["P3", "Pz", "P4"]],
+               components=[{k: v for k, v in n400.items() if k != "channels"}], axes="box", **pairs), out)
     six_panels = dict(base, groups=["G1", "G2"], conditions=six, components=[n400])  # overlay groups: 6 panels
     msg = stops("6 stacked panels on 120 mm", ep.plot, six_panels, "height_mm")
     assert "overlay 'conditions' (2 panels)" in msg, msg
@@ -209,6 +213,9 @@ with tempfile.TemporaryDirectory() as d:
                                     components=[dict(name="N1", tmin_ms=150, tmax_ms=200),
                                                 dict(name="N400", tmin_ms=350, tmax_ms=500)],
                                     differences=[["c1", "c2"]]))
+    assert "WARNING: layout" not in log, log
+    _, log = quiet(ep.explore, dict(base, conditions=dict(list(COND.items())[:4]), groups=["G1"], axes="box",
+                                    components=[dict(name="N400", tmin_ms=350, tmax_ms=500)]))
     assert "WARNING: layout" not in log, log
 
     # ERP, maps inside the panels (rule L12; user rules 2026-09-29): panels in a grid, each with its maps and colour bar

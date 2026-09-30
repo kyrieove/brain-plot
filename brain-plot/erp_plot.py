@@ -1848,7 +1848,7 @@ def caption(spec, comp, meta, groups, conds, out, ms, v, sphere, kind, level=Non
 # ---------- explore: overview figures before windows are known (not paper figures) ----------
 EXPLORE_REQUIRED = {"data", "conditions"}
 EXPLORE_OPTIONAL = {"width_mm", "height_mm", "group_by", "groups", "exclude", "query", "colors", "linestyles", "ordered", "xlim_ms", "polarity",
-                    "channels", "components", "differences", "topo_scale", "cmap", "flat_channels", "topo_height_mm",
+                    "channels", "components", "differences", "topo_scale", "cmap", "flat_channels", "axes", "topo_height_mm",
                     "topo_wspace", "topo_hspace", "topo_left_mm", "topo_top_mm", "topo_bottom_mm"}
 EXPLORE_CHANNELS = [["F3", "Fz", "F4"], ["C3", "Cz", "C4"], ["P3", "Pz", "P4"]]  # rows front to back, left to right
 
@@ -1861,6 +1861,8 @@ def check_explore(spec):
         die(f"unsupported explore keys {sorted(keys - EXPLORE_REQUIRED - EXPLORE_OPTIONAL)}")
     if spec.get("topo_scale", "global") not in ("component", "global"):
         die("topo_scale must be 'component' or 'global'")
+    if spec.get("axes", "cross") not in ("cross", "box"):
+        die("axes must be 'cross' or 'box'")
     for d in spec.get("differences", []):
         if len(d) != 2 or any(c not in spec["conditions"] for c in d):
             die(f"difference {d}: two condition keys from 'conditions'")
@@ -1880,15 +1882,17 @@ def wave_grid(spec, title, grid, info, x, labels, colors, styles, ms, t, lo, hi,
     W, H = canvas_size(spec)  # rule T6
     leg_cols = len(labels) if len(labels) <= 4 else -(-len(labels) // 2)  # one row, two rows if more than 4
     leg_mm = 4 + 4 * -(-len(labels) // leg_cols)
-    top_mm, bottom_mm = (14.0 if bands else 10.0), 6 + leg_mm
-    cell = (H - top_mm - bottom_mm) / (nr + 0.6 * (nr - 1))  # GridSpec rows with hspace 0.6
+    box = spec.get("axes", "cross") == "box"  # box: tick labels and titles outside, so more room around each panel
+    top_mm, bottom_mm = (14.0 if bands else 10.0), 6 + leg_mm + (5.0 if box else 0.0)
+    hs = 0.9 if box else 0.6
+    cell = (H - top_mm - bottom_mm) / (nr + hs * (nr - 1))  # GridSpec rows with hspace hs
     if cell < MIN_WAVE_MM:
-        need = int(np.ceil(MIN_WAVE_MM * (nr + 0.6 * (nr - 1)) + top_mm + bottom_mm))
+        need = int(np.ceil(MIN_WAVE_MM * (nr + hs * (nr - 1)) + top_mm + bottom_mm))
         die(f"{nr} rows of channel panels would be {cell:.0f} mm tall each; at least {MIN_WAVE_MM:g} mm keep ticks and "
             f"labels legible: use height_mm {need} or more at width_mm {W:g}, or fewer rows")
     fig = plt.figure(figsize=(W * MM, H * MM))
-    gs = GridSpec(nr, nc, figure=fig, hspace=0.6, wspace=0.35,
-                  left=10 / W, right=1 - 6 / W, top=1 - top_mm / H, bottom=bottom_mm / H)  # 6 mm: room for "ms"
+    gs = GridSpec(nr, nc, figure=fig, hspace=hs, wspace=0.45 if box else 0.35,
+                  left=(15 if box else 10) / W, right=1 - 6 / W, top=1 - top_mm / H, bottom=bottom_mm / H)  # 6 mm: "ms"
     x = x[:, :, t]
     chans = [i for r in grid for i in r]
     ylim = data_ylim({(c, i): (x[c, i], None) for c in range(len(x)) for i in chans},
@@ -1905,7 +1909,12 @@ def wave_grid(spec, title, grid, info, x, labels, colors, styles, ms, t, lo, hi,
                 ax.plot(ms[t], x[k, ch], color=col, ls=ls, lw=0.8, label=lab)
                 n += 1
             ax.set_title(info.ch_names[ch], pad=11 if bands else 6, fontsize=7, fontweight="bold")  # above the band name
-            cross_axes(ax, fig, lo, hi, ylim, negative_up, ms[t], x[:, ch].min(0), x[:, ch].max(0))
+            if box:  # axis titles on the outer panels only: y title in the first column, x title in the last row
+                box_axes(ax, fig, lo, hi, ylim, negative_up)
+                ax.set_ylabel(ax.get_ylabel() if c == 0 else "")
+                ax.set_xlabel(ax.get_xlabel() if r == nr - 1 else "")
+            else:
+                cross_axes(ax, fig, lo, hi, ylim, negative_up, ms[t], x[:, ch].min(0), x[:, ch].max(0))
             first = first or ax
     h, lab = first.get_legend_handles_labels()
     order = [i for c in range(leg_cols) for i in range(c, len(h), leg_cols)]  # matplotlib fills columns; read rows
