@@ -436,7 +436,13 @@ def subset_part(spec, meta, parts=("groups", "conditions")):
         part += "_cond-" + "-".join(map(safe, spec["conditions"]))
     if spec.get("query"):
         part += "_query-" + hashlib.md5(spec["query"].encode()).hexdigest()[:6]
-    return part
+    return part + lock_part(spec)
+
+
+def lock_part(spec):
+    """Rule O3: `_lock-<event>` when the spec names its time-locking event, so that figures of two datasets that share
+    an output folder (epochs locked to different events) never take each other's names."""
+    return "_lock-" + safe(spec["time_locked_to"]) if spec.get("time_locked_to") and "time_locked_to" not in open_items(spec) else ""
 
 
 def query_epochs(epochs, f, conditions, query):
@@ -1812,7 +1818,7 @@ def caption(spec, comp, meta, groups, conds, out, ms, v, sphere, kind, level=Non
 EXPLORE_REQUIRED = {"data", "conditions"}
 EXPLORE_OPTIONAL = {"width_mm", "height_mm", "group_by", "groups", "exclude", "query", "colors", "linestyles", "ordered", "xlim_ms", "polarity",
                     "channels", "components", "differences", "topo_scale", "cmap", "flat_channels", "axes", "topo_height_mm",
-                    "topo_wspace", "topo_hspace", "topo_left_mm", "topo_top_mm", "topo_bottom_mm"}
+                    "topo_wspace", "topo_hspace", "topo_left_mm", "topo_top_mm", "topo_bottom_mm", "time_locked_to"}
 EXPLORE_CHANNELS = [["F3", "Fz", "F4"], ["C3", "Cz", "C4"], ["P3", "Pz", "P4"]]  # rows front to back, left to right
 
 
@@ -2006,7 +2012,7 @@ def explore(spec):
     root, shape = out_root(spec), f"{len(rows)}x{max(len(r) for r in rows)}"
     outs = []
     for g in groups:  # rule O3
-        outs.append(versioned(root / "ERP", f"ERP-grid-{shape}_conditions_{safe(g)}"))
+        outs.append(versioned(root / "ERP", f"ERP-grid-{shape}_conditions_{safe(g)}{lock_part(spec)}"))
         wave_grid(spec, "Waveforms", grid, info, data[g].mean(0), labels, colors, styles, ms, t, lo, hi, neg, g, outs[-1])
         archive(outs[-1])
         if spec.get("components"):
@@ -2014,7 +2020,7 @@ def explore(spec):
                 names = f"{spec['components'][0]['tmin_ms']:g}-{spec['components'][-1]['tmax_ms']:g}ms"
             else:
                 names = "-".join(c["name"] if c.get("name") else f"{c['tmin_ms']:g}-{c['tmax_ms']:g}ms" for c in spec["components"])
-            outs.append(versioned(root / "topo", f"topo-table_{safe(names)}_{safe(g)}"))
+            outs.append(versioned(root / "topo", f"topo-table_{safe(names)}_{safe(g)}{lock_part(spec)}"))
             topo_table(spec, data[g], conds, labels, spec["components"], info, ms, sphere, g, outs[-1])
             archive(outs[-1])
     print("wrote", *[f"{o}.png/.svg" for o in outs], sep="\n  ")

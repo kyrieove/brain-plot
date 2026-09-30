@@ -38,7 +38,7 @@ Outputs go to `brain-plot/` next to the data folder (rules O1–O3): `ERP_topo/E
 | `axes` | `"cross"` | `"cross"`: spines through origin (0 µV, 0 ms), labels next to lines (rule T1). `"box"`: left + bottom axes with outside ticks, "Time (ms)" / "Amplitude (µV)" titles, thin 0-µV and dotted 0-ms lines; every ERP waveform figure (combo side/inset, erp roi/single/grid, explore) supports it. In a grid of channel panels the axis titles sit on the outer panels only. Also an explore key. |
 | `claim` | none | Caption only: what the figure is meant to show (one sentence). Omitted → no caption line. |
 | `key_comparison` | none | Caption only: the comparison the layout serves (e.g. "groups within each condition"). |
-| `time_locked_to` | none | Caption only: event at 0 ms, as it should read in the caption. |
+| `time_locked_to` | none | Event at 0 ms, as it should read in the caption; also appended to every output name as `_lock-<event>` (rule O3), so datasets locked to different events never share a name. ERP, explore and TFR specs. |
 | `reference` | none | Caption only: reference scheme (files often don't store it). |
 | `width_mm` / `height_mm` | 180 / 120 | Fixed final canvas (rule T6); content is fitted inside. Stacked waveform panels (and erp grid cells) need ≥ 15 mm each; the script stops and names the `height_mm` that works (rule L3). |
 | `cmap` | `"RdBu_r"` | Topomap colour map (a diverging map). |

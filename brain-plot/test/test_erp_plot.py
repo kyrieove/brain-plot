@@ -34,7 +34,7 @@ def make_subject(path, conds, tmin=-0.2, n_t=301, seed=0, bads=(), flat=()):
 def spec(root, **kw):
     s = dict(data=str(root), conditions={"A": "Low", "B": "Mid", "C": "High"},
              components=[dict(name="P3", channels=["Cz", "Pz"], tmin_ms=250, tmax_ms=350, window_source="test")],
-             claim="test", key_comparison="test", time_locked_to="stimulus onset", reference="average")
+             claim="test", key_comparison="test", reference="average")  # time_locked_to: see the lock-name case
     s.update(kw)
     return s
 
@@ -185,13 +185,16 @@ with tempfile.TemporaryDirectory() as d:
     assert run["legend"] == "inside panel" and run["open_items"] == ["time_locked_to"]
     assert "OPEN (not confirmed): time_locked_to" in latest(root, "ERP_topo", "ERP-topo_P3_*_caption.md").read_text(encoding="utf8")
     s = spec(root, exclude=["G1s0"])  # caption-only fields are optional; their caption lines drop out
-    for k in ("claim", "key_comparison", "time_locked_to", "reference"):
+    for k in ("claim", "key_comparison", "reference"):
         s.pop(k)
     s["components"][0].pop("window_source")
     ep.plot(s)
     cap = latest(root, "ERP_topo", "ERP-topo_P3_*_caption.md").read_text(encoding="utf8")
     assert "- Baseline " in cap and "- Excluded: G1s0\n" in cap and not any(
         w in cap for w in ("Claim:", "Key comparison:", "Time-locked to", "reference:", "source:")), cap
+    ep.plot(spec(root, exclude=["G1s0"], time_locked_to="stimulus onset"))  # rule O3: the event is part of the name
+    assert "Time-locked to: stimulus onset" in latest(
+        root, "ERP_topo", "ERP-topo_P3_*_lock-stimulusonset_v01_caption.md").read_text(encoding="utf8")
 
     # 3. spec and input errors stop the script
     fails(spec(root, difference=["A", "B"]), "unsupported spec keys")
