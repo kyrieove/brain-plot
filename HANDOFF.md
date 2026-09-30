@@ -23,20 +23,24 @@ Two branches, both working, tests pass, everything committed and pushed
   1. Survey `research/tfr/survey.md` (12 papers, all DOIs checked on Crossref, 3 figures opened and checked; the other
      rows are text-only hints). Chosen layout: ROI TF maps in a condition grid per group + optional band × window
      topomap rows, one colour bar at the right; dB (logratio), baseline −500…−200 ms (literature default).
-  2. New verb-locked epochs (S15–20, −1…2 s, 0.1–45 Hz, AutoReject local after ICA, else = `scripts/preprocess_eeg.py`)
-     in `D:\…\metaphor production\derivatives\preprocessed_epochs_verb\` (script in `_code\`, resumable). First pass
+  2. New **subject-locked** epochs (S15–20 = subject noun onset; −1…2 s, 0.1–45 Hz, AutoReject local after ICA, else =
+     `scripts/preprocess_eeg.py`) in `D:\…\metaphor production\derivatives\preprocessed_epochs_subject\` (script
+     `_code\preprocess_subject.py`, resumable; first built as "…_verb" on a wrong marker label, renamed). First pass
      lost 8 subjects to out-of-memory (AutoReject `n_jobs=-1` = 16 workers on 15 GB); `n_jobs` set to 2; a background
      chain (`chain.sh` in the session scratchpad) reruns the failures, then re-renders both TFR specs with all subjects.
      Done: all 60 subjects (second pass 0 failures). TFR figures re-rendered with all subjects: power v06, ITC v04
      (HWM 29, LWM 30); sub27 excluded in both specs (acc is 3 on every trial in the xlsx → no `acc == 1` trials).
   3. `brain-plot/tfr_plot.py` + `test/test_tfr.py` + `references/tfr.md` + spec/rules/SKILL entries (commits `f824a9d`,
-     `f689321`); suites erp/layout/tfr OK. Real data specs `…\brain-plot\specs\tfr_verb_power.json`, `tfr_verb_itc.json`
+     `f689321`); suites erp/layout/tfr OK. Real data specs `…\brain-plot\specs\tfr_subject_power.json`, `tfr_subject_itc.json`
      (ROI Fz, Cz — FCz is not in the data; query `acc == 1`; theta 4–8 Hz 200–500 ms window as a demo).
-  Trial (user's design figure): fixation 500 → subject 300 → blank 200 → **verb (S15–20) 300** → blank 2500 (S1–6 ≈
-  +350 ms) → sound prompt 3000 (S7–12 ≈ +2900 ms) → blank 500. The subject word (no marker) starts 500 ms before the
-  verb: its response is the phase-locked event at ≈ −400 ms. Baseline therefore moved to **−750…−550 ms** (fixation,
-  before the subject; −750 = the edge-zone limit of the −1…2 s epochs) → power v07. Known limit: 3–4 Hz wavelets still
-  reach past −500 ms; a clean low-frequency baseline needs re-epoching (e.g. −2…2 s, ~3 h of preprocessing).
+  Markers (user, final): **S15–20 = subject noun**, **S1–6 = verb** (+350 ms after the subject in the recording),
+  **S7–12 = sound prompt** (+2900 ms). The design figure (fixation 500 → subject 300 → blank 200 → verb 300 → blank
+  2500 → sound 3000 → blank 500) does not match the recorded intervals (trial period ≈ 5.1 s, not 7.3 s); the markers
+  rule. The phase-locked event at ≈ −400 ms is the fixation cross (500 ms before the subject); baseline
+  **−750…−550 ms** = before the fixation (inter-trial blank; −750 = edge-zone limit of the −1…2 s epochs) → power
+  v08 / ITC v05 from `tfr_subject_*`. Checked in the data: visual N1/P2 at ≈ −400 ms and again after 0 ms.
+  **For the user:** the existing ERP analysis (`derivatives/preprocessed_epochs`, N400 figures) is locked to S7–12 =
+  the sound prompt, and `derivatives/3lock_clean` calls S15–20 "verb" — both need checking against this map.
   **Open for the user:** (a) ROI / windows of the demo figures are placeholders (user checks at home). (b) sub27: `acc`
   is 3 on every trial in `epoch_10800_60_final.xlsx` — user thinks the acc coding is wrong; excluded in the TFR specs
   until fixed. (c) Do NOT merge `tfr` into `main` or push until the user says so (2026-09-30).
