@@ -230,7 +230,7 @@ def check_spec(spec):
         if not (isinstance(g, list) and g and all(isinstance(r, list) and r and all(text(k) for k in r) for r in g)
                 and len({len(r) for r in g}) == 1 and len(sum(g, [])) == len(set(sum(g, [])))):
             die("grid must be rows of equal length holding each panel key once, e.g. [[\"a\", \"b\", \"c\"], [\"d\", \"e\", \"f\"]]")
-    if spec.get("polarity", "positive_up") not in ("positive_up", "negative_up"):
+    if spec.get("polarity", "negative_up") not in ("positive_up", "negative_up"):
         die("polarity must be 'positive_up' or 'negative_up'")
     if not isinstance(spec["conditions"], dict) or not spec["conditions"]:
         die("conditions must be a non-empty {file_key: label} mapping")
@@ -442,11 +442,11 @@ def subset_part(spec, meta, parts=("groups", "conditions")):
 
 
 def name_part(spec):
-    """Rule O3: `_box` for box axes, `_neg-up` for negative up and `_lock-<event>` when the spec names its time-locking event, so that the two axis
+    """Rule O3: `_box` for box axes, `_pos-up` for positive up (negative up is the default, user 2026-09-30) and `_lock-<event>` when the spec names its time-locking event, so that the two axis
     styles, and figures of epoch sets locked to different events that share an output folder, never take each other's
     names (and never archive each other as versions)."""
     lock = spec.get("time_locked_to") and "time_locked_to" not in open_items(spec)
-    return ("_box" if spec.get("axes") == "box" else "") + ("_neg-up" if spec.get("polarity") == "negative_up" else "") + ("_lock-" + safe(spec["time_locked_to"]) if lock else "")
+    return ("_box" if spec.get("axes") == "box" else "") + ("_pos-up" if spec.get("polarity") == "positive_up" else "") + ("_lock-" + safe(spec["time_locked_to"]) if lock else "")
 
 
 def query_epochs(epochs, f, conditions, query):
@@ -1553,7 +1553,7 @@ def plot(spec):
     if lo < ms[0] - tol or hi > ms[-1] + tol or not lo < 0 < hi:
         die(f"xlim_ms {lo, hi} must lie within the data ({ms[0]:g}–{ms[-1]:g} ms) and include 0")
     t = sample_mask(ms, lo, hi)
-    negative_up = spec.get("polarity", "positive_up") == "negative_up"
+    negative_up = spec.get("polarity", "negative_up") == "negative_up"
     if spec.get("overlay", "groups") == "groups":   # compare groups within a panel; one panel per condition
         panels = [(c, spec["conditions"][c]) for c in conds]
         lines = [(g, g) for g in groups]
@@ -1790,7 +1790,7 @@ def caption(spec, comp, meta, groups, conds, out, ms, v, sphere, kind, level=Non
                  f"{TOPO['image_interp']}, extrapolation {TOPO['extrapolate']}, head sphere "
                  f"{[round(s, 4) for s in sphere]} m, MNE {mne.__version__}")
     if kind != "topo":
-        L.append(f"- Display: {spec.get('xlim_ms', 'full epoch')} ms; polarity {spec.get('polarity', 'positive_up').replace('_', ' ')}")
+        L.append(f"- Display: {spec.get('xlim_ms', 'full epoch')} ms; polarity {spec.get('polarity', 'negative_up').replace('_', ' ')}")
     if spec.get("stats_note"):
         L.append(f"- Statistics (from the author): {spec['stats_note']}")
     L += ["", "## Panels", ""]
@@ -2017,7 +2017,7 @@ def explore(spec):
         if c["tmin_ms"] < ms[0] - tol or c["tmax_ms"] > ms[-1] + tol or not sample_mask(ms, c["tmin_ms"], c["tmax_ms"]).any():
             die(f"{c['name']}: window {c['tmin_ms']}–{c['tmax_ms']} ms is outside the data ({ms[0]:g}–{ms[-1]:g} ms)")
     t = sample_mask(ms, lo, hi)
-    neg = spec.get("polarity", "positive_up") == "negative_up"
+    neg = spec.get("polarity", "negative_up") == "negative_up"
     rows = spec.get("channels", EXPLORE_CHANNELS)
     missing = [c for r in rows for c in r if c not in info.ch_names]
     if missing:

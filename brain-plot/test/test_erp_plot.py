@@ -181,7 +181,7 @@ with tempfile.TemporaryDirectory() as d:
     early = [dict(name="P3", channels=["Cz", "Pz"], tmin_ms=100, tmax_ms=200, window_source="test")]
     ep.plot(spec(root, groups=["G1"], overlay="conditions", ordered=True, polarity="negative_up", components=early,
                  time_locked_to="TO BE CONFIRMED"))
-    run = json.loads(latest(root, "ERP_topo", "ERP-topo_P3_*_neg-up_v01_run.json").read_text(encoding="utf8"))  # rule O3
+    run = json.loads(latest(root, "ERP_topo", "ERP-topo_P3_*_run.json").read_text(encoding="utf8"))
     assert run["legend"] == "inside panel" and run["open_items"] == ["time_locked_to"]
     assert "OPEN (not confirmed): time_locked_to" in latest(root, "ERP_topo", "ERP-topo_P3_*_caption.md").read_text(encoding="utf8")
     s = spec(root, exclude=["G1s0"])  # caption-only fields are optional; their caption lines drop out
@@ -192,9 +192,9 @@ with tempfile.TemporaryDirectory() as d:
     cap = latest(root, "ERP_topo", "ERP-topo_P3_*_caption.md").read_text(encoding="utf8")
     assert "- Baseline " in cap and "- Excluded: G1s0\n" in cap and not any(
         w in cap for w in ("Claim:", "Key comparison:", "Time-locked to", "reference:", "source:")), cap
-    ep.plot(spec(root, exclude=["G1s0"], time_locked_to="stimulus onset"))  # rule O3: the event is part of the name
+    ep.plot(spec(root, exclude=["G1s0"], time_locked_to="stimulus onset", polarity="positive_up"))  # rule O3: event, non-default polarity in the name
     assert "Time-locked to: stimulus onset" in latest(
-        root, "ERP_topo", "ERP-topo_P3_*_lock-stimulusonset_v01_caption.md").read_text(encoding="utf8")
+        root, "ERP_topo", "ERP-topo_P3_*_pos-up_lock-stimulusonset_v01_caption.md").read_text(encoding="utf8")
 
     # 3. spec and input errors stop the script
     fails(spec(root, difference=["A", "B"]), "unsupported spec keys")

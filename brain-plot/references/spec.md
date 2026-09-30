@@ -34,7 +34,7 @@ Outputs go to `brain_plot_<data folder name>/` next to the data folder (rules O1
 | `linestyles` | all solid | One of `-`, `--`, `:`, `-.` per line, for a second factor in the same panel (rule T3). |
 | `colors` | rule T3 | List of colours, one per overlaid line, in order (at most 7 lines). |
 | `xlim_ms` | whole epoch | Display range; must include 0 and lie inside the data. |
-| `polarity` | `"positive_up"` | or `"negative_up"` (every waveform panel, both axis styles; names get `_neg-up`, rule O3). |
+| `polarity` | `"negative_up"` | or `"positive_up"` (every waveform panel, both axis styles; names get `_pos-up`, rule O3). |
 | `axes` | `"cross"` | `"cross"`: spines through origin (0 µV, 0 ms), labels next to lines (rule T1). `"box"`: left + bottom axes with outside ticks, "Time (ms)" / "Amplitude (µV)" titles, thin 0-µV and dotted 0-ms lines; every ERP waveform figure (combo side/inset, erp roi/single/grid, explore) supports it. In a grid of channel panels the axis titles sit on the outer panels only. Also an explore key. |
 | `claim` | none | Caption only: what the figure is meant to show (one sentence). Omitted → no caption line. |
 | `key_comparison` | none | Caption only: the comparison the layout serves (e.g. "groups within each condition"). |

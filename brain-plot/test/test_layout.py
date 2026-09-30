@@ -178,12 +178,12 @@ with tempfile.TemporaryDirectory() as d:
     clean("combo, 3 groups × 4 panels (2 × 2 map blocks)", ep.plot,
           dict(base, conditions=dict(list(COND.items())[:4]), components=[n400]), out)
     clean("erp roi, negative up + SEM, P1 (µV headroom)", ep.plot,
-          dict(base, conditions=dict(list(COND.items())[:4]), kind="erp", channels=p1["channels"], polarity="negative_up",
+          dict(base, conditions=dict(list(COND.items())[:4]), kind="erp", channels=p1["channels"], polarity="positive_up",
                error="sem", xlim_ms=[-100, 600], components=[{k: v for k, v in p1.items() if k != "channels"}]), out)
     units = [t for a in SAVED[-1].axes for t in a.texts if t.get_text() == "µV"]
     assert units and all(t.get_bbox_patch() is None for t in units), "µV needed a white box: no headroom (rule T1)"
     clean("erp roi with box axes", ep.plot,
-          dict(base, conditions=dict(list(COND.items())[:4]), kind="erp", channels=p1["channels"], polarity="negative_up",
+          dict(base, conditions=dict(list(COND.items())[:4]), kind="erp", channels=p1["channels"], polarity="positive_up",
                error="sem", xlim_ms=[-100, 600], components=[{k: v for k, v in p1.items() if k != "channels"}], axes="box", height_mm=140), out)
     stops("axes: diagonal stops", ep.plot,
           dict(base, conditions=dict(list(COND.items())[:3]), components=[n400], axes="diagonal"), "axes")
@@ -230,7 +230,7 @@ with tempfile.TemporaryDirectory() as d:
             ("inset 2 × 3 design, box axes", dict(inset, conditions=six, grid=grid6, axes="box"), 6),
             ("inset, panels = 3 groups in a row", dict(inset, groups=["G1", "G2", "G3"], overlay="conditions",
                                                      conditions=c("c1", "c2"), width_mm=185), 3),
-            ("inset 2 × 2, negative up, SEM, N1", dict(inset, conditions=c("c1", "c2", "c3", "c4"), polarity="negative_up",
+            ("inset 2 × 2, negative up, SEM, N1", dict(inset, conditions=c("c1", "c2", "c3", "c4"), polarity="positive_up",
                                                       error="sem", components=[dict(name="N1", tmin_ms=150, tmax_ms=200,
                                                                                     channels=["P7", "P8"])]), 4),
             ("inset, one panel", dict(inset, conditions=c("c1")), 1),

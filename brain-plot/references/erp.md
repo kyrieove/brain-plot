@@ -39,7 +39,7 @@ Never ask (settled by the user; leave out or use the default):
   copy it verbatim into `stats_note`, never derive one.
 - **`time_locked_to`, `reference`** — caption only: read them from the preprocessing scripts and files; if they are
   not there, leave them out. Never ask, never fill from memory.
-- **Style** — polarity (positive up), colours (Lancet palette in order, any line count; ordered
+- **Style** — polarity (negative up), colours (Lancet palette in order, any line count; ordered
   levels viridis), line styles, fonts, colour map (RdBu_r), SEM band (none): house defaults; change only when the
   user asks (`polarity`, `colors`, `linestyles`, `cmap`, `error: "sem"`). Line pairing from round 2 is part of the
   key comparison, not a style question.
