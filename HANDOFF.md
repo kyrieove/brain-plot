@@ -27,7 +27,8 @@ Two branches, both working, tests pass, everything committed and pushed
      in `D:\…\metaphor production\derivatives\preprocessed_epochs_verb\` (script in `_code\`, resumable). First pass
      lost 8 subjects to out-of-memory (AutoReject `n_jobs=-1` = 16 workers on 15 GB); `n_jobs` set to 2; a background
      chain (`chain.sh` in the session scratchpad) reruns the failures, then re-renders both TFR specs with all subjects.
-     Check: 60 `sub*-epo.fif`, `logs/run_all.log` without "failed"; if some remain, run `_code\run_all.cmd` again.
+     Done: all 60 subjects (second pass 0 failures). TFR figures re-rendered with all subjects: power v06, ITC v04
+     (HWM 29, LWM 30); sub27 excluded in both specs (acc is 3 on every trial in the xlsx → no `acc == 1` trials).
   3. `brain-plot/tfr_plot.py` + `test/test_tfr.py` + `references/tfr.md` + spec/rules/SKILL entries (commits `f824a9d`,
      `f689321`); suites erp/layout/tfr OK. Real data specs `…\brain-plot\specs\tfr_verb_power.json`, `tfr_verb_itc.json`
      (ROI Fz, Cz — FCz is not in the data; query `acc == 1`; theta 4–8 Hz 200–500 ms window as a demo).
