@@ -18,6 +18,14 @@ Two branches, both working, tests pass, everything committed and pushed
   `microstate/`, `specs/`, `.cache/`; names say what the figure is; re-renders get `_vNN+1`, old versions move to `_history/`.
 
 ## Next (start here)
+- **2026-09-30 22:30 — CORRECTION (user, final): S15–20 = VERB onset**, S1–6 = the 2500-ms blank after the verb,
+  S7–12 = sound prompt (recording: S15 0, S1 +350, S7 +2900 ms). Everything called "subject" above is the verb.
+  agy renamed the data to `derivatives\preprocessed_epochs_verb\` (script `_code\preprocess_verb.py`; old empty
+  folder `preprocessed_epochs_subject\` left in place) and outputs to `derivativesrain_plot_preprocessed_epochs_verb\`
+  (`time_locked_to: "verb onset"` → names `_lock-verbonset`; 16 figures, all clean; subject-labelled figures in
+  `_superseded_2026-09-30\lock-subjectnounonset\`). N1 120–200 / N400 300–500 ms are now verb components. TFR
+  windows are placeholders (theta 300–500, alpha/beta 500–1000 ms); baseline −750…−550 ms now lies in the fixation
+  period before the subject noun (≈ −500 ms) — both for the user to decide.
 - 2026-09-30 evening (branch `tfr`, committed locally, NOT pushed/merged): output folder renamed as above (code,
   docs, tests; 4 suites OK). Antigravity desktop re-drew every subject-locked spec into
   `D:\…\metaphor production\derivatives\brain_plot_preprocessed_epochs_subject\` (ERP/explore specs `xlim_ms`
