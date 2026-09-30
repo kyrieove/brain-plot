@@ -18,11 +18,17 @@ Three modules (ERP, microstate, time-frequency), tests pass, everything committe
   `microstate/`, `specs/`, `.cache/`; names say what the figure is; re-renders get `_vNN+1`, old versions move to `_history/`.
 
 ## Next (start here)
-**Source-localization module (user, 2026-09-30): built by codex desktop + agy CLI, without Claude.** Follow
-`docs/PLAYBOOK-source.md` (roles, agy command, stages 0–7 with gates, decisions D1–D10 with defaults, traps); literature
-tasks in `research/source/`; codex project rules in `AGENTS.md`. Checked 2026-09-30: epochs carry a montage (63 EEG
-channels, linked-mastoid reference), fsaverage BEM/src/inflated surfaces are in `~/mne_data/MNE-fsaverage-data/`,
-pyvista 0.48 is in `mnedev`.
+**`source` module built 2026-10-01 on branch `source` (pushed, NOT merged — merge only when the user says so).**
+Claude planned and reviewed; agy implemented (plans `docs/AGY_PLAN_source-*.md`), codex did literature, the
+independent check and plan 2c after agy's quota ran out (`docs/PLAYBOOK-source.md` is superseded). Details and
+reasons: `docs/review-log.md`, last entry. Figures (all 59 subjects, sub27 excluded):
+`…\brain_plot_preprocessed_epochs_verb\source\source-windows_dSPM_P200-N400_lock-verbonset_v01.png` (main) and
+`source-timeline_dSPM_lock-verbonset_v05.png`; specs `specs\source_*.json`, localizer output
+`specs\source_localizer_output.txt`, SN check `specs\sn_check.txt`.
+**Waiting on the user:** (1) the late window: the data show a centro-parietal negativity from ≈ 400 ms to 2000 ms,
+continuous with the N400 (not a frontal SN, not an LPC) — options: fixed 600–1000 ms "late negativity", 1000–2000 ms
+(retention before the sound prompt), or none; (2) timeline: one colour bar hides 100–300 ms (only late activity passes
+P90) — keep, or one scale per column; (3) P200 is weak (+0.5 µV at F4) — keep?; (4) merge `source` into `main`.
 
 Everything is on `main` and pushed (4b33c69); `tfr` is merged. Data: `D:\1-python_datasets\metaphor production\`.
 

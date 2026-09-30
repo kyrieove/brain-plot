@@ -1,0 +1,59 @@
+# Source reconstruction figures (`source_plot.py`)
+
+Read after `SKILL.md` when the request is a cortical source reconstruction map (dSPM, sLORETA, eLORETA on fsaverage). Spec keys: `spec.md`. The script enforces layout, template forward constraints, noise covariance validity, and caching (developer reference: `docs/rules.md`).
+
+## Command
+
+| Command | Use |
+|---|---|
+| `python source_plot.py plot <spec.json>` | Compute/load source estimates and draw cortical figures (`windows` or `timeline`). |
+
+## Interview rounds
+
+Read the study's own notes and preprocessing logs first (epoch bounds, reference, conditions, montage).
+
+| Round | Decide |
+|---|---|
+| 1 | Figure type (`figure`: `"windows"` for discrete component windows or `"timeline"` for timecourses), canvas width (`width_mm`, default 180 mm). |
+| 2 | Conditions (`conditions`: `{key: label}` mapping), trial selection (`query`, e.g. `"acc == 1"`), exclusions (`exclude`). All subjects pooled without groups (`group_by` ignored). |
+| 3 | If `figure: "windows"`: windows (`windows`: list of `{name, tmin_ms, tmax_ms}`). If unknown, localize via `erp_plot.py windows` using `region` + `polarity` to obtain candidate FWHP windows.<br>If `figure: "timeline"`: time points (`times_ms`, default `[100, 200, ..., 800]`), window half width (`half_width_ms`, default 50 ms). |
+
+Source computation parameters (`method`, `lambda2`, `loose`, `depth`, `noise_cov_ms`, `baseline_ms`, `threshold_pct`, `max_pct`): specify or ask only when deviating from defaults:
+- `method`: default `"dSPM"` (options: `"dSPM"`, `"sLORETA"`, `"eLORETA"`).
+- `lambda2`: default `1/9` (~SNR 3 for evoked responses).
+- `loose`: default `0.2` (orientation constraint on cortical surface).
+- `depth`: default `0.8` (depth weighting).
+- `noise_cov_ms`: default `[-200, 0]` ms. Must lie within the epoch and end at or before 0 ms (pre-stimulus).
+- `baseline_ms`: default `[-200, 0]` ms.
+- `threshold_pct`: default `90.0` (percentile for `fmin`, below which the cortex is transparent grey).
+- `max_pct`: default `99.5` (percentile for `fmax`, upper limit of hot colormap).
+
+The cortex below `fmin` is hidden with a hard threshold, revealing the grey surface. Source runs write PNG, SVG, and
+`_run.json`; they do not write `_caption.md`. Per-subject EEG rank is computed and passed to covariance and inverse
+estimation. The run record includes rank, `subject_p99`, `outlier_subjects`, and the blank-render check result.
+
+Never ask (settled by house conventions; leave out or use default):
+- **Template anatomy** — fsaverage template brain, ico-5 source space, 3-layer BEM (`5120-5120-5120-bem-sol.fif`).
+- **Style** — inflated lateral views per hemisphere, left hemisphere on the left, labels "L" / "R" once per column pair at the top, hot colormap with grey cortex below threshold, horizontal colorbar under its block/figure, Arial house style.
+- **Statistics** — no significance marks or p-values exist; figures are purely descriptive grand averages.
+- **Journal** — ask width in mm instead (`width_mm`).
+
+## When the script stops
+
+Fix the cause, never work around it; tell the user when the fix changes the figure:
+- **`figure must be 'windows' or 'timeline'`** — set `figure` to `"windows"` or `"timeline"`.
+- **`method must be 'dSPM', 'sLORETA', or 'eLORETA'`** — set `method` to a supported minimum-norm algorithm.
+- **`noise_cov_ms ... outside epoch range`** or **`ends after 0 ms`** — adjust `noise_cov_ms` to lie within the pre-stimulus epoch.
+- **`subject ... channel names differ from first subject`** — ensure uniform channel sets and montage across all subject files upstream.
+- **`window ... has no time points in data`** — adjust window bounds to stay inside the epoch times.
+
+## QA after every `plot` render (open each PNG)
+
+1. **Left brain on the left**: pairs show left hemisphere lateral on the left, right hemisphere lateral on the right, labelled "L" and "R" once per column pair at the top.
+2. **Grey below threshold**: below `fmin` (90th percentile by default), the grey cortical surface shows through; hot colormap values show only above `fmin`.
+3. **One colour bar per window block / one per timeline**:
+   - For `figure: "windows"`, each column block has its own horizontal colour bar underneath, with ticks at fmin, fmid, fmax (2 decimals) and method label.
+   - For `figure: "timeline"`, one shared horizontal colour bar is placed under the last block.
+4. **Timeline layout**: when timeline has more than 4 time points, columns are split into stacked vertical blocks of up to 4 column pairs.
+5. **No overlaps**: condition labels on the left, column headers, brain pairs, and colorbars are cleanly separated; `layout_issues` in `_run.json` must be empty.
+6. **Outliers**: check `outlier_subjects` in `_run.json`; tell the user, never drop a subject yourself.

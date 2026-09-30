@@ -102,8 +102,22 @@ Rules S1 (input contract), S9 (caption structure), T5 (PNG + SVG), T6 (fixed can
 | TF7 | Canvas and QA: default width 180 mm; height auto (~1.4 : 1 panel aspect ratio plus 26 mm per topomap row); self-checks layout using `ep.layout_issues` and records result in `_run.json`. | U | Code + test |
 | TF8 | Figure identity and rendering (user, 2026-09-30): one figure per group with the group label as a bold 8-pt title at the top; TF maps drawn smooth (`pcolormesh` gouraud), not as blocks. Baseline before the trial's first stimulus (fixation or preceding word), not just before the marker; windows from the hypothesis or cut at trial events, never read off the grand average. | U | Code + agent guide |
 
+## Source figures (`source_plot.py`)
+
+Rules S1 (input contract), T5 (PNG + SVG), T6 (fixed canvas) and O1–O3 apply; captions and ERP waveform rules do not.
+
+| # | Rule | Type | Enforced |
+|---|---|---|---|
+| SRC1 | Forward & inverse: fsaverage ico-5 template source space (20,484 vertices) with 3-layer BEM; one template forward solution calculated from the first subject's montage and cached; per-subject inverse operator with dSPM (default), sLORETA or eLORETA. | M | Code |
+| SRC2 | Noise covariance: computed from pre-stimulus epoch samples ending <= 0 ms (spec `noise_cov_ms`); epoch baseline applied; noise covariance ending after 0 ms stops the script. | M | Code |
+| SRC3 | Rank and equal-weight grand average: compute EEG rank per subject and pass it to covariance and inverse estimation; accumulate subject STCs (condition by vertices by time, float32) as a running sum. Cache by parameter hash and subject ID list; record per-subject rank, `subject_p99`, and `outlier_subjects` in `_run.json`. | M | Code |
+| SRC4 | Colormap & thresholds: hot colormap with a hard threshold at fmin; cortex below fmin is transparent, exposing low-contrast grey; default fmin = 90th percentile, fmax = 99.5th percentile; shared scale across conditions within a window or timeline. Horizontal colour bar under window blocks or timeline. A blank-render check stops the run if a brain image is missing. | D/M | Code |
+| SRC5 | Canvas & layout: lateral hemisphere views (left on left, right on right; "L" and "R" headers once per column pair at the top). Windows figure: condition rows × window column-pairs. Timeline figure: stacked horizontal blocks of up to 4 time columns, condition rows. Fixed canvas width (default 180 mm) and auto height. | U | Code |
+| SRC6 | Caching & output: per-subject evoked and noise covariance are cached in `.cache/source/<parameter hash>/<subject>.npz`; forward solution and grand average use the same parameterized cache. Maximum n_jobs <= 2. Write PNG, SVG, and `_run.json`; no `_caption.md`. | M | Code |
+
 ## QA after every render
 
 The QA checklists (what the agent checks on the PNG) are in `brain-plot/references/erp.md` (ERP),
-`brain-plot/references/microstate.md` (microstate), and `brain-plot/references/tfr.md` (time–frequency).
+`brain-plot/references/microstate.md` (microstate), `brain-plot/references/tfr.md` (time–frequency), and
+`brain-plot/references/source.md` (source reconstruction).
 

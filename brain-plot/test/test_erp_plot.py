@@ -288,12 +288,74 @@ with tempfile.TemporaryDirectory() as d:
     except ValueError:
         pass
     assert (root.parent / f"brain_plot_{root.name}" / "ERP" / g1).exists()
-    try:  # round 6: windows needs ROI channels, which erp bands do not carry
+    try:  # windows needs ROI channels or region+polarity, which erp bands do not carry
         ep.windows(spec(root, kind="erp", channels=["Cz"], components=[dict(name="N4", tmin_ms=350, tmax_ms=390,
                                                                             window_source="t")]))
-        raise AssertionError("windows accepted bands without channels")
+        raise AssertionError("windows accepted bands without channels or region")
     except SystemExit as e:
-        assert "ROI" in str(e), e
+        assert "channels" in str(e) or "region" in str(e), e
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        ep.windows(spec(root, groups=["G1", "G2"], kind="combo", components=[
+            dict(name="P3_reg", region=["Cz", "Pz", "C3", "C4"], polarity="positive", tmin_ms=250, tmax_ms=350)
+        ]))
+    out = buf.getvalue()
+    assert "WINDOWS_JSON" in out, out
+    assert "peak channel" in out, out
+    assert "ROI (" in out, out
+    line = [l for l in out.splitlines() if l.startswith("WINDOWS_JSON")][0]
+    wj = json.loads(line.split(" ", 1)[1])
+    assert len(wj) == 1 and wj[0]["name"] == "P3_reg"
+    assert "peak_channel" in wj[0] and "roi" in wj[0] and "peak_ms" in wj[0]
+    # 1c: localizer extreme at range edge and unclipped FWHP
+    with tempfile.TemporaryDirectory() as td_loc:
+        root_loc = Path(td_loc) / "data"
+        (root_loc / "G1").mkdir(parents=True)
+        info_loc = mne.create_info(["Cz", "Pz"], 500.0, "eeg")
+        info_loc.set_montage("standard_1020")
+        t_loc = np.linspace(-0.2, 0.8, 501)
+        sig_loc = 5e-6 * np.exp(-0.5 * ((t_loc - 0.3) / 0.03) ** 2)
+        ev_loc = mne.EvokedArray(np.stack([sig_loc, sig_loc]), info_loc, tmin=-0.2, comment="A", nave=10)
+        mne.write_evokeds(root_loc / "G1" / "sub1-ave.fif", [ev_loc], overwrite=True, verbose="error")
+        spec_loc = dict(data=str(root_loc), groups=["G1"], conditions={"A": "A"})
+
+        # (1) FWHP extends beyond search range and is not clipped
+        buf_narrow = io.StringIO()
+        with contextlib.redirect_stdout(buf_narrow):
+            ep.windows(dict(**spec_loc, components=[
+                dict(name="P3_narrow", region=["Cz", "Pz"], polarity="positive", tmin_ms=290, tmax_ms=310)
+            ]))
+        out_narrow = buf_narrow.getvalue()
+        wj_narrow = json.loads([l for l in out_narrow.splitlines() if l.startswith("WINDOWS_JSON")][0].split(" ", 1)[1])
+        assert len(wj_narrow) == 1 and wj_narrow[0]["name"] == "P3_narrow"
+        assert wj_narrow[0]["tmin_ms"] < 290 and wj_narrow[0]["tmax_ms"] > 310, "FWHP was clipped by search range"
+
+        # (2) extreme sits on range edge -> reported as no peak and absent from WINDOWS_JSON
+        buf_edge = io.StringIO()
+        with contextlib.redirect_stdout(buf_edge):
+            ep.windows(dict(**spec_loc, components=[
+                dict(name="P3_edge", region=["Cz", "Pz"], polarity="positive", tmin_ms=300, tmax_ms=320)
+            ]))
+        out_edge = buf_edge.getvalue()
+        assert "no peak inside 300–320 ms (extreme at the range edge)" in out_edge, out_edge
+        wj_edge = json.loads([l for l in out_edge.splitlines() if l.startswith("WINDOWS_JSON")][0].split(" ", 1)[1])
+        assert len(wj_edge) == 0, "P3_edge was not absent from WINDOWS_JSON"
+
+        # (3) polarity is the direction of a local deflection, independent of absolute voltage.
+        rel_info = mne.create_info(["Cz", "Pz"], 500.0, "eeg")
+        rel_info.set_montage("standard_1020")
+        rel_sig = -5e-6 + 1e-6 * np.exp(-0.5 * ((t_loc - 0.3) / 0.03) ** 2)
+        rel_ev = mne.EvokedArray(np.stack([rel_sig, rel_sig]), rel_info, tmin=-0.2, comment="A", nave=10)
+        mne.write_evokeds(root_loc / "G1" / "sub1-ave.fif", [rel_ev], overwrite=True, verbose="error")
+        buf_relative = io.StringIO()
+        with contextlib.redirect_stdout(buf_relative):
+            ep.windows(dict(**spec_loc, components=[
+                dict(name="P3_relative", region=["Cz", "Pz"], polarity="positive", tmin_ms=290, tmax_ms=310)
+            ]))
+        out_relative = buf_relative.getvalue()
+        assert "peak channel Cz, latency 300 ms" in out_relative, out_relative
+        wj_relative = json.loads([l for l in out_relative.splitlines() if l.startswith("WINDOWS_JSON")][0].split(" ", 1)[1])
+        assert len(wj_relative) == 1 and wj_relative[0]["name"] == "P3_relative"
     fails(spec(root, kind="erp"), "needs channels")
     fails(spec(root, kind="erp", channels=["Cz", "Cz"]), "needs channels")
     fails(spec(root, groups=["G1", "G2"], kind="erp", channels=["Cz", "FCz"], components=[]), "not in data")

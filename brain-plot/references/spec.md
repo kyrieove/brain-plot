@@ -77,6 +77,34 @@ Required: `data` (folder of `*-epo.fif` files), `conditions` (`{key: label}`), `
 Outputs go to `TFR/` under the output root: `TFR-<measure>_<channels>_<group>[_<windows>]_vNN.png/.svg`, `_run.json`, `_caption.md`.
 
 
+## Source reconstruction spec (`python source_plot.py plot <spec.json>`)
+
+Required: `data` (folder of `*-epo.fif` files), `conditions` (`{key: label}`).
+
+| Key | Default | Meaning |
+|---|---|---|
+| `figure` | `"windows"` | `"windows"`: discrete component windows; `"timeline"`: timecourses across time points. |
+| `windows` | none | Required for `figure: "windows"`. List of `{name, tmin_ms, tmax_ms}`. |
+| `times_ms` | `[100, 200, 300, 400, 500, 600, 700, 800]` | Time points in ms (`figure: "timeline"` only). |
+| `half_width_ms` | 50 | Time window half-width in ms around each time point (`figure: "timeline"` only). |
+| `method` | `"dSPM"` | Minimum-norm inverse method (`"dSPM"`, `"sLORETA"`, or `"eLORETA"`). |
+| `lambda2` | `1/9` (~0.111) | Regularization parameter. |
+| `loose` | 0.2 | Orientation constraint on cortical surface (0: fixed, 1: free). |
+| `depth` | 0.8 | Depth weighting exponent. |
+| `noise_cov_ms` | `[-200, 0]` | Pre-stimulus noise covariance window in ms. Must not end after 0 ms. |
+| `baseline_ms` | `[-200, 0]` | Baseline interval in ms applied to epochs. |
+| `threshold_pct` | 90.0 | Percentile for `fmin`, below which the cortex is transparent grey. |
+| `max_pct` | 99.5 | Percentile for `fmax`, upper limit of hot colormap. |
+| `subjects` | all found | Optional subset of subject IDs to include. |
+| `exclude` | none | List of subject IDs to exclude or `{id: reason}` dict. |
+| `query` | none | Pandas-style query applied to epochs metadata (e.g. `"acc == 1"`). |
+| `width_mm` | 180 | Figure width in mm. |
+| `height_mm` | auto | Figure height in mm calculated from the grid. |
+| `time_locked_to` | none | Caption fact and file name part. |
+
+Outputs go to `source/` under the output root: `source-<figure>_<method>[_<windows>]_vNN.png/.svg`, `_run.json`.
+
+
 ## Microstate spec (`python microstate_plot.py plot <spec.json>`)
 
 Required: `data` (any loader layout, including `<condition>/<group>/<subject>*-ave.fif`), `conditions`, `templates`

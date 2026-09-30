@@ -1,0 +1,197 @@
+"""Fast tests for source_plot.py on synthetic data (target < 3 min)."""
+import json
+import sys
+import tempfile
+from pathlib import Path
+
+import mne
+import numpy as np
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import erp_plot as ep  # noqa: E402
+import source_plot as sp  # noqa: E402
+
+SUBJECTS_DIR = sp.DEFAULT_SUBJECTS_DIR
+
+
+def make_synthetic_dataset(data_dir, fwd, src, st_label, info):
+    times = np.arange(-20, 101) / 100.0  # -0.2 s to 1.0 s at 100 Hz
+    lh_v, rh_v = src[0]["vertno"], src[1]["vertno"]
+    idx = np.where(np.isin(lh_v, st_label.vertices))[0][0]
+
+    # Pulse at 300 ms (250-350 ms) in left superior temporal gyrus
+    pulse = np.exp(-((times - 0.3) / 0.05) ** 2)
+    stc_data = np.zeros((len(lh_v) + len(rh_v), len(times)))
+    stc_data[idx] = pulse * 1e-8
+    stc = mne.SourceEstimate(stc_data, vertices=[lh_v, rh_v], tmin=times[0], tstep=0.01)
+
+    ev = mne.simulation.simulate_evoked(fwd, stc, info, cov=None, nave=30, random_state=42)
+
+    n_trials = 30
+    rng = np.random.default_rng(42)
+    trials = np.tile(ev.data[None, :, :], (n_trials, 1, 1))
+    trials += rng.normal(0, 1e-7, trials.shape)  # baseline noise
+
+    event_codes = np.tile([1, 2, 3], 10)
+    events = np.column_stack([np.arange(n_trials) * 200, np.zeros(n_trials, int), event_codes])
+    epochs = mne.EpochsArray(trials, info, events=events, event_id={"condA": 1, "condB": 2, "condC": 3}, tmin=times[0], baseline=None)
+
+    sub_file = Path(data_dir) / "sub01-epo.fif"
+    epochs.save(sub_file, overwrite=True, verbose="error")
+    return sub_file
+
+
+def count_colored(img):
+    """Count non-white, non-grey pixels."""
+    non_white = ~np.all(img >= 254, axis=-1)
+    non_grey = np.ptp(img, axis=-1) > 20
+    return int(np.sum(non_white & non_grey))
+
+
+def main():
+    print("Setting up coarse fsaverage source space (oct4)...")
+    src = mne.setup_source_space("fsaverage", spacing="oct4", subjects_dir=SUBJECTS_DIR, add_dist=False, verbose="error")
+    labels = mne.read_labels_from_annot("fsaverage", parc="aparc", hemi="lh", subjects_dir=SUBJECTS_DIR, verbose="error")
+    st_label = [l for l in labels if l.name == "superiortemporal-lh"][0]
+
+    ch_names = ["Fp1", "Fp2", "F7", "F3", "Fz", "F4", "F8", "FC5", "FC1", "FC2", "FC6", "T7", "C3", "Cz", "C4", "T8", "CP5", "CP1", "CP2", "CP6", "P7", "P3", "Pz", "P4", "P8", "O1", "Oz", "O2"]
+    info = mne.create_info(ch_names, 100.0, "eeg")
+    info.set_montage("standard_1020")
+
+    bem = mne.read_bem_solution(Path(SUBJECTS_DIR) / "fsaverage" / "bem" / "fsaverage-5120-5120-5120-bem-sol.fif", verbose="error")
+    fwd = mne.make_forward_solution(info, trans="fsaverage", src=src, bem=bem, eeg=True, meg=False, mindist=5.0, n_jobs=2, verbose="error")
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        data_dir = Path(tmp_dir) / "data"
+        data_dir.mkdir()
+        make_synthetic_dataset(data_dir, fwd, src, st_label, info)
+
+        base_spec = {
+            "data": str(data_dir),
+            "conditions": {"condA": "Condition A"},
+            "noise_cov_ms": [-200, 0],
+            "baseline_ms": [-200, 0],
+            "method": "dSPM",
+        }
+
+        # (b) noise_cov_ms ending after 0 ms stops with a message
+        try:
+            s_bad_cov = dict(base_spec, noise_cov_ms=[-200, 50])
+            sp.check_spec(s_bad_cov)
+            raise AssertionError("accepted noise_cov_ms ending after 0 ms")
+        except SystemExit as e:
+            assert "0 ms" in str(e), e
+        print("assertion (b) passed: noise_cov_ms ending after 0 ms stopped")
+
+        # (c) a spec with an unknown key stops
+        try:
+            s_bad_key = dict(base_spec, unknown_key_xyz=123)
+            sp.check_spec(s_bad_key)
+            raise AssertionError("accepted unknown spec key")
+        except SystemExit as e:
+            assert "unsupported spec keys" in str(e), e
+        print("assertion (c) passed: unknown spec key stopped")
+
+        # (d) windows figure written with empty layout_issues
+        spec_win = dict(base_spec, figure="windows", windows=[{"name": "N300", "tmin_ms": 250, "tmax_ms": 350}])
+        out_win = sp.plot(spec_win, subjects_dir=SUBJECTS_DIR, src=src, bem=bem, fwd=fwd)[0]
+        run_win = json.loads(Path(f"{out_win}_run.json").read_text(encoding="utf8"))
+        assert run_win["layout_issues"] == [], f"layout issues in windows figure: {run_win['layout_issues']}"
+        assert run_win["render_check"] == "ok", f"render_check failed: {run_win.get('render_check')}"
+        assert "subject_p99" in run_win and "outlier_subjects" in run_win
+        assert not Path(f"{out_win}_caption.md").exists(), "source figure must not produce _caption.md"
+        assert Path(f"{out_win}.png").exists() and Path(f"{out_win}.svg").exists()
+        print("assertion (d1) passed: windows figure written with empty layout_issues, outlier records, no caption")
+
+        # (d) timeline figure written with empty layout_issues
+        spec_time = dict(base_spec, figure="timeline", times_ms=[200, 300, 400], half_width_ms=50)
+        out_time = sp.plot(spec_time, subjects_dir=SUBJECTS_DIR, src=src, bem=bem, fwd=fwd)[0]
+        run_time = json.loads(Path(f"{out_time}_run.json").read_text(encoding="utf8"))
+        assert run_time["layout_issues"] == [], f"layout issues in timeline figure: {run_time['layout_issues']}"
+        assert run_time["render_check"] == "ok", f"render_check failed: {run_time.get('render_check')}"
+        assert "subject_p99" in run_time and "outlier_subjects" in run_time
+        assert not Path(f"{out_time}_caption.md").exists(), "source figure must not produce _caption.md"
+        assert Path(f"{out_time}.png").exists() and Path(f"{out_time}.svg").exists()
+        print("assertion (d2) passed: timeline figure written with empty layout_issues, outlier records, no caption")
+
+        # (a) hemisphere check — count of coloured pixels larger on left than right
+        # Render the map for 250-350 ms window
+        grand_avg, times_s, _, _, _, _, _, _ = sp.load_and_compute(spec_win, subjects_dir=SUBJECTS_DIR, src=src, bem=bem, fwd=fwd)
+        times_ms = times_s * 1000.0
+        t_mask = (times_ms >= 250) & (times_ms <= 350)
+        val = grand_avg[0][:, t_mask].mean(axis=-1)
+        fmin = float(np.percentile(val, 90.0))
+        fmax = float(np.percentile(val, 99.5))
+        fmid = (fmin + fmax) / 2.0
+
+        renderer = sp.BrainRenderer(SUBJECTS_DIR, src)
+        lh_v = src[0]["vertno"]
+        img_lh = renderer.render("lh", val[:len(lh_v)], fmin, fmid, fmax)
+        img_rh = renderer.render("rh", val[len(lh_v):], fmin, fmid, fmax)
+        c_lh = count_colored(img_lh)
+        c_rh = count_colored(img_rh)
+        assert c_lh > c_rh, f"hemisphere check failed: lh={c_lh}, rh={c_rh}"
+        print(f"assertion (a) passed: hemisphere check (lh={c_lh} > rh={c_rh})")
+
+        # (e) rank-deficient subject must not get dSPM max > 3x full rank
+        max_full = float(grand_avg.max())
+        data_dir_def = Path(tmp_dir) / "data_def"
+        data_dir_def.mkdir()
+        ep_orig = mne.read_epochs(Path(data_dir) / "sub01-epo.fif", proj=False, verbose="error")
+        def_data = ep_orig.get_data().copy()
+        ch_fz = ep_orig.ch_names.index("Fz")
+        ch_f3 = ep_orig.ch_names.index("F3")
+        ch_f4 = ep_orig.ch_names.index("F4")
+        def_data[:, ch_fz, :] = (def_data[:, ch_f3, :] + def_data[:, ch_f4, :]) / 2.0
+        ep_def = mne.EpochsArray(def_data, ep_orig.info, events=ep_orig.events, event_id=ep_orig.event_id, tmin=ep_orig.times[0], baseline=None)
+        ep_def.save(data_dir_def / "sub01-epo.fif", overwrite=True, verbose="error")
+
+        spec_def = dict(spec_win, data=str(data_dir_def))
+        grand_avg_def, _, _, _, _, _, _, params_def = sp.load_and_compute(spec_def, subjects_dir=SUBJECTS_DIR, src=src, bem=bem, fwd=fwd)
+        max_def = float(grand_avg_def.max())
+        assert params_def["rank"]["sub01"] == 26, f"expected rank 26, got {params_def['rank']['sub01']}"
+        assert max_def <= 3.0 * max_full, f"rank-deficient dSPM inflated: max_def={max_def} vs max_full={max_full}"
+        print(f"assertion (e) passed: rank-deficient dSPM not inflated (max_def={max_def:.2f} <= 3x max_full={max_full:.2f}, rank={params_def['rank']['sub01']})")
+
+        # (f) >= 3 rows x >= 2 columns figure passes render_check; monkeypatched blank stops
+        spec_3x2 = dict(
+            base_spec,
+            conditions={"condA": "Condition A", "condB": "Condition B", "condC": "Condition C"},
+            figure="windows",
+            windows=[
+                {"name": "W1", "tmin_ms": 250, "tmax_ms": 350},
+                {"name": "W2", "tmin_ms": 350, "tmax_ms": 450},
+            ],
+        )
+
+        orig_screenshot = mne.viz.Brain.screenshot
+        call_count = [0]
+
+        def bad_screenshot(self, *args, **kwargs):
+            call_count[0] += 1
+            if call_count[0] == 2:
+                return np.full((800, 800, 3), 255, dtype=np.uint8)
+            return orig_screenshot(self, *args, **kwargs)
+
+        mne.viz.Brain.screenshot = bad_screenshot
+        try:
+            sp.plot(spec_3x2, subjects_dir=SUBJECTS_DIR, src=src, bem=bem, fwd=fwd)
+            raise AssertionError("blank screenshot was not caught by render_check")
+        except SystemExit as e:
+            assert "blank brain image" in str(e), f"unexpected exit message: {e}"
+            print("assertion (f1) passed: monkeypatched white screenshot caught by render_check")
+        finally:
+            mne.viz.Brain.screenshot = orig_screenshot
+
+        out_3x2 = sp.plot(spec_3x2, subjects_dir=SUBJECTS_DIR, src=src, bem=bem, fwd=fwd)[0]
+        run_3x2 = json.loads(Path(f"{out_3x2}_run.json").read_text(encoding="utf8"))
+        assert run_3x2["render_check"] == "ok"
+        assert run_3x2["layout_issues"] == []
+        assert Path(f"{out_3x2}.png").exists()
+        print("assertion (f2) passed: 3 rows x 2 cols figure passed render_check: ok")
+
+    print("OK")
+
+
+if __name__ == "__main__":
+    main()
