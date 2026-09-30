@@ -482,3 +482,11 @@ final rules read as they do.
 - Then (user: every ERP figure needs the box style): `wave_grid` (kind `erp` layout `grid`, explore overview) got it too —
   wider left margin and gaps, axis titles on the outer panels only; `axes` accepted in explore specs. New test cases
   (erp grid 3 × 3 box, explore box); suites OK. Real data: `specs/erp_grid_3x3_box.json` → ERP grid v01 (HWM, LWM).
+
+## 2026-09-30 (end) — cleanup of today's orphans (ponytail review)
+- Removed what the inset revision left dead: the in-panel colour-bar variants (5 constants, right/below branches,
+  one-value loops), the window-text height, the gray-band obstacle parameter, the constant `prefer_top` branch and
+  unused window arguments; `lay` is now the map shape, `tw` the widest label. `box_axes` no longer re-sets spine
+  visibility (STYLE does it); cross and box share `x_ticks()`. `_run.json` `inset_layout.colour_bar` = `"figure right"`.
+- Check: six synthetic renders (side / inset / grid × cross / box) pixel-identical before and after; suites OK.
+  erp_plot.py −49 lines net.
