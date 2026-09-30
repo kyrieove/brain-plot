@@ -3,7 +3,7 @@
 Start of every new session: read this file, then `docs/review-log.md` (newest entries at the bottom).
 
 ## State
-Two branches, both working, tests pass, everything committed and pushed
+Three modules (ERP, microstate, time-frequency), tests pass, everything committed and pushed
 (https://github.com/kyrieove/brain-plot, public, branch `main`).
 - **ERP** (`erp_plot.py`): `combo` (waveforms + maps per component), `topo` (maps only), `erp` (waveforms by channel:
   `roi` mean / `single` incl. `channels: "all"` / `grid`, gray bands only if asked), `explore` (3 × 3 overview +
@@ -18,30 +18,36 @@ Two branches, both working, tests pass, everything committed and pushed
   `microstate/`, `specs/`, `.cache/`; names say what the figure is; re-renders get `_vNN+1`, old versions move to `_history/`.
 
 ## Next (start here)
-- **2026-09-30 22:30 — CORRECTION (user, final): S15–20 = VERB onset**, S1–6 = the 2500-ms blank after the verb,
-  S7–12 = sound prompt (recording: S15 0, S1 +350, S7 +2900 ms). Everything called "subject" above is the verb.
-  agy renamed the data to `derivatives\preprocessed_epochs_verb\` (script `_code\preprocess_verb.py`; old empty
-  folder `preprocessed_epochs_subject\` left in place) and outputs to `derivativesrain_plot_preprocessed_epochs_verb\`
-  (`time_locked_to: "verb onset"` → names `_lock-verbonset`; 16 figures, all clean; subject-labelled figures in
-  `_superseded_2026-09-30\lock-subjectnounonset\`). N1 120–200 / N400 300–500 ms are now verb components. TFR
-  windows are placeholders (theta 300–500, alpha/beta 500–1000 ms); baseline −750…−550 ms now lies in the fixation
-  period before the subject noun (≈ −500 ms) — both for the user to decide.
-- 2026-09-30 evening (branch `tfr`, merged into `main` and pushed 2026-09-30): output folder renamed as above (code,
-  docs, tests; 4 suites OK). Antigravity desktop re-drew every subject-locked spec into
-  `D:\…\metaphor production\derivatives\brain_plot_preprocessed_epochs_subject\` (ERP/explore specs `xlim_ms`
-  [−200, 1000]; TFR keeps −500…1500 display) — 13 specs, all `_run.json` clean, index `specs\subj_INDEX.md`. Old
-  subject-locked outputs + specs moved (not deleted) to `…\_superseded_2026-09-30\`, TFR cache to `.cache\tfr\`.
-  The legacy `derivatives\brain-plot\` now holds only the sound-prompt (S7–12) data set's outputs — rename it to
-  `brain_plot_preprocessed_epochs` if the user agrees. Grid y-tick/x-tick collision check added (`hits_ylabel`).
-  Marker ↔ condition verified on raw sub10 (every trial S15→S1→S7 … S20→S6→S12, 30 each) and on sub1 metadata
-  (`condition` HM/HL/HR/LM/LL/LR = `condition_label`; H/L = `SND` high/low, not WM). Waiting on the user: TFR ROI /
-  windows (theta 4–8 × 100–650 ms, alpha/beta × 650–1500 ms are placeholders), sub27 acc coding, whether condition
-  labels should say "high SND" instead of "(high)".
-  Later the same night: ERP default = **negative up**, cross axes, side maps (user); `polarity: "positive_up"`,
-  `axes: "box"`, `grid` (inset) stay optional; non-default polarity is named `_pos-up`. **N400 = 300–500 ms after the
-  subject noun** (user: components come from the subject, never the verb; the 650–850 ms "verb N400" was wrong and is
-  in `_superseded_2026-09-30`). Subject→verb marker interval is 333 ms (316–351) — the verb onset falls inside the
-  N400 window; the windows helper finds no negative peak in 300–500 ms at Pz/CPz. All ERP specs re-drawn.
+Everything is on `main` and pushed (4b33c69); `tfr` is merged. Data: `D:\1-python_datasets\metaphor production\`.
+
+**Markers (user, final, 2026-09-30 22:30; matches the recording S15 0 / S1 +350 / S7 +2900 ms):** S15–20 = **verb
+onset**, S1–6 = onset of the 2500-ms blank after the verb, S7–12 = sound prompt. Conditions per block: Hmet, Hlit,
+Hrep, Lmet, Llit, Lrep (H/L = `SND` high/low in the xlsx, not the WM group). Checked trial by trial on raw sub10 and
+against sub1 metadata. Anything below that says "subject noun" means the verb.
+
+**Current data and figures**
+- Verb-locked epochs (−1…2 s, AutoReject, pyprep; 60 subjects): `derivatives\preprocessed_epochs_verb\` (script
+  `_code\preprocess_verb.py`). Old empty folder `preprocessed_epochs_subject\` left in place.
+- Figures: `derivatives\brain_plot_preprocessed_epochs_verb\` — 13 specs in `specs\` (`subj_*.json`, index
+  `subj_INDEX.md`), 16 figures, all `_run.json` clean, names `_lock-verbonset`. Superseded figures (wrong labels,
+  650–850 ms window) in `_superseded_2026-09-30\`.
+- ERP specs: N1 O1/Oz/O2 120–200 ms, N400 Pz/CPz 300–500 ms (both after the verb), `query: "acc == 1"`, sub27
+  excluded (acc = 3 on every trial), group_by WM, xlim −200…1000 ms.
+- ERP defaults (user): **negative up**, cross axes, side maps; optional `polarity: "positive_up"` (name `_pos-up`),
+  `axes: "box"` (`_box`), `grid` (inset).
+
+**Waiting on the user**
+1. TFR windows — placeholders theta 4–8 Hz × 300–500 ms, alpha 8–13 / beta 13–30 Hz × 500–1000 ms; ROIs Fz, Cz and
+   P3, Pz, P4, O1, Oz, O2.
+2. TFR baseline −750…−550 ms — lies in the fixation period, before the subject noun (≈ −500 ms). Keep or move?
+3. sub27 acc coding (all 3s in the xlsx).
+4. Condition labels "Metaphor (high)" → say "high SND"?
+5. Legacy `derivatives\brain-plot\` holds only the sound-prompt (S7–12, `preprocessed_epochs`) outputs — rename to
+   `brain_plot_preprocessed_epochs`?
+
+**Working style (user):** Claude plans and reviews; agy does the work via the agy CLI (`/agycli`); codex does
+literature. Verify agy's work on the real files, never from its report.
+
 - 2026-09-30 afternoon (branch `tfr`; merged into `main` and pushed 2026-09-30 night, user: "时频可以保存推送了"): **time-frequency module**.
   Plan agreed with the user via /grilling. Roles: Claude plans + reviews, codex (gpt-6-luna, max) = literature,
   agy = implementation. Done:
