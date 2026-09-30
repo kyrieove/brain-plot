@@ -26,7 +26,7 @@ Two branches, both working, tests pass, everything committed and pushed
   `_superseded_2026-09-30\lock-subjectnounonset\`). N1 120–200 / N400 300–500 ms are now verb components. TFR
   windows are placeholders (theta 300–500, alpha/beta 500–1000 ms); baseline −750…−550 ms now lies in the fixation
   period before the subject noun (≈ −500 ms) — both for the user to decide.
-- 2026-09-30 evening (branch `tfr`, committed locally, NOT pushed/merged): output folder renamed as above (code,
+- 2026-09-30 evening (branch `tfr`, merged into `main` and pushed 2026-09-30): output folder renamed as above (code,
   docs, tests; 4 suites OK). Antigravity desktop re-drew every subject-locked spec into
   `D:\…\metaphor production\derivatives\brain_plot_preprocessed_epochs_subject\` (ERP/explore specs `xlim_ms`
   [−200, 1000]; TFR keeps −500…1500 display) — 13 specs, all `_run.json` clean, index `specs\subj_INDEX.md`. Old
@@ -42,7 +42,7 @@ Two branches, both working, tests pass, everything committed and pushed
   subject noun** (user: components come from the subject, never the verb; the 650–850 ms "verb N400" was wrong and is
   in `_superseded_2026-09-30`). Subject→verb marker interval is 333 ms (316–351) — the verb onset falls inside the
   N400 window; the windows helper finds no negative peak in 300–500 ms at Pz/CPz. All ERP specs re-drawn.
-- 2026-09-30 afternoon (local, branch **`tfr`**, NOT pushed, not merged — user: "暂不推送"): **time-frequency module**.
+- 2026-09-30 afternoon (branch `tfr`; merged into `main` and pushed 2026-09-30 night, user: "时频可以保存推送了"): **time-frequency module**.
   Plan agreed with the user via /grilling. Roles: Claude plans + reviews, codex (gpt-6-luna, max) = literature,
   agy = implementation. Done:
   1. Survey `research/tfr/survey.md` (12 papers, all DOIs checked on Crossref, 3 figures opened and checked; the other
