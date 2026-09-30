@@ -490,3 +490,34 @@ final rules read as they do.
   visibility (STYLE does it); cross and box share `x_ticks()`. `_run.json` `inset_layout.colour_bar` = `"figure right"`.
 - Check: six synthetic renders (side / inset / grid × cross / box) pixel-identical before and after; suites OK.
   erp_plot.py −49 lines net.
+
+## 2026-10-01 — `source` module (branch `source`, not merged)
+- User (2026-09-30 night): Claude leads (plan + review), agy / codex implement; all 59 subjects (sub27 excluded);
+  layout after Tian (Neurobiology of Language, Fig. 2B) and her metaphor study (Fig. 2); no caption file; one colour
+  bar per window block (`figure: "windows"`) / one per figure (`figure: "timeline"`); noise cov and baseline
+  −200…0 ms (user choice 3b); hard display threshold P90–P99.5, `hot` map.
+- Method: fsaverage template forward (ico-5, 5120 BEM), average-reference projection, shrunk noise cov, dSPM
+  λ² = 1/9, loose 0.2, depth 0.8, magnitude; per-subject stc averaged with equal weight (running sum); caches:
+  per-subject evoked + cov (npz, small) and the grand average (≈ 60 MB). 59 subjects ≈ 4 min.
+- Independent check (codex, `research/source/verify.md`): three dSPM numbers recomputed with plain MNE agree with the
+  module to < 0.00001 %. It also found sub33's `Llit` 20× the median → cause: rank-deficient epochs (sub21 58,
+  sub33 54, sub35 59, sub42 58 of 63) whitened at full rank. Fix: `mne.compute_rank` per subject passed to the
+  covariance and the inverse (test added). Review also caught: blank brains after the first map (fixed, plus a
+  `render_check` stop), a soft alpha ramp instead of the hard threshold, windows on the desktop (offscreen now).
+- Localizer (`erp_plot.py windows`, components with `region` + `polarity`; regions from `research/source/
+  survey-metaphor-erp.md`, Li et al. 2022 sites for N400): collapsed average of all subjects and conditions; peak =
+  real local extremum of that polarity (not on the search-range edge), window = FWHP on the whole waveform.
+  Results: P200 152–272 ms (F4, 182 ms, +0.50 µV — weak), N400 402–528 ms (Cz, 428 ms, −5.38 µV).
+- Mistakes corrected by the user: (1) N1/N400 were taken over from old specs without a user decision or literature
+  — components now come from literature + waveform. (2) A "peak must be > 0 µV" rule was added and reverted: polarity
+  is the direction of the deflection, not the absolute sign. (3) LPC → checked as SN (`specs/sn_check.txt`): a
+  centro-parietal negativity from ≈ 400 ms to the epoch end (2000 ms), not separated from the N400, not frontal →
+  not the literature's SN; no late window drawn until the user decides.
+- agy's 5-h quota ran out mid-task; codex (`--add-dir` data outputs, `~/.mne`, `~/mne_data`) finished plan 2c.
+- Plan 3 (user: "figure too big, text too small, proportions off — a major problem"; reference figure with wide
+  gaps): brains no longer stretched to 180 mm — 16 mm per hemisphere, canvas = content width (`width_mm` is a
+  maximum, brains shrink to ≥ 12 mm), gaps L–R 3 mm / blocks 6 mm / rows 3 mm, text 8 pt (labels, titles) and 7 pt
+  (L/R, ticks); timeline drawn through the windows code path with one colour scale per time column (user: one global
+  scale left most maps grey); size self-check in `layout_issues`. Done by codex (agy quota out). −101 lines net.
+  Figures: windows v02 (105 × 113 mm), timeline v06 (180 × 216 mm). Late window: dropped (user: "不用管了").
+  Merged into `main` 2026-10-01 (user).

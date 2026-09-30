@@ -18,13 +18,18 @@ Three modules (ERP, microstate, time-frequency), tests pass, everything committe
   `microstate/`, `specs/`, `.cache/`; names say what the figure is; re-renders get `_vNN+1`, old versions move to `_history/`.
 
 ## Next (start here)
-**Source-localization module (user, 2026-09-30): built by codex desktop + agy CLI, without Claude.** Follow
-`docs/PLAYBOOK-source.md` (roles, agy command, stages 0–7 with gates, decisions D1–D10 with defaults, traps); literature
-tasks in `research/source/`; codex project rules in `AGENTS.md`. Checked 2026-09-30: epochs carry a montage (63 EEG
-channels, linked-mastoid reference), fsaverage BEM/src/inflated surfaces are in `~/mne_data/MNE-fsaverage-data/`,
-pyvista 0.48 is in `mnedev`.
-
-Everything is on `main` and pushed (4b33c69); `tfr` is merged. Data: `D:\1-python_datasets\metaphor production\`.
+**`source` module (2026-10-01): merged into `main` and pushed (user).** Claude planned and reviewed; agy implemented
+(plans `docs/AGY_PLAN_source-*.md`), codex did literature, the independent check and plans 2c + 3 after agy's quota
+ran out (`docs/PLAYBOOK-source.md` is superseded). Reasons for every change: `docs/review-log.md`, last entry.
+Figures (59 subjects, sub27 excluded): `…rain_plot_preprocessed_epochs_verb\source\source-windows_dSPM_P200-N400_lock-verbonset_v02.png`
+(main; P200 152–272, N400 402–528 ms from the localizer, `specs\source_localizer_output.txt`) and
+`source-timeline_dSPM_lock-verbonset_v06.png` (one colour scale per column); specs `specs\source_*.json`.
+User decisions: P200 kept although weak (+0.5 µV); no late window (`specs\sn_check.txt`: centro-parietal negativity
+400–2000 ms, continuous with the N400 — not an SN or LPC); per-column scales in the timeline; 16-mm brains, 8-pt text.
+**Open (small):** (1) neighbouring colour bars' end ticks sit ~1 mm apart ("2.40 2.46") — consider fewer ticks or
+wider block gaps; (2) the user's reference
+figure stacks L above R per condition — offered as an alternative layout, not requested; (3) `.mne-test-profile/`
+in the repo root is a codex leftover (untracked) — delete.
 
 **Markers (user, final, 2026-09-30 22:30; matches the recording S15 0 / S1 +350 / S7 +2900 ms):** S15–20 = **verb
 onset**, S1–6 = onset of the 2500-ms blank after the verb, S7–12 = sound prompt. Conditions per block: Hmet, Hlit,

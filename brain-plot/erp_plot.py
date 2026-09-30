@@ -202,7 +202,7 @@ def read_spec(path):
     return spec
 
 
-def check_spec(spec):
+def check_spec(spec, allow_region=False):
     keys = set(spec)
     if REQUIRED - keys:
         die(f"spec is missing {sorted(REQUIRED - keys)}")
@@ -263,19 +263,37 @@ def check_spec(spec):
     if not all(isinstance(x, str) for x in names) or len({x.casefold() for x in names}) != len(names):
         die(f"component names must be strings, unique ignoring case (they become file names): {names}")
     for c in spec.get("components", []):
-        need = COMPONENT_KEYS - {"channels"} if erp else COMPONENT_KEYS  # an erp band has no channels of its own
-        if not need <= set(c) <= need | {"window_source"}:
-            die(f"component {c.get('name')} needs exactly {sorted(need)} (+ optional window_source)")
-        if not re.fullmatch(r"[A-Za-z0-9_\-]+", str(c["name"])):
-            die(f"component name {c['name']!r}: use letters, digits, '_' or '-' (it becomes a file name)")
-        ch = c.get("channels", ["-"])
-        if not isinstance(ch, list) or not ch or len(set(ch)) != len(ch):
-            die(f"component {c['name']}: channels must be a non-empty list without repeats (repeats re-weight the ROI)")
-        if not all(isinstance(x, (int, float)) and np.isfinite(x) for x in (c["tmin_ms"], c["tmax_ms"])) \
-                or not c["tmin_ms"] < c["tmax_ms"]:
-            die(f"component {c['name']}: tmin_ms < tmax_ms, both finite numbers")
+        if not re.fullmatch(r"[A-Za-z0-9_\-]+", str(c.get("name", ""))):
+            die(f"component name {c.get('name')!r}: use letters, digits, '_' or '-' (it becomes a file name)")
+        if not all(isinstance(x, (int, float)) and np.isfinite(x) for x in (c.get("tmin_ms"), c.get("tmax_ms"))) \
+                or not c.get("tmin_ms", 0) < c.get("tmax_ms", -1):
+            die(f"component {c.get('name')}: tmin_ms < tmax_ms, both finite numbers")
         if not lo <= c["tmin_ms"] or not c["tmax_ms"] <= hi:
-            die(f"component {c['name']}: window must lie inside xlim_ms {lo, hi}")
+            die(f"component {c.get('name')}: window must lie inside xlim_ms {lo, hi}")
+        if erp:
+            need = COMPONENT_KEYS - {"channels"}
+            if not need <= set(c) <= need | {"window_source"}:
+                die(f"component {c.get('name')} needs exactly {sorted(need)} (+ optional window_source)")
+        elif allow_region and "region" in c:
+            need = {"name", "region", "polarity", "tmin_ms", "tmax_ms"}
+            if not need <= set(c) <= need | {"window_source"}:
+                die(f"component {c.get('name')} needs exactly {sorted(need)} (+ optional window_source)")
+            if c.get("polarity") not in ("positive", "negative"):
+                die(f"component {c['name']}: polarity must be 'positive' or 'negative'")
+            reg = c.get("region")
+            if not isinstance(reg, list) or not reg or len(set(reg)) != len(reg) or not all(isinstance(x, str) for x in reg):
+                die(f"component {c['name']}: region must be a non-empty list of channel names without repeats")
+        elif "channels" in c:
+            need = COMPONENT_KEYS
+            if not need <= set(c) <= need | {"window_source"}:
+                die(f"component {c.get('name')} needs exactly {sorted(need)} (+ optional window_source)")
+            ch = c["channels"]
+            if not isinstance(ch, list) or not ch or len(set(ch)) != len(ch) or not all(isinstance(x, str) for x in ch):
+                die(f"component {c['name']}: channels must be a non-empty list without repeats (repeats re-weight the ROI)")
+        elif allow_region:
+            die(f"component {c.get('name')}: give 'channels' or 'region' + 'polarity'")
+        else:
+            die(f"component {c.get('name')} needs exactly {sorted(COMPONENT_KEYS)} (+ optional window_source)")
 
 
 def text(x):
@@ -644,23 +662,95 @@ def windows(spec):
     """Heuristic candidates only: peaks of the ROI waveform averaged over all subjects (equal weight) and all
     conditions, searched in each component's [tmin_ms, tmax_ms] (use a generous search range here). The reported
     interval is the full width at half prominence, not a rule; the user decides names and final windows."""
-    check_spec(spec)
-    if any("channels" not in c for c in spec["components"]):
-        die("windows searches each component's ROI: give components with 'channels' (a combo/topo spec)")
+    check_spec(spec, allow_region=True)
+    for c in spec.get("components", []):
+        if "channels" not in c and not ("region" in c and "polarity" in c):
+            die(f"component {c.get('name')}: give 'channels' or 'region' + 'polarity'")
     data, times, info, _ = load(spec)
     allsub = np.concatenate([d.mean(1) for d in data.values()]).mean(0)  # (ch, t)
     ms = times * 1000
+    win_list = []
+    has_region = False
     for c in spec["components"]:
-        sel = (ms >= c["tmin_ms"]) & (ms <= c["tmax_ms"])
-        y, t = allsub[[info.ch_names.index(ch) for ch in c["channels"]]].mean(0)[sel], ms[sel]
-        print(f"\n{c['name']} · {', '.join(c['channels'])} · search {c['tmin_ms']}–{c['tmax_ms']} ms "
-              f"(all {sum(len(d) for d in data.values())} subjects, all conditions, equal weights)")
-        for sign, lab in ((1, "positive"), (-1, "negative")):
-            pk, _ = find_peaks(sign * y, prominence=0.1 * np.ptp(y))
-            if len(pk):
-                _, _, a, b = peak_widths(sign * y, pk, rel_height=0.5)
-                for p, lo, hi in zip(pk, a, b):
-                    print(f"  {lab:8s} peak {t[p]:5.0f} ms {y[p]:7.2f} µV   FWHP {t[int(lo)]:.0f}–{t[int(np.ceil(hi))]:.0f} ms")
+        if "region" in c and "polarity" in c:
+            has_region = True
+            missing = [ch for ch in c["region"] if ch not in info.ch_names]
+            if missing:
+                die(f"component {c['name']}: region channels {missing} not in data channels")
+            sel = (ms >= c["tmin_ms"]) & (ms <= c["tmax_ms"])
+            t = ms[sel]
+            if len(t) == 0:
+                die(f"component {c['name']}: no samples in search range {c['tmin_ms']}–{c['tmax_ms']} ms")
+            reg_idx = [info.ch_names.index(ch) for ch in c["region"]]
+            reg_data = allsub[reg_idx][:, sel]
+            sign = 1 if c["polarity"] == "positive" else -1
+            if c["polarity"] == "positive":
+                ch_rel_idx, t_rel_idx = np.unravel_index(np.argmax(reg_data), reg_data.shape)
+            else:
+                ch_rel_idx, t_rel_idx = np.unravel_index(np.argmin(reg_data), reg_data.shape)
+            peak_val = float(reg_data[ch_rel_idx, t_rel_idx])
+            peak_channel = c["region"][ch_rel_idx]
+            peak_t = float(t[t_rel_idx])
+
+            print(f"\n{c['name']} · region {', '.join(c['region'])} ({c['polarity']}) · search {c['tmin_ms']}–{c['tmax_ms']} ms "
+                  f"(all {sum(len(d) for d in data.values())} subjects, all conditions, equal weights)")
+
+            ch_full_idx = info.ch_names.index(peak_channel)
+            y_full = sign * allsub[ch_full_idx]
+            sel_indices = np.where(sel)[0]
+            full_peak_idx = int(sel_indices[t_rel_idx])
+
+            is_edge = (t_rel_idx == 0 or t_rel_idx == len(t) - 1)
+            pks, _ = find_peaks(y_full)
+
+            if is_edge or (full_peak_idx not in pks):
+                print(f"  no peak inside {c['tmin_ms']}–{c['tmax_ms']} ms (extreme at the range edge)")
+                continue
+
+            _, _, a, b = peak_widths(y_full, [full_peak_idx], rel_height=0.5)
+            lo, hi = a[0], b[0]
+            idx_lo = max(0, min(len(ms) - 1, int(lo)))
+            idx_hi = max(0, min(len(ms) - 1, int(np.ceil(hi))))
+            win_tmin = round(float(ms[idx_lo]))
+            win_tmax = round(float(ms[idx_hi]))
+
+            # ROI = region channels whose value at the peak latency is >= 80 % of the peak (same sign)
+            roi = [ch for ch in c["region"] if sign * allsub[info.ch_names.index(ch), full_peak_idx] >= 0.8 * (sign * peak_val)]
+
+            # GFP (std over all channels) peak latency inside the range
+            gfp = allsub[:, sel].std(axis=0)
+            gfp_peak_t = float(t[np.argmax(gfp)])
+
+            print(f"  peak channel {peak_channel}, latency {peak_t:.0f} ms, amplitude {peak_val:.2f} µV   FWHP {win_tmin:.0f}–{win_tmax:.0f} ms")
+            print(f"  ROI ({len(roi)} channels): {', '.join(roi)}")
+            print(f"  GFP peak: {gfp_peak_t:.0f} ms")
+            if abs(gfp_peak_t - peak_t) > 50:
+                print(f"WARNING: {c['name']}: GFP peak ({gfp_peak_t:.0f} ms) is more than 50 ms from channel peak ({peak_t:.0f} ms)")
+
+            win_list.append({
+                "name": c["name"],
+                "tmin_ms": int(win_tmin),
+                "tmax_ms": int(win_tmax),
+                "peak_ms": int(round(peak_t)),
+                "peak_channel": peak_channel,
+                "roi": roi,
+            })
+        elif "channels" in c:
+            sel = (ms >= c["tmin_ms"]) & (ms <= c["tmax_ms"])
+            y, t = allsub[[info.ch_names.index(ch) for ch in c["channels"]]].mean(0)[sel], ms[sel]
+            print(f"\n{c['name']} · {', '.join(c['channels'])} · search {c['tmin_ms']}–{c['tmax_ms']} ms "
+                  f"(all {sum(len(d) for d in data.values())} subjects, all conditions, equal weights)")
+            for sign, lab in ((1, "positive"), (-1, "negative")):
+                pk, _ = find_peaks(sign * y, prominence=0.1 * np.ptp(y))
+                if len(pk):
+                    _, _, a, b = peak_widths(sign * y, pk, rel_height=0.5)
+                    for p, lo, hi in zip(pk, a, b):
+                        print(f"  {lab:8s} peak {t[p]:5.0f} ms {y[p]:7.2f} µV   FWHP {t[int(lo)]:.0f}–{t[int(np.ceil(hi))]:.0f} ms")
+        else:
+            die(f"component {c.get('name')}: give 'channels' or 'region' + 'polarity'")
+
+    if has_region:
+        print(f"WINDOWS_JSON {json.dumps(win_list)}")
 
 
 # ---------- plot ----------
