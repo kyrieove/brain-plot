@@ -5,7 +5,6 @@
 Per-subject time-frequency averages of single-trial epochs -> group grand average -> one figure per group,
 panels = conditions in a grid, ROI-mean TF maps, with optional windows and topomap rows.
 """
-import gc
 import hashlib
 import json
 import shutil
@@ -79,7 +78,7 @@ def get_n_cycles(spec, freqs):
 
 def load_and_compute(spec):
     check_spec(spec)
-    groups, groups_all = ep.select_files(spec)
+    groups, _ = ep.select_files(spec)
     first_unit = next(iter(groups.values()))[0]
     first_file = ep.unit_files(first_unit)[0]
 
@@ -96,8 +95,7 @@ def load_and_compute(spec):
     freqs = get_freqs(spec)
     n_cycles, n_cycles_fmin = get_n_cycles(spec, freqs)
 
-    edge_sec = (n_cycles_fmin / freqs[0]) / 2.0
-    edge_ms = edge_sec * 1000.0
+    edge_ms = n_cycles_fmin / freqs[0] / 2.0 * 1000.0  # half the longest wavelet
 
     epoch_tmin_ms = ep_test.times[0] * 1000.0
     epoch_tmax_ms = ep_test.times[-1] * 1000.0
@@ -108,20 +106,16 @@ def load_and_compute(spec):
     lo, hi = float(xlim_ms[0]), float(xlim_ms[1])
     tol = 1e-3
 
-    if lo < valid_tmin_ms - tol:
-        ep.die(f"xlim_ms start ({lo:g} ms) reaches into the edge zone (< {valid_tmin_ms:g} ms, half the longest wavelet {edge_ms:g} ms from epoch start {epoch_tmin_ms:g} ms); widen epochs or adjust xlim_ms/freqs/n_cycles")
-    if hi > valid_tmax_ms + tol:
-        ep.die(f"xlim_ms end ({hi:g} ms) reaches into the edge zone (> {valid_tmax_ms:g} ms, half the longest wavelet {edge_ms:g} ms from epoch end {epoch_tmax_ms:g} ms); widen epochs or adjust xlim_ms/freqs/n_cycles")
-
-    if spec["measure"] == "power":
-        baseline_ms = spec.get("baseline_ms", [-500, -200])
-        blo, bhi = float(baseline_ms[0]), float(baseline_ms[1])
-        if blo < valid_tmin_ms - tol:
-            ep.die(f"baseline_ms start ({blo:g} ms) reaches into the edge zone (< {valid_tmin_ms:g} ms, half the longest wavelet {edge_ms:g} ms from epoch start {epoch_tmin_ms:g} ms); widen epochs or adjust baseline_ms/freqs/n_cycles")
-        if bhi > valid_tmax_ms + tol:
-            ep.die(f"baseline_ms end ({bhi:g} ms) reaches into the edge zone (> {valid_tmax_ms:g} ms, half the longest wavelet {edge_ms:g} ms from epoch end {epoch_tmax_ms:g} ms); widen epochs or adjust baseline_ms/freqs/n_cycles")
-        if blo >= bhi:
-            ep.die(f"baseline_ms start ({blo:g} ms) must be less than end ({bhi:g} ms); adjust baseline_ms")
+    baseline_ms = [float(x) for x in spec.get("baseline_ms", [-500, -200])]
+    b_mode = spec.get("baseline_mode", "logratio")
+    spans = {"xlim_ms": (lo, hi)} | ({"baseline_ms": tuple(baseline_ms)} if spec["measure"] == "power" else {})
+    for key, (a, b) in spans.items():  # rule TF2
+        if a >= b:
+            ep.die(f"{key} start ({a:g} ms) must be less than its end ({b:g} ms)")
+        if a < valid_tmin_ms - tol or b > valid_tmax_ms + tol:
+            ep.die(f"{key} [{a:g}, {b:g}] ms reaches into the edge zone (valid {valid_tmin_ms:g} to {valid_tmax_ms:g} ms: "
+                   f"half the longest wavelet, {edge_ms:g} ms, from each epoch end); widen the epochs or adjust "
+                   f"{key}/freqs/n_cycles")
 
     for w in spec.get("windows", []):
         if w["fmin"] < freqs[0] - 1e-6 or w["fmax"] > freqs[-1] + 1e-6 or w["tmin_ms"] < lo - tol or w["tmax_ms"] > hi + tol:
@@ -129,7 +123,6 @@ def load_and_compute(spec):
 
     n_cycles_label = spec.get("n_cycles", "freqs/2")
     n_cycles_label = n_cycles_label if isinstance(n_cycles_label, str) else float(n_cycles_label)
-    baseline_ms = spec.get("baseline_ms", [-500, -200])
     decim = spec.get("decim")
     if decim is None:
         decim = max(1, int(round(info["sfreq"] / 100.0)))
@@ -146,7 +139,6 @@ def load_and_compute(spec):
     cache_dir.mkdir(parents=True, exist_ok=True)
 
     measure = spec["measure"]
-    b_mode = spec.get("baseline_mode", "logratio")
     grand_avg = {}  # running sums per (group, condition), divided by N at the end: one subject in memory at a time
     trial_counts = {}
     valid_ids = {}
@@ -159,16 +151,10 @@ def load_and_compute(spec):
             s_id = ep.uid(f)
             # plain arrays, not MNE .h5: read_tfrs parses a full info per object (4.6 s per subject vs ms for npz)
             cfile = cache_dir / f"{s_id}.npz"
-            tfr_dict = {}
-            counts = {}
-
             if cfile.exists():
                 cfile.touch()
                 with np.load(cfile) as z:
-                    times_s, data = z["times"], z[measure]  # read each array once
-                    for i, c in enumerate(spec["conditions"]):
-                        tfr_dict[c] = {measure: data[i]}
-                        counts[c] = int(z["nave"][i])
+                    times_s, data, nave = z["times"], z[measure], z["nave"]  # read each array once
             else:
                 try:
                     ep_sub = mne.read_epochs(f, proj=False, verbose="error")
@@ -178,30 +164,22 @@ def load_and_compute(spec):
 
                 ep_sub = ep.query_epochs(ep_sub, f, spec["conditions"], spec.get("query"))
 
-                for c in spec["conditions"]:
-                    p, itc = ep_sub[c].compute_tfr(
-                        "morlet", freqs=freqs, n_cycles=n_cycles, decim=decim,
-                        return_itc=True, average=True,
-                    )
-                    tfr_dict[c] = {"power": p.data, "itc": itc.data}
-                    counts[c] = int(p.nave)
-                    times_s = p.times
-                np.savez(cfile, times=times_s, nave=[counts[c] for c in spec["conditions"]],
-                         power=[tfr_dict[c]["power"] for c in spec["conditions"]],
-                         itc=[tfr_dict[c]["itc"] for c in spec["conditions"]])
-                del ep_sub
-                gc.collect()
+                res = [ep_sub[c].compute_tfr("morlet", freqs=freqs, n_cycles=n_cycles, decim=decim,
+                                             return_itc=True, average=True) for c in spec["conditions"]]
+                times_s, nave = res[0][0].times, [p.nave for p, _ in res]
+                arrays = dict(power=[p.data for p, _ in res], itc=[i.data for _, i in res])
+                np.savez(cfile, times=times_s, nave=nave, **arrays)
+                data = arrays[measure]
 
-            for c in spec["conditions"]:
-                x = tfr_dict[c][measure]
+            for i, c in enumerate(spec["conditions"]):
+                x = data[i]
                 if measure == "power":
                     x = mne.baseline.rescale(x, times_s, (baseline_ms[0] / 1000.0, baseline_ms[1] / 1000.0),
                                              mode=b_mode, copy=True, verbose="error")
                     if b_mode == "logratio":
                         x = x * 10.0
                 grand_avg[g, c] = grand_avg.get((g, c), 0) + x
-            del tfr_dict
-            trial_counts[g][s_id] = counts
+            trial_counts[g][s_id] = {c: int(n) for c, n in zip(spec["conditions"], nave)}
             valid_ids[g].append(s_id)
 
         if not valid_ids[g]:
@@ -223,7 +201,7 @@ def load_and_compute(spec):
         n_cycles=n_cycles_label,
         decim=int(decim),
         baseline_ms=baseline_ms if measure == "power" else None,
-        baseline_mode=spec.get("baseline_mode", "logratio") if measure == "power" else None,
+        baseline_mode=b_mode if measure == "power" else None,
         xlim_ms=[lo, hi],
         query=spec.get("query"),
     )

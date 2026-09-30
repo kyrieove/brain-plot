@@ -184,6 +184,7 @@ def run_tests():
         s5 = base_spec.copy()
         s5["grid"] = [["burst", "bad_cond"]]
         assert_stops(s5, "not found in conditions")
+        assert_stops({**base_spec, "query": "acc == 99"}, "leaves no trials")
 
     print("OK")
 
