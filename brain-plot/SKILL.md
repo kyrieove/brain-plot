@@ -21,8 +21,8 @@ say "not supported".
 
 - Check the interpreter: `python check_env.py` (standard library only) prints Python, package versions and fonts, and
   "OK" or what to install; use the interpreter that passes (Python ≥ 3.10, mne ≥ 1.6, matplotlib ≥ 3.8, scipy).
-- Tell the user the side effects: the scripts read every input file, write a cache (`brain-plot/.cache/`, the 6 most
-  recently used, each can be tens of MB — mind synced folders like Dropbox) and all figures to `brain-plot/` next to
+- Tell the user the side effects: the scripts read every input file, write a cache (`brain_plot_<data folder name>/.cache/`, the 6 most
+  recently used, each can be tens of MB — mind synced folders like Dropbox) and all figures to `brain_plot_<data folder name>/` next to
   the data folder, and move older versions of a re-drawn figure to `_history/` (never delete or overwrite). Run them
   on a trusted local copy of the data.
 - The style is fixed in code. Never restyle or edit a figure by hand or with ad-hoc matplotlib — change the spec.
@@ -35,7 +35,7 @@ say "not supported".
    whose prerequisites are settled, numbered, each with your recommended answer and one line of why. Wait for
    answers, then the next round. What to ask and what never to ask: the module file. Where something is unknown and
    only feeds the caption, leave it out of the spec — never invent a value just so the user can say "ok".
-3. **Confirm.** Write the spec JSON (in `brain-plot/specs/` next to the data folder; relative `data`/`templates`
+3. **Confirm.** Write the spec JSON (in `brain_plot_<data folder name>/specs/` next to the data folder; relative `data`/`templates`
    paths are taken from the spec's folder), show it as a short list, and wait for an explicit yes. Re-confirm when
    anything scientific changes (groups, exclusions, channels, windows, display range, overlay, K, conditions). Layout
    fixes need no re-confirmation.

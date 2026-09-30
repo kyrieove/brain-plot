@@ -161,7 +161,7 @@ def stops(label, fn, spec, text):
 with tempfile.TemporaryDirectory() as d:
     root = Path(d) / "data"
     info = make_data(root)
-    out = root.parent / "brain-plot"
+    out = root.parent / f"brain_plot_{root.name}"
     n400 = dict(name="N400", channels=["Cz", "CPz", "Pz"], tmin_ms=350, tmax_ms=500)
     p1 = dict(name="P1", channels=["O1", "Oz", "O2"], tmin_ms=80, tmax_ms=120)
     pairs = dict(colors=["#1b7f79"] * 2 + ["#e0533d"] * 2 + ["#0072B2"] * 2, linestyles=["-", "--"] * 3)

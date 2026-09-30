@@ -451,7 +451,7 @@ def plot(spec):
             cb_row.outline.set_linewidth(0.4)
 
         win_part = ("_" + "-".join(ep.safe(w["name"]) for w in windows)) if windows else ""
-        out_stem = f"TFR-{measure}_{'-'.join(map(ep.safe, spec['channels']))}_{ep.safe(g)}{win_part}{ep.lock_part(spec)}"
+        out_stem = f"TFR-{measure}_{'-'.join(map(ep.safe, spec['channels']))}_{ep.safe(g)}{win_part}{ep.name_part(spec)}"
         out = ep.versioned(ep.out_root(spec) / "TFR", out_stem)
 
         issues = ep.report_layout(fig, out.name)

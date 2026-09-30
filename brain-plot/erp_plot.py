@@ -8,7 +8,7 @@
 <data_dir> holds one *-epo.fif or *-ave.fif per subject; sub-folders are groups. The subject ID is the file
 name up to the first "_", "-" or "." (BIDS: sub-01_… → sub-01). Input must be preprocessed EEG potentials (no bad channels left, one common
 channel set, time grid, baseline, filter and reference); the loader stops on any mismatch. The spec format and
-the rules this script enforces are in references/spec.md and docs/rules.md (repository root). Outputs go to brain-plot/ next to
+the rules this script enforces are in references/spec.md and docs/rules.md (repository root). Outputs go to brain_plot_<data folder>/ next to
 the data folder (rules O1–O3).
 """
 import hashlib
@@ -29,7 +29,7 @@ from scipy.ndimage import maximum_filter1d, minimum_filter1d
 from scipy.signal import find_peaks, peak_widths
 
 LOADER_VERSION = 4  # 4: meta records every group and condition in the data (rule O3 names a subset)
-CACHE_KEEP = 6  # most recently used caches kept in brain-plot/.cache/ (each can be tens of MB; rule O1)
+CACHE_KEEP = 6  # most recently used caches kept in brain_plot_<data>/.cache/ (each can be tens of MB; rule O1)
 FLAT_UV = 1e-6  # µV: a channel whose peak-to-peak range stays below this is flat (rule S10)
 MM = 1 / 25.4
 LANCET = ["#00468B", "#ED0000", "#42B540", "#0099B4", "#925E9F", "#FDAF91", "#AD002A"]  # ggsci Lancet, in order (user, 2026-09-30)
@@ -287,8 +287,10 @@ KIND_DIR = {"erp": "ERP", "topo": "topo", "combo": "ERP_topo"}
 
 
 def out_root(spec):
-    """Rule O1: every output goes to brain-plot/ next to the data folder."""
-    return Path(spec["data"]).resolve().parent / "brain-plot"
+    """Rule O1: every output goes to brain_plot_<data folder name>/ next to the data folder, so two data sets in one
+    parent folder never share (and never overwrite) outputs (user, 2026-09-30)."""
+    data = Path(spec["data"]).resolve()
+    return data.parent / f"brain_plot_{data.name}"
 
 
 def comparison(spec):
@@ -436,13 +438,15 @@ def subset_part(spec, meta, parts=("groups", "conditions")):
         part += "_cond-" + "-".join(map(safe, spec["conditions"]))
     if spec.get("query"):
         part += "_query-" + hashlib.md5(spec["query"].encode()).hexdigest()[:6]
-    return part + lock_part(spec)
+    return part + name_part(spec)
 
 
-def lock_part(spec):
-    """Rule O3: `_lock-<event>` when the spec names its time-locking event, so that figures of two datasets that share
-    an output folder (epochs locked to different events) never take each other's names."""
-    return "_lock-" + safe(spec["time_locked_to"]) if spec.get("time_locked_to") and "time_locked_to" not in open_items(spec) else ""
+def name_part(spec):
+    """Rule O3: `_box` for box axes and `_lock-<event>` when the spec names its time-locking event, so that the two axis
+    styles, and figures of epoch sets locked to different events that share an output folder, never take each other's
+    names (and never archive each other as versions)."""
+    lock = spec.get("time_locked_to") and "time_locked_to" not in open_items(spec)
+    return ("_box" if spec.get("axes") == "box" else "") + ("_lock-" + safe(spec["time_locked_to"]) if lock else "")
 
 
 def query_epochs(epochs, f, conditions, query):
@@ -773,6 +777,7 @@ def cross_axes(ax, fig, lo, hi, ylim, negative_up, x, low_env, high_env):
     ab = ax.get_window_extent(renderer)
     y0 = ax.transData.transform((0, 0))[1]
     room_up, room_dn = (ab.y1 - y0) / pt, (y0 - ab.y0) / pt  # panel above / below the x-axis, in points
+    ybox = [t.get_window_extent(renderer) for t in ylabels]  # drawn by x_ticks above
     xlabels = []
     for v, lab, bb in zip(xt, labs, boxes):
         (x0, _), (x1, _) = inv.transform([(bb.x0, 0), (bb.x1, 0)])
@@ -790,6 +795,16 @@ def cross_axes(ax, fig, lo, hi, ylim, negative_up, x, low_env, high_env):
         fits_up, fits_dn = off_up + text_h <= room_up, off_dn + text_h <= room_dn
         if (fits_dn and not fits_up) if go_up else (fits_up and not fits_dn):
             go_up = not go_up  # keep the label inside the panel
+
+        def hits_ylabel(up):  # the label's box on that side against the y tick labels (they sit left of x = 0)
+            lo_, hi_ = (y0 + off_up * pt, y0 + (off_up + text_h) * pt) if up else (y0 - (off_dn + text_h) * pt,
+                                                                                    y0 - off_dn * pt)
+            g = 2 * pt  # at least 2 pt apart: touching labels read as one ("−400−5")
+            return any(bb.x0 - g < yb.x1 and yb.x0 < bb.x1 + g and lo_ - g < yb.y1 and yb.y0 < hi_ + g for yb in ybox)
+        if hits_ylabel(go_up) and not hits_ylabel(not go_up) and (fits_dn if go_up else fits_up):
+            go_up = not go_up  # e.g. "−400" next to the y-axis on a whole-epoch panel would touch "−5"
+        if hits_ylabel(go_up):
+            continue  # no clean place on either side: keep the tick, drop its label (its neighbours are labelled)
         off = off_up if go_up else -off_dn
         xlabels.append(ax.annotate(lab, (v, 0), xytext=(0, off), textcoords="offset points", fontsize=6,
                                    ha="center", va="bottom" if go_up else "top"))
@@ -2012,7 +2027,7 @@ def explore(spec):
     root, shape = out_root(spec), f"{len(rows)}x{max(len(r) for r in rows)}"
     outs = []
     for g in groups:  # rule O3
-        outs.append(versioned(root / "ERP", f"ERP-grid-{shape}_conditions_{safe(g)}{lock_part(spec)}"))
+        outs.append(versioned(root / "ERP", f"ERP-grid-{shape}_conditions_{safe(g)}{name_part(spec)}"))
         wave_grid(spec, "Waveforms", grid, info, data[g].mean(0), labels, colors, styles, ms, t, lo, hi, neg, g, outs[-1])
         archive(outs[-1])
         if spec.get("components"):
@@ -2020,7 +2035,7 @@ def explore(spec):
                 names = f"{spec['components'][0]['tmin_ms']:g}-{spec['components'][-1]['tmax_ms']:g}ms"
             else:
                 names = "-".join(c["name"] if c.get("name") else f"{c['tmin_ms']:g}-{c['tmax_ms']:g}ms" for c in spec["components"])
-            outs.append(versioned(root / "topo", f"topo-table_{safe(names)}_{safe(g)}{lock_part(spec)}"))
+            outs.append(versioned(root / "topo", f"topo-table_{safe(names)}_{safe(g)}{name_part(spec)}"))
             topo_table(spec, data[g], conds, labels, spec["components"], info, ms, sphere, g, outs[-1])
             archive(outs[-1])
     print("wrote", *[f"{o}.png/.svg" for o in outs], sep="\n  ")

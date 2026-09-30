@@ -1,9 +1,9 @@
 # Spec format (erp_plot.py v1)
 
 A JSON object. Unknown keys stop the script (an old spec with `out` stops too: delete the key). Examples:
-`examples/specs/` (synthetic data: `python examples/make_demo_data.py`). Relative `data` and `templates` paths are taken from the spec file's folder. Keep specs in `brain-plot/specs/`.
+`examples/specs/` (synthetic data: `python examples/make_demo_data.py`). Relative `data` and `templates` paths are taken from the spec file's folder. Keep specs in `brain_plot_<data folder name>/specs/`.
 
-Outputs go to `brain-plot/` next to the data folder (rules O1–O3): `ERP_topo/ERP-topo_<component>_<channels>_<window>_<comparison>_vNN`,
+Outputs go to `brain_plot_<data folder name>/` next to the data folder (rules O1–O3): `ERP_topo/ERP-topo_<component>_<channels>_<window>_<comparison>_vNN`,
 `topo/topo_<component>_<window>_<comparison>_vNN`, `ERP/ERP-ROI_<channels>[_<band>-<window>]_<comparison>_vNN`, `ERP/ERP_<channel>_…` (single), `ERP/ERP-all-channels_<comparison>_vNN/` (single, all), `ERP/ERP-grid-<rows>x<cols>_<channels>_<lines>_<facet level>_vNN` (grid); a figure of only some groups or conditions, or with a `query`, adds `_grp-…`, `_cond-…` or `_query-<hash>` before `_vNN` (rule O3); each as
 `.png .svg`, `_caption.md`, `_run.json`. `<comparison>` is `groups-by-condition` (`overlay: "groups"`) or
 `conditions-by-group`.

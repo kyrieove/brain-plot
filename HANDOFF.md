@@ -13,10 +13,22 @@ Two branches, both working, tests pass, everything committed and pushed
   maps + butterfly or GFP + segmentation ribbon; ≤ 2 conditions stacked with maps left, more need `grid` with maps on
   top; one time-panel type per multi-column grid) and `"by-K"` (template rows across K, identity colours). Reads saved
   templates (npz `centers`, optional `ch_names`), never re-fits.
-- Outputs (both branches, rules O1–O3): `brain-plot/` next to the data folder → `ERP/`, `topo/`, `ERP_topo/`,
-  `microstate/`, `specs/`; names say what the figure is; re-renders get `_vNN+1`, old versions move to `_history/`.
+- Outputs (rules O1–O3): `brain_plot_<data folder name>/` next to the data folder (was `brain-plot/` until
+  2026-09-30 — two data sets in one parent overwrote each other) → `ERP/`, `topo/`, `ERP_topo/`, `TFR/`,
+  `microstate/`, `specs/`, `.cache/`; names say what the figure is; re-renders get `_vNN+1`, old versions move to `_history/`.
 
 ## Next (start here)
+- 2026-09-30 evening (branch `tfr`, committed locally, NOT pushed/merged): output folder renamed as above (code,
+  docs, tests; 4 suites OK). Antigravity desktop re-drew every subject-locked spec into
+  `D:\…\metaphor production\derivatives\brain_plot_preprocessed_epochs_subject\` (ERP/explore specs `xlim_ms`
+  [−200, 1000]; TFR keeps −500…1500 display) — 13 specs, all `_run.json` clean, index `specs\subj_INDEX.md`. Old
+  subject-locked outputs + specs moved (not deleted) to `…\_superseded_2026-09-30\`, TFR cache to `.cache\tfr\`.
+  The legacy `derivatives\brain-plot\` now holds only the sound-prompt (S7–12) data set's outputs — rename it to
+  `brain_plot_preprocessed_epochs` if the user agrees. Grid y-tick/x-tick collision check added (`hits_ylabel`).
+  Marker ↔ condition verified on raw sub10 (every trial S15→S1→S7 … S20→S6→S12, 30 each) and on sub1 metadata
+  (`condition` HM/HL/HR/LM/LL/LR = `condition_label`; H/L = `SND` high/low, not WM). Waiting on the user: TFR ROI /
+  windows (theta 4–8 × 100–650 ms, alpha/beta × 650–1500 ms are placeholders), sub27 acc coding, whether condition
+  labels should say "high SND" instead of "(high)".
 - 2026-09-30 afternoon (local, branch **`tfr`**, NOT pushed, not merged — user: "暂不推送"): **time-frequency module**.
   Plan agreed with the user via /grilling. Roles: Claude plans + reviews, codex (gpt-6-luna, max) = literature,
   agy = implementation. Done:
@@ -184,7 +196,7 @@ Nothing is waiting on the user. Optional:
 - Metaphor: `n400_spec.json` has no `time_locked_to`/`claim` any more (deleted 2026-09-26). Supplementary
   P200/N300/LPC reuse Pz, CPz. Repetition maps show red extremes at the left temporal edge (FT9/T7) — possibly a
   noisy channel; reported once, not acted on.
-- Not supported (script stops): difference waves, lateralised components, CSD/source/TF, significance marks,
+- Not supported (script stops): difference waves, lateralised components, CSD/source (TF: branch `tfr`), significance marks,
   > 7 overlaid lines.
 - Codex's abandoned localizer lives in branch `codex/step3-localize-erp` (703f52a) and `git stash@{0}`; not merged.
 

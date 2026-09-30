@@ -72,7 +72,7 @@ python brain-plot/erp_plot.py plot examples/specs/p3_combo_inset.json     # maps
 python brain-plot/microstate_plot.py plot examples/specs/microstate_k4.json
 ```
 
-Figures appear in `examples/brain-plot/` (`ERP_topo/`, `ERP/`, `microstate/`). The data are made up and only show that everything runs.
+Figures appear in `examples/brain_plot_demo_data/` (`ERP_topo/`, `ERP/`, `microstate/`). The data are made up and only show that everything runs.
 
 ## Use it with Claude Code
 
@@ -132,11 +132,11 @@ Relative `data` and `templates` paths are taken from the spec file's folder. All
 
 ## Outputs
 
-Everything goes to `brain-plot/` **next to the data folder**, one sub-folder per kind, with names that say what the
+Everything goes to `brain_plot_<data folder name>/` **next to the data folder**, one sub-folder per kind, with names that say what the
 figure is, e.g. `ERP_topo/ERP-topo_P3_CPz-Pz_300-460ms_groups-by-condition_v01.png`; a figure of only some groups or
 conditions adds `_grp-…` / `_cond-…`. Nothing is overwritten: a re-render becomes `_v02` and older versions move to
 `_history/`. Every figure's layout is checked in code (overlapping texts, text or legend on a line, text off the
-canvas): warnings are printed and listed in `_run.json` (`layout_issues`). A cache (`brain-plot/.cache/`, the 6 most
+canvas): warnings are printed and listed in `_run.json` (`layout_issues`). A cache (`brain_plot_<data folder name>/.cache/`, the 6 most
 recently used, each can be tens of MB) makes later runs fast and is rebuilt when an input file changes.
 
 ## Rules and tests

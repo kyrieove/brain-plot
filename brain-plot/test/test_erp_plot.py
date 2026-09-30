@@ -66,8 +66,8 @@ def inside_canvas(fig):
 
 
 def latest(root, sub, pattern):
-    """Newest output matching pattern in <data folder's parent>/brain-plot/<sub>/ (rule O1)."""
-    return max((root.parent / "brain-plot" / sub).glob(pattern), key=lambda f: f.stat().st_mtime_ns)
+    """Newest output matching pattern in <data folder's parent>/brain_plot_<data folder name>/<sub>/ (rule O1)."""
+    return max((root.parent / f"brain_plot_{root.name}" / sub).glob(pattern), key=lambda f: f.stat().st_mtime_ns)
 
 
 def fails(s, text):
@@ -262,7 +262,7 @@ with tempfile.TemporaryDirectory() as d:
     # 4c. kind "erp" by channel (rule K1): all channels one file each in one versioned folder; grid per facet level;
     #     no band unless components are given; spec errors
     ep.plot(spec(root, groups=["G1", "G2"], kind="erp", layout="single", channels="all", components=[]))
-    folder = root.parent / "brain-plot" / "ERP" / "ERP-all-channels_groups-by-condition_grp-G1-G2_v01"  # G1–G8 exist
+    folder = root.parent / f"brain_plot_{root.name}" / "ERP" / "ERP-all-channels_groups-by-condition_grp-G1-G2_v01"  # G1–G8 exist
     assert sorted(f.name for f in folder.glob("*.png")) == sorted(f"ERP_{c}_groups-by-condition_grp-G1-G2_v01.png" for c in CH)
     assert len(list(folder.iterdir())) == 4 * len(CH)  # png, svg, caption, run per channel
     assert not any(t in ("P3",) for t, _ in texts_of(SAVED[-1]))  # no band label without components
@@ -287,7 +287,7 @@ with tempfile.TemporaryDirectory() as d:
         raise AssertionError("an invalid colour was accepted")
     except ValueError:
         pass
-    assert (root.parent / "brain-plot" / "ERP" / g1).exists()
+    assert (root.parent / f"brain_plot_{root.name}" / "ERP" / g1).exists()
     try:  # round 6: windows needs ROI channels, which erp bands do not carry
         ep.windows(spec(root, kind="erp", channels=["Cz"], components=[dict(name="N4", tmin_ms=350, tmax_ms=390,
                                                                             window_source="t")]))
@@ -311,7 +311,7 @@ with tempfile.TemporaryDirectory() as d:
                      "ERP-topo_P3_Cz-Pz_250-350ms_groups-by-condition_grp-G2_v01.png",
                      "ERP-topo_P3_Cz-Pz_250-350ms_groups-by-condition_grp-G1-G2_cond-A-B_v01.png"}, names
     ep.plot(spec(root, groups=["G1", "G2"]))  # the same figure again: a new version, the old one to _history
-    assert (root.parent / "brain-plot" / "ERP_topo" / "_history" /
+    assert (root.parent / f"brain_plot_{root.name}" / "ERP_topo" / "_history" /
             "ERP-topo_P3_Cz-Pz_250-350ms_groups-by-condition_grp-G1-G2_v01.png").exists()
 
     # 5. cache is invalidated when an input file changes
@@ -321,7 +321,7 @@ with tempfile.TemporaryDirectory() as d:
     after = ep.load(s)[0]["G1"]
     assert not np.allclose(before, after), "stale cache returned after an input file changed"
     # rule O1: only the most recently used caches stay (this folder has seen many different selections)
-    kept = list((root.parent / "brain-plot" / ".cache").glob("*.npz"))
+    kept = list((root.parent / f"brain_plot_{root.name}" / ".cache").glob("*.npz"))
     assert 0 < len(kept) <= ep.CACHE_KEEP, len(kept)
 
 # 6. groups from a metadata column in a flat folder of epochs files
@@ -346,7 +346,7 @@ with tempfile.TemporaryDirectory() as d:
     ex = dict(data=str(root), conditions={"A": "A", "B": "B"}, group_by="WM",
               components=[dict(name="P3", tmin_ms=250, tmax_ms=350)], differences=[["A", "B"]])
     ep.explore(ex)
-    out = root.parent / "brain-plot"
+    out = root.parent / f"brain_plot_{root.name}"
     assert all((out / f).exists() for g in ("HI", "LO")
                for f in (f"ERP/ERP-grid-3x3_conditions_{g}_v01.png", f"topo/topo-table_P3_{g}_v01.png"))
     ep.explore(ex)  # rule O2: a second run is v02; v01 moves to _history, nothing is overwritten

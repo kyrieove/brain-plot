@@ -70,7 +70,7 @@ python brain-plot/erp_plot.py plot examples/specs/p3_combo_inset.json     # 地�
 python brain-plot/microstate_plot.py plot examples/specs/microstate_k4.json
 ```
 
-图会出现在 `examples/brain-plot/` 下（`ERP_topo/`、`ERP/`、`microstate/`）。数据是编造的，只用来确认能正常运行。
+图会出现在 `examples/brain_plot_demo_data/` 下（`ERP_topo/`、`ERP/`、`microstate/`）。数据是编造的，只用来确认能正常运行。
 
 ## 在 Claude Code 里使用
 
@@ -113,9 +113,9 @@ spec 里的相对路径（`data`、`templates`）按 spec 文件所在文件夹�
 
 ## 输出
 
-全部写到**数据文件夹旁边**的 `brain-plot/` 里，按类型分子文件夹，文件名说明图的内容；只画部分组或条件时，文件名会加上
+全部写到**数据文件夹旁边**的 `brain_plot_<数据文件夹名>/` 里，按类型分子文件夹，文件名说明图的内容；只画部分组或条件时，文件名会加上
 `_grp-…` / `_cond-…`。不会覆盖：重画生成 `_v02`，旧版本移到 `_history/`。每张图的版面都由代码检查（文字互相重叠、文字或
-图例压线、文字超出画布），问题会打印出来并写进 `_run.json` 的 `layout_issues`。缓存（`brain-plot/.cache/`，保留最近用过的
+图例压线、文字超出画布），问题会打印出来并写进 `_run.json` 的 `layout_issues`。缓存（`brain_plot_<数据文件夹名>/.cache/`，保留最近用过的
 6 份，每份可能几十 MB）让后续运行更快，输入文件变化时自动重建。
 
 ## 规则和测试

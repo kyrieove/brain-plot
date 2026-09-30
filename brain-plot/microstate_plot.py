@@ -4,7 +4,7 @@
 
 Draws only: the templates are read, never re-fitted. Each condition's subject-equal grand average is labelled sample by
 sample with its best-matching template (the reference figures' method), and the figure shows the templates, the
-butterfly plot, the GFP and the segmentation. Outputs go to brain-plot/microstate/ next to the data folder, versioned
+butterfly plot, the GFP and the segmentation. Outputs go to brain_plot_<data folder>/microstate/ next to the data folder, versioned
 (rules O1–O3); the rules are MS1–MS10 in docs/rules.md (repository root).
 """
 import hashlib
