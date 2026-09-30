@@ -18,19 +18,18 @@ Three modules (ERP, microstate, time-frequency), tests pass, everything committe
   `microstate/`, `specs/`, `.cache/`; names say what the figure is; re-renders get `_vNN+1`, old versions move to `_history/`.
 
 ## Next (start here)
-**`source` module built 2026-10-01 on branch `source` (pushed, NOT merged — merge only when the user says so).**
-Claude planned and reviewed; agy implemented (plans `docs/AGY_PLAN_source-*.md`), codex did literature, the
-independent check and plan 2c after agy's quota ran out (`docs/PLAYBOOK-source.md` is superseded). Details and
-reasons: `docs/review-log.md`, last entry. Figures (all 59 subjects, sub27 excluded):
-`…\brain_plot_preprocessed_epochs_verb\source\source-windows_dSPM_P200-N400_lock-verbonset_v01.png` (main) and
-`source-timeline_dSPM_lock-verbonset_v05.png`; specs `specs\source_*.json`, localizer output
-`specs\source_localizer_output.txt`, SN check `specs\sn_check.txt`.
-**Waiting on the user:** (1) the late window: the data show a centro-parietal negativity from ≈ 400 ms to 2000 ms,
-continuous with the N400 (not a frontal SN, not an LPC) — options: fixed 600–1000 ms "late negativity", 1000–2000 ms
-(retention before the sound prompt), or none; (2) timeline: one colour bar hides 100–300 ms (only late activity passes
-P90) — keep, or one scale per column; (3) P200 is weak (+0.5 µV at F4) — keep?; (4) merge `source` into `main`.
-
-Everything is on `main` and pushed (4b33c69); `tfr` is merged. Data: `D:\1-python_datasets\metaphor production\`.
+**`source` module (2026-10-01): merged into `main` and pushed (user).** Claude planned and reviewed; agy implemented
+(plans `docs/AGY_PLAN_source-*.md`), codex did literature, the independent check and plans 2c + 3 after agy's quota
+ran out (`docs/PLAYBOOK-source.md` is superseded). Reasons for every change: `docs/review-log.md`, last entry.
+Figures (59 subjects, sub27 excluded): `…rain_plot_preprocessed_epochs_verb\source\source-windows_dSPM_P200-N400_lock-verbonset_v02.png`
+(main; P200 152–272, N400 402–528 ms from the localizer, `specs\source_localizer_output.txt`) and
+`source-timeline_dSPM_lock-verbonset_v06.png` (one colour scale per column); specs `specs\source_*.json`.
+User decisions: P200 kept although weak (+0.5 µV); no late window (`specs\sn_check.txt`: centro-parietal negativity
+400–2000 ms, continuous with the N400 — not an SN or LPC); per-column scales in the timeline; 16-mm brains, 8-pt text.
+**Open (small):** (1) neighbouring colour bars' end ticks sit ~1 mm apart ("2.40 2.46") — consider fewer ticks or
+wider block gaps; (2) the plan-3 size self-check has no dedicated test in `test_source.py`; (3) the user's reference
+figure stacks L above R per condition — offered as an alternative layout, not requested; (4) `.mne-test-profile/`
+in the repo root is a codex leftover (untracked) — delete.
 
 **Markers (user, final, 2026-09-30 22:30; matches the recording S15 0 / S1 +350 / S7 +2900 ms):** S15–20 = **verb
 onset**, S1–6 = onset of the 2500-ms blank after the verb, S7–12 = sound prompt. Conditions per block: Hmet, Hlit,

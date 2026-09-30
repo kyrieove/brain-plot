@@ -14,7 +14,7 @@ Read the study's own notes and preprocessing logs first (epoch bounds, reference
 
 | Round | Decide |
 |---|---|
-| 1 | Figure type (`figure`: `"windows"` for discrete component windows or `"timeline"` for timecourses), canvas width (`width_mm`, default 180 mm). |
+| 1 | Figure type (`figure`: `"windows"` for discrete component windows or `"timeline"` for timecourses), maximum canvas width (`width_mm`, default 180 mm). The canvas fits its content and may be narrower. |
 | 2 | Conditions (`conditions`: `{key: label}` mapping), trial selection (`query`, e.g. `"acc == 1"`), exclusions (`exclude`). All subjects pooled without groups (`group_by` ignored). |
 | 3 | If `figure: "windows"`: windows (`windows`: list of `{name, tmin_ms, tmax_ms}`). If unknown, localize via `erp_plot.py windows` using `region` + `polarity` to obtain candidate FWHP windows.<br>If `figure: "timeline"`: time points (`times_ms`, default `[100, 200, ..., 800]`), window half width (`half_width_ms`, default 50 ms). |
 
@@ -34,7 +34,7 @@ estimation. The run record includes rank, `subject_p99`, `outlier_subjects`, and
 
 Never ask (settled by house conventions; leave out or use default):
 - **Template anatomy** — fsaverage template brain, ico-5 source space, 3-layer BEM (`5120-5120-5120-bem-sol.fif`).
-- **Style** — inflated lateral views per hemisphere, left hemisphere on the left, labels "L" / "R" once per column pair at the top, hot colormap with grey cortex below threshold, horizontal colorbar under its block/figure, Arial house style.
+- **Style** — inflated lateral views per hemisphere at 16 mm wide (12–20 mm), original aspect ratio, 3 mm between hemispheres, 6 mm between columns, 3 mm between condition rows; left hemisphere on the left, labels "L" / "R" once per column pair at the top, hot colormap with grey cortex below threshold, 2 mm horizontal colour bar as wide as its brain pair, Arial house style with all text at least 7 pt.
 - **Statistics** — no significance marks or p-values exist; figures are purely descriptive grand averages.
 - **Journal** — ask width in mm instead (`width_mm`).
 
@@ -51,9 +51,8 @@ Fix the cause, never work around it; tell the user when the fix changes the figu
 
 1. **Left brain on the left**: pairs show left hemisphere lateral on the left, right hemisphere lateral on the right, labelled "L" and "R" once per column pair at the top.
 2. **Grey below threshold**: below `fmin` (90th percentile by default), the grey cortical surface shows through; hot colormap values show only above `fmin`.
-3. **One colour bar per window block / one per timeline**:
-   - For `figure: "windows"`, each column block has its own horizontal colour bar underneath, with ticks at fmin, fmid, fmax (2 decimals) and method label.
-   - For `figure: "timeline"`, one shared horizontal colour bar is placed under the last block.
-4. **Timeline layout**: when timeline has more than 4 time points, columns are split into stacked vertical blocks of up to 4 column pairs.
-5. **No overlaps**: condition labels on the left, column headers, brain pairs, and colorbars are cleanly separated; `layout_issues` in `_run.json` must be empty.
+3. **One colour scale and colour bar per column block**: each window or timeline time point has its own scale across conditions and its own horizontal colour bar underneath, with ticks at fmin, fmid, fmax (2 decimals) and method label.
+4. **Timeline layout**: time points are windows; each block row has at most 4 columns, with a colour bar under each column.
+5. **Size and proportions**: every brain image is 12–20 mm wide with its original aspect ratio within 2%; all text is at least 7 pt.
+6. **No overlaps**: condition labels on the left, column headers, brain pairs, and colour bars are cleanly separated; all layout checks in `_run.json` must be empty.
 6. **Outliers**: check `outlier_subjects` in `_run.json`; tell the user, never drop a subject yourself.

@@ -25,7 +25,7 @@ REQUIRED = {"data", "conditions"}
 OPTIONAL = {
     "subjects", "exclude", "query", "method", "lambda2", "loose", "depth",
     "noise_cov_ms", "baseline_ms", "figure", "windows", "times_ms", "half_width_ms",
-    "threshold_pct", "max_pct", "width_mm", "height_mm", "time_locked_to",
+    "threshold_pct", "max_pct", "width_mm", "time_locked_to",
     "group_by", "subjects_dir", "src", "bem",
 }
 
@@ -395,6 +395,25 @@ def load_and_compute(spec, subjects_dir=None, src=None, bem=None, fwd=None):
     return grand_avg, times_s, s_dir, src_obj, valid_ids, excluded, trial_counts, param_dict
 
 
+def source_layout_issues(fig, brain_axes, aspect_ratio):
+    """Check physical brain-image dimensions and minimum text size."""
+    fig.canvas.draw()
+    issues = []
+    fig_w_mm, fig_h_mm = (x * 25.4 for x in fig.get_size_inches())
+    for ax in brain_axes:
+        box = ax.get_position()
+        drawn_w = box.width * fig_w_mm
+        drawn_ar = box.height * fig_h_mm / drawn_w
+        if not 12.0 - 1e-3 <= drawn_w <= 20.0 + 1e-3:
+            issues.append(f"brain image width outside 12–20 mm: {drawn_w:.2f} mm")
+        if abs(drawn_ar / aspect_ratio - 1.0) > 0.02:
+            issues.append(f"brain image aspect ratio changed by more than 2%: {drawn_ar:.4f} vs {aspect_ratio:.4f}")
+    small_text = [t.get_text() for t in ep.drawn_texts(fig) if t.get_fontsize() < 7.0]
+    if small_text:
+        issues.append(f"text below 7 pt: {small_text!r}")
+    return issues
+
+
 def plot(spec, subjects_dir=None, src=None, bem=None, fwd=None):
     grand_avg, times_s, s_dir, src_obj, valid_ids, excluded, trial_counts, params = load_and_compute(
         spec, subjects_dir=subjects_dir, src=src, bem=bem, fwd=fwd,
@@ -407,257 +426,139 @@ def plot(spec, subjects_dir=None, src=None, bem=None, fwd=None):
     thresh_pct = float(spec.get("threshold_pct", 90.0))
     max_pct = float(spec.get("max_pct", 99.5))
 
+    if fig_type == "timeline":
+        half_w = float(spec.get("half_width_ms", 50.0))
+        windows = [
+            {"name": f"{t:g} ms", "tmin_ms": t - half_w, "tmax_ms": t + half_w}
+            for t in spec.get("times_ms", [100, 200, 300, 400, 500, 600, 700, 800])
+        ]
+        columns_per_row = 4
+    else:
+        windows = spec["windows"]
+        columns_per_row = len(windows)
+
     renderer = BrainRenderer(s_dir, src_obj)
     color_limits = {}
+    window_images = []
+    n_lh = len(src_obj[0]["vertno"])
+    for w in windows:
+        t_mask = (times_ms >= w["tmin_ms"] - 1e-3) & (times_ms <= w["tmax_ms"] + 1e-3)
+        if not np.any(t_mask):
+            ep.die(f"window {w['name']} [{w['tmin_ms']}, {w['tmax_ms']}] ms has no time points in data [{times_ms[0]:.0f}, {times_ms[-1]:.0f}] ms")
 
-    if fig_type == "windows":
-        windows = spec["windows"]
-        n_windows = len(windows)
-        win_images = []  # [w_idx][c_idx] -> (img_lh, img_rh)
-
-        for w_idx, w in enumerate(windows):
-            t_mask = (times_ms >= w["tmin_ms"] - 1e-3) & (times_ms <= w["tmax_ms"] + 1e-3)
-            if not np.any(t_mask):
-                ep.die(f"window {w['name']} [{w['tmin_ms']}, {w['tmax_ms']}] ms has no time points in data [{times_ms[0]:.0f}, {times_ms[-1]:.0f}] ms")
-
-            w_maps = [grand_avg[c][:, t_mask].mean(axis=-1) for c in range(n_cond)]
-            all_w_vals = np.concatenate(w_maps)
-
-            fmin = float(np.percentile(all_w_vals, thresh_pct))
-            fmax = float(np.percentile(all_w_vals, max_pct))
-            if fmin >= fmax:
-                fmax = fmin + 1e-6
-            fmid = float((fmin + fmax) / 2.0)
-            color_limits[f"window_{w['name']}"] = dict(fmin=fmin, fmid=fmid, fmax=fmax)
-
-            n_lh = len(src_obj[0]["vertno"])
-            w_cond_imgs = []
-            for c_idx in range(n_cond):
-                vals_lh = w_maps[c_idx][:n_lh]
-                vals_rh = w_maps[c_idx][n_lh:]
-                c_name = cond_keys[c_idx]
-                w_name = w["name"]
-                img_lh = renderer.render("lh", vals_lh, fmin, fmid, fmax, figure=fig_type, row=c_name, col=w_name)
-                img_rh = renderer.render("rh", vals_rh, fmin, fmid, fmax, figure=fig_type, row=c_name, col=w_name)
-                w_cond_imgs.append((img_lh, img_rh))
-            win_images.append(w_cond_imgs)
-
-        # Matplotlib figure layout
-        W = float(spec.get("width_mm", 180.0))
-        plt.rcParams.update(ep.STYLE)
-
-        fig_probe = plt.figure(figsize=(10, 10))
-        fig_probe.canvas.draw()
-        R_probe = fig_probe.canvas.get_renderer()
-        max_label_mm = 0.0
-        for c_key in cond_keys:
-            t_probe = fig_probe.text(0, 0, spec["conditions"][c_key], fontsize=7)
-            ext = t_probe.get_window_extent(R_probe)
-            w_mm = ext.width / (fig_probe.dpi / 72.0) * 25.4 / 72.0
-            max_label_mm = max(max_label_mm, w_mm)
-        plt.close(fig_probe)
-
-        left_mm = max(24.0, max_label_mm + 4.0)
-        right_mm = 5.0
-        hemi_gap = 1.0
-        pair_gap = 4.0
-        avail_w = W - left_mm - right_mm
-        brain_w = (avail_w - (n_windows - 1) * pair_gap - n_windows * hemi_gap) / (2 * n_windows)
-        pair_w = 2 * brain_w + hemi_gap
-
-        # sample aspect ratio from first rendered image
-        sample_img = win_images[0][0][0]
-        ar = sample_img.shape[0] / sample_img.shape[1]
-        brain_h = brain_w * ar
-        row_gap = 1.5
-
-        top_margin_mm = 4.0
-        header_h_mm = 8.0
-        cbar_space_mm = 11.0
-        bottom_margin_mm = 4.0
-
-        rows_h = n_cond * brain_h + (n_cond - 1) * row_gap
-        default_H = top_margin_mm + header_h_mm + rows_h + cbar_space_mm + bottom_margin_mm
-        H = float(spec.get("height_mm", default_H))
-
-        fig = plt.figure(figsize=(W * ep.MM, H * ep.MM))
-        top_y = H - top_margin_mm - header_h_mm
-
-        for w_idx, w in enumerate(windows):
-            px = left_mm + w_idx * (pair_w + pair_gap)
-            fig.text((px + pair_w / 2.0) / W, (top_y + 4.5) / H,
-                     f"{w['name']} ({w['tmin_ms']:g}–{w['tmax_ms']:g} ms)",
-                     ha="center", va="bottom", fontsize=7, fontweight="bold")
-            fig.text((px + brain_w / 2.0) / W, (top_y + 1.0) / H, "L", ha="center", va="bottom", fontsize=6)
-            fig.text((px + brain_w + hemi_gap + brain_w / 2.0) / W, (top_y + 1.0) / H, "R", ha="center", va="bottom", fontsize=6)
-
-            for c_idx in range(n_cond):
-                cy = top_y - (c_idx + 1) * brain_h - c_idx * row_gap
-                if w_idx == 0:
-                    fig.text((left_mm - 2.0) / W, (cy + brain_h / 2.0) / H,
-                             spec["conditions"][cond_keys[c_idx]],
-                             ha="right", va="center", fontsize=7)
-
-                img_lh, img_rh = win_images[w_idx][c_idx]
-                ax_l = fig.add_axes([px / W, cy / H, brain_w / W, brain_h / H])
-                ax_l.imshow(img_lh)
-                ax_l.set_xticks([]); ax_l.set_yticks([]); ax_l.axis("off")
-
-                ax_r = fig.add_axes([(px + brain_w + hemi_gap) / W, cy / H, brain_w / W, brain_h / H])
-                ax_r.imshow(img_rh)
-                ax_r.set_xticks([]); ax_r.set_yticks([]); ax_r.axis("off")
-
-            # Horizontal colorbar under block
-            lim = color_limits[f"window_{w['name']}"]
-            cbar_w = min(pair_w * 0.85, 32.0)
-            cbar_x = px + (pair_w - cbar_w) / 2.0
-            cbar_y = top_y - rows_h - cbar_space_mm + 3.0
-            cax = fig.add_axes([cbar_x / W, cbar_y / H, cbar_w / W, 2.0 / H])
-            norm = matplotlib.colors.Normalize(vmin=lim["fmin"], vmax=lim["fmax"])
-            cb = fig.colorbar(matplotlib.cm.ScalarMappable(norm=norm, cmap="hot"), cax=cax, orientation="horizontal")
-            cb.set_ticks([lim["fmin"], lim["fmid"], lim["fmax"]])
-            cb.ax.set_xticklabels([f"{lim['fmin']:.2f}", f"{lim['fmid']:.2f}", f"{lim['fmax']:.2f}"], fontsize=6)
-            cb.ax.tick_params(labelsize=6, length=2, width=0.5, pad=1.5)
-            cb.outline.set_linewidth(0.5)
-            cax.set_title(method, fontsize=6.5, pad=2)
-
-        win_part = "_" + "-".join(ep.safe(w["name"]) for w in windows)
-        stem = f"source-windows_{method}{win_part}{ep.name_part(spec)}"
-
-    elif fig_type == "timeline":
-        times = spec.get("times_ms", [100, 200, 300, 400, 500, 600, 700, 800])
-        half_w = float(spec.get("half_width_ms", 50.0))
-        n_times = len(times)
-
-        # Global color limits over entire timeline
-        all_time_maps = []
-        for t_val in times:
-            t_mask = (times_ms >= (t_val - half_w) - 1e-3) & (times_ms <= (t_val + half_w) + 1e-3)
-            if not np.any(t_mask):
-                ep.die(f"time point {t_val} ms (±{half_w} ms) has no samples in data [{times_ms[0]:.0f}, {times_ms[-1]:.0f}] ms")
-            all_time_maps.append([grand_avg[c][:, t_mask].mean(axis=-1) for c in range(n_cond)])
-
-        all_vals = np.concatenate([np.concatenate(m) for m in all_time_maps])
+        maps = [grand_avg[c][:, t_mask].mean(axis=-1) for c in range(n_cond)]
+        all_vals = np.concatenate(maps)
         fmin = float(np.percentile(all_vals, thresh_pct))
         fmax = float(np.percentile(all_vals, max_pct))
         if fmin >= fmax:
             fmax = fmin + 1e-6
-        fmid = float((fmin + fmax) / 2.0)
-        color_limits["timeline"] = dict(fmin=fmin, fmid=fmid, fmax=fmax)
+        fmid = (fmin + fmax) / 2.0
+        lim = dict(fmin=fmin, fmid=fmid, fmax=fmax)
+        color_limits[f"window_{w['name']}"] = lim
 
-        # Render all maps
-        n_lh = len(src_obj[0]["vertno"])
-        time_images = []
-        for t_idx, t_val in enumerate(times):
-            cond_imgs = []
+        cond_images = []
+        for c_idx, values in enumerate(maps):
+            name = w["name"]
+            key = cond_keys[c_idx]
+            img_lh = renderer.render("lh", values[:n_lh], fmin, fmid, fmax, figure=fig_type, row=key, col=name)
+            img_rh = renderer.render("rh", values[n_lh:], fmin, fmid, fmax, figure=fig_type, row=key, col=name)
+            cond_images.append((img_lh, img_rh))
+        window_images.append(cond_images)
+
+    plt.rcParams.update(ep.STYLE)
+    probe = plt.figure(figsize=(10, 10))
+    probe.canvas.draw()
+    renderer_probe = probe.canvas.get_renderer()
+    max_label_mm = 0.0
+    for key in cond_keys:
+        artist = probe.text(0, 0, spec["conditions"][key], fontsize=8)
+        extent = artist.get_window_extent(renderer_probe)
+        max_label_mm = max(max_label_mm, extent.width / probe.dpi * 25.4)
+    plt.close(probe)
+
+    left_mm = max_label_mm + 4.0
+    right_mm = 4.0
+    hemi_gap = 3.0
+    block_gap = 6.0
+    max_width_mm = float(spec.get("width_mm", 180.0))
+    n_cols = min(columns_per_row, len(windows))
+    fixed_w = left_mm + right_mm + n_cols * hemi_gap + (n_cols - 1) * block_gap
+    brain_w = min(16.0, (max_width_mm - fixed_w) / (2.0 * n_cols))
+    if brain_w < 12.0:
+        plural = "window/times per block row"
+        ep.die(f"width_mm={max_width_mm:g} cannot fit {n_cols} columns with 12 mm brains; use fewer {plural}")
+    pair_w = 2.0 * brain_w + hemi_gap
+    W = left_mm + right_mm + n_cols * pair_w + (n_cols - 1) * block_gap
+
+    sample_img = window_images[0][0][0]
+    aspect_ratio = sample_img.shape[0] / sample_img.shape[1]
+    brain_h = brain_w * aspect_ratio
+    row_gap = 3.0
+    header_h_mm = 10.0
+    cbar_space_mm = 13.0
+    top_margin_mm = bottom_margin_mm = 4.0
+    block_row_gap_mm = 6.0
+    rows_h = n_cond * brain_h + (n_cond - 1) * row_gap
+    section_h = header_h_mm + rows_h + cbar_space_mm
+    window_blocks = [windows[i:i + columns_per_row] for i in range(0, len(windows), columns_per_row)]
+    n_block_rows = len(window_blocks)
+    H = top_margin_mm + n_block_rows * section_h + (n_block_rows - 1) * block_row_gap_mm + bottom_margin_mm
+    fig = plt.figure(figsize=(W * ep.MM, H * ep.MM))
+    brain_axes = []
+
+    for row_idx, block in enumerate(window_blocks):
+        block_top = H - top_margin_mm - row_idx * (section_h + block_row_gap_mm)
+        top_y = block_top - header_h_mm
+        for col_idx, w in enumerate(block):
+            w_idx = row_idx * columns_per_row + col_idx
+            px = left_mm + col_idx * (pair_w + block_gap)
+            title = (f"{w['name']} ({w['tmin_ms']:g}–{w['tmax_ms']:g} ms)"
+                     if fig_type == "windows" else w["name"])
+            fig.text((px + pair_w / 2.0) / W, (top_y + 6.0) / H, title,
+                     ha="center", va="bottom", fontsize=8, fontweight="bold")
+            fig.text((px + brain_w / 2.0) / W, (top_y + 1.5) / H, "L", ha="center", va="bottom", fontsize=7)
+            fig.text((px + brain_w + hemi_gap + brain_w / 2.0) / W, (top_y + 1.5) / H, "R", ha="center", va="bottom", fontsize=7)
+
             for c_idx in range(n_cond):
-                vals_lh = all_time_maps[t_idx][c_idx][:n_lh]
-                vals_rh = all_time_maps[t_idx][c_idx][n_lh:]
-                c_name = cond_keys[c_idx]
-                t_name = f"{t_val:g} ms"
-                img_lh = renderer.render("lh", vals_lh, fmin, fmid, fmax, figure=fig_type, row=c_name, col=t_name)
-                img_rh = renderer.render("rh", vals_rh, fmin, fmid, fmax, figure=fig_type, row=c_name, col=t_name)
-                cond_imgs.append((img_lh, img_rh))
-            time_images.append(cond_imgs)
+                cy = top_y - (c_idx + 1) * brain_h - c_idx * row_gap
+                if col_idx == 0:
+                    fig.text((left_mm - 2.0) / W, (cy + brain_h / 2.0) / H,
+                             spec["conditions"][cond_keys[c_idx]], ha="right", va="center", fontsize=8)
 
-        # Split into blocks of up to 4 columns
-        col_blocks = [times[i:i + 4] for i in range(0, n_times, 4)]
-        img_blocks = [time_images[i:i + 4] for i in range(0, n_times, 4)]
-        n_vert_blocks = len(col_blocks)
+                img_lh, img_rh = window_images[w_idx][c_idx]
+                ax_l = fig.add_axes([px / W, cy / H, brain_w / W, brain_h / H])
+                ax_l.imshow(img_lh)
+                ax_l.set_xticks([]); ax_l.set_yticks([])
+                ax_l.axis("off")
+                brain_axes.append(ax_l)
+                ax_r = fig.add_axes([(px + brain_w + hemi_gap) / W, cy / H, brain_w / W, brain_h / H])
+                ax_r.imshow(img_rh)
+                ax_r.set_xticks([]); ax_r.set_yticks([])
+                ax_r.axis("off")
+                brain_axes.append(ax_r)
 
-        W = float(spec.get("width_mm", 180.0))
-        plt.rcParams.update(ep.STYLE)
+            lim = color_limits[f"window_{w['name']}"]
+            cbar_y = top_y - rows_h - 7.0
+            cax = fig.add_axes([px / W, cbar_y / H, pair_w / W, 2.0 / H])
+            norm = matplotlib.colors.Normalize(vmin=lim["fmin"], vmax=lim["fmax"])
+            cb = fig.colorbar(matplotlib.cm.ScalarMappable(norm=norm, cmap="hot"), cax=cax, orientation="horizontal")
+            cb.set_ticks([lim["fmin"], lim["fmid"], lim["fmax"]])
+            cb.ax.set_xticklabels([f"{lim['fmin']:.2f}", f"{lim['fmid']:.2f}", f"{lim['fmax']:.2f}"], fontsize=7)
+            cb.ax.tick_params(labelsize=7, length=2, width=0.5, pad=1.5)
+            cb.outline.set_linewidth(0.5)
+            cax.set_title(method, fontsize=7, pad=5)
 
-        fig_probe = plt.figure(figsize=(10, 10))
-        fig_probe.canvas.draw()
-        R_probe = fig_probe.canvas.get_renderer()
-        max_label_mm = 0.0
-        for c_key in cond_keys:
-            t_probe = fig_probe.text(0, 0, spec["conditions"][c_key], fontsize=7)
-            ext = t_probe.get_window_extent(R_probe)
-            w_mm = ext.width / (fig_probe.dpi / 72.0) * 25.4 / 72.0
-            max_label_mm = max(max_label_mm, w_mm)
-        plt.close(fig_probe)
-
-        left_mm = max(24.0, max_label_mm + 4.0)
-        right_mm = 5.0
-        hemi_gap = 1.0
-        pair_gap = 4.0
-        n_cols_max = max(len(b) for b in col_blocks)
-        avail_w = W - left_mm - right_mm
-        brain_w = (avail_w - (n_cols_max - 1) * pair_gap - n_cols_max * hemi_gap) / (2 * n_cols_max)
-        pair_w = 2 * brain_w + hemi_gap
-
-        sample_img = time_images[0][0][0]
-        ar = sample_img.shape[0] / sample_img.shape[1]
-        brain_h = brain_w * ar
-        row_gap = 1.5
-
-        top_margin_mm = 4.0
-        header_h_mm = 8.0
-        block_gap_mm = 8.0
-        cbar_space_mm = 11.0
-        bottom_margin_mm = 4.0
-
-        rows_h = n_cond * brain_h + (n_cond - 1) * row_gap
-        default_H = (
-            top_margin_mm
-            + n_vert_blocks * (header_h_mm + rows_h)
-            + (n_vert_blocks - 1) * block_gap_mm
-            + cbar_space_mm
-            + bottom_margin_mm
-        )
-        H = float(spec.get("height_mm", default_H))
-
-        fig = plt.figure(figsize=(W * ep.MM, H * ep.MM))
-
-        for vb_idx, (b_times, b_imgs) in enumerate(zip(col_blocks, img_blocks)):
-            block_top = H - top_margin_mm - vb_idx * (header_h_mm + rows_h + block_gap_mm)
-            top_y = block_top - header_h_mm
-
-            for c_col, (t_val, cond_pair_imgs) in enumerate(zip(b_times, b_imgs)):
-                px = left_mm + c_col * (pair_w + pair_gap)
-                fig.text((px + pair_w / 2.0) / W, (top_y + 4.5) / H,
-                         f"{t_val:g} ms", ha="center", va="bottom", fontsize=7, fontweight="bold")
-                fig.text((px + brain_w / 2.0) / W, (top_y + 1.0) / H, "L", ha="center", va="bottom", fontsize=6)
-                fig.text((px + brain_w + hemi_gap + brain_w / 2.0) / W, (top_y + 1.0) / H, "R", ha="center", va="bottom", fontsize=6)
-
-                for c_idx in range(n_cond):
-                    cy = top_y - (c_idx + 1) * brain_h - c_idx * row_gap
-                    if c_col == 0:
-                        fig.text((left_mm - 2.0) / W, (cy + brain_h / 2.0) / H,
-                                 spec["conditions"][cond_keys[c_idx]],
-                                 ha="right", va="center", fontsize=7)
-
-                    img_lh, img_rh = cond_pair_imgs[c_idx]
-                    ax_l = fig.add_axes([px / W, cy / H, brain_w / W, brain_h / H])
-                    ax_l.imshow(img_lh)
-                    ax_l.set_xticks([]); ax_l.set_yticks([]); ax_l.axis("off")
-
-                    ax_r = fig.add_axes([(px + brain_w + hemi_gap) / W, cy / H, brain_w / W, brain_h / H])
-                    ax_r.imshow(img_rh)
-                    ax_r.set_xticks([]); ax_r.set_yticks([]); ax_r.axis("off")
-
-        # One colorbar for the whole figure, under the last block
-        last_block_bot = H - top_margin_mm - (n_vert_blocks - 1) * (header_h_mm + rows_h + block_gap_mm) - header_h_mm - rows_h
-        cbar_w = 40.0
-        grid_w = n_cols_max * pair_w + (n_cols_max - 1) * pair_gap
-        cbar_x = left_mm + (grid_w - cbar_w) / 2.0
-        cbar_y = last_block_bot - cbar_space_mm + 3.0
-        cax = fig.add_axes([cbar_x / W, cbar_y / H, cbar_w / W, 2.0 / H])
-        norm = matplotlib.colors.Normalize(vmin=fmin, vmax=fmax)
-        cb = fig.colorbar(matplotlib.cm.ScalarMappable(norm=norm, cmap="hot"), cax=cax, orientation="horizontal")
-        cb.set_ticks([fmin, fmid, fmax])
-        cb.ax.set_xticklabels([f"{fmin:.2f}", f"{fmid:.2f}", f"{fmax:.2f}"], fontsize=6)
-        cb.ax.tick_params(labelsize=6, length=2, width=0.5, pad=1.5)
-        cb.outline.set_linewidth(0.5)
-        cax.set_title(method, fontsize=6.5, pad=2)
-
+    if fig_type == "windows":
+        win_part = "_" + "-".join(ep.safe(w["name"]) for w in windows)
+        stem = f"source-windows_{method}{win_part}{ep.name_part(spec)}"
+    else:
         stem = f"source-timeline_{method}{ep.name_part(spec)}"
-
 
     out = ep.versioned(ep.out_root(spec) / "source", stem)
     issues = ep.report_layout(fig, out.name)
+    issues.extend(source_layout_issues(fig, brain_axes, aspect_ratio))
+    for issue in issues:
+        print(f"WARNING: layout ({out.name}): {issue}")
     fig.savefig(f"{out}.png", dpi=600)
     fig.savefig(f"{out}.svg")
     plt.close(fig)

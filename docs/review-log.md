@@ -514,3 +514,10 @@ final rules read as they do.
   centro-parietal negativity from ≈ 400 ms to the epoch end (2000 ms), not separated from the N400, not frontal →
   not the literature's SN; no late window drawn until the user decides.
 - agy's 5-h quota ran out mid-task; codex (`--add-dir` data outputs, `~/.mne`, `~/mne_data`) finished plan 2c.
+- Plan 3 (user: "figure too big, text too small, proportions off — a major problem"; reference figure with wide
+  gaps): brains no longer stretched to 180 mm — 16 mm per hemisphere, canvas = content width (`width_mm` is a
+  maximum, brains shrink to ≥ 12 mm), gaps L–R 3 mm / blocks 6 mm / rows 3 mm, text 8 pt (labels, titles) and 7 pt
+  (L/R, ticks); timeline drawn through the windows code path with one colour scale per time column (user: one global
+  scale left most maps grey); size self-check in `layout_issues`. Done by codex (agy quota out). −101 lines net.
+  Figures: windows v02 (105 × 113 mm), timeline v06 (180 × 216 mm). Late window: dropped (user: "不用管了").
+  Merged into `main` 2026-10-01 (user).

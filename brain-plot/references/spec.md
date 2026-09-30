@@ -98,8 +98,7 @@ Required: `data` (folder of `*-epo.fif` files), `conditions` (`{key: label}`).
 | `subjects` | all found | Optional subset of subject IDs to include. |
 | `exclude` | none | List of subject IDs to exclude or `{id: reason}` dict. |
 | `query` | none | Pandas-style query applied to epochs metadata (e.g. `"acc == 1"`). |
-| `width_mm` | 180 | Figure width in mm. |
-| `height_mm` | auto | Figure height in mm calculated from the grid. |
+| `width_mm` | 180 | Maximum figure width in mm; the canvas fits the content and may be narrower. |
 | `time_locked_to` | none | Caption fact and file name part. |
 
 Outputs go to `source/` under the output root: `source-<figure>_<method>[_<windows>]_vNN.png/.svg`, `_run.json`.
