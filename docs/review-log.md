@@ -467,3 +467,15 @@ final rules read as they do.
 - test_layout: inset expectations updated (colour bar 'none' inside panels, one shared 2-mm bar, parts = maps only,
   3 lines in 2 × 3 panels now fit instead of stopping, the 'tighter spacing must be hit' check dropped). Suites:
   test_erp_plot OK, test_layout OK, test_microstate OK (mnedev, Arial).
+
+## 2026-09-30 (later) — second axis style `axes: "box"` (left + bottom axes)
+- User asked for a classic left/bottom axis style next to the cross axes (reference: the Go/NoGo figure). Planned by
+  Claude (PLAN in the session scratchpad), implemented by agy (Gemini 3.8 Flash High, ~20 min): `box_axes()` (outward
+  ticks, labels outside, `Time (ms)` / `Amplitude (µV)`, thin 0-µV line, dotted 0-ms line), room for outside labels in
+  `canvas()` and `inset_geometry()`, inset planner without the cross-axis label bands, spec key + validation, tests.
+  Explore overview stays cross. Default is cross; cross output unchanged.
+- Claude's review of agy's renders found two defects, fixed by Claude: (1) no `0` tick on the y-axis (`nice_ticks`
+  leaves 0 out because cross axes label the origin) — box mode now adds it; (2) side combo: the legend between the
+  panels sat on the `800`/`1000` tick labels — `obstacles_of` now uses the tight box (tick labels, titles) of panels
+  that carry an x title, so the clash is seen and the legend moves to the widened gap (+10 mm in box mode, `1000`
+  pokes into it). Suites OK (erp_plot, layout, microstate). Renders: inset v19, side combo v09 (specs `*_box.json`).

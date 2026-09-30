@@ -103,10 +103,16 @@ def inset_clear(fig):
             if t.get_visible() and t.get_text():
                 assert not bb.overlaps(t.get_window_extent(R)), f"a map part overlaps the text {t.get_text()!r}"
         for ln in w.lines:
-            xy = w.transData.transform(ln.get_xydata())
-            xs = np.linspace(xy[0, 0], xy[-1, 0], 20 * len(xy))
-            ys = np.interp(xs, xy[:, 0], xy[:, 1])
-            assert not ((xs > bb.x0) & (xs < bb.x1) & (ys > bb.y0) & (ys < bb.y1)).any(), "a map part covers a curve"
+            tf = ln.get_transform()
+            xy = tf.transform(ln.get_xydata())
+            if abs(xy[0, 0] - xy[-1, 0]) < 1e-3:  # vertical line (e.g. 0 ms in box mode)
+                x_val = xy[0, 0]
+                y_lo, y_hi = sorted([xy[0, 1], xy[-1, 1]])
+                assert not (bb.x0 < x_val < bb.x1 and max(y_lo, bb.y0) < min(y_hi, bb.y1)), "a map part covers a vertical line"
+            else:
+                xs = np.linspace(xy[0, 0], xy[-1, 0], 20 * len(xy))
+                ys = np.interp(xs, xy[:, 0], xy[:, 1])
+                assert not ((xs > bb.x0) & (xs < bb.x1) & (ys > bb.y0) & (ys < bb.y1)).any(), "a map part covers a curve"
         for coll in w.collections:  # SEM bands
             box = coll.get_window_extent(R)
             if box.width > 0:
@@ -167,6 +173,8 @@ with tempfile.TemporaryDirectory() as d:
           dict(base, groups=["G1", "G2"], conditions=six, overlay="conditions", components=[n400], **pairs), out)
     clean("combo, 3 groups × 3 condition panels", ep.plot,
           dict(base, conditions=dict(list(COND.items())[:3]), components=[n400]), out)
+    clean("combo side, box axes", ep.plot,
+          dict(base, conditions=dict(list(COND.items())[:3]), components=[n400], axes="box"), out)
     clean("combo, 3 groups × 4 panels (2 × 2 map blocks)", ep.plot,
           dict(base, conditions=dict(list(COND.items())[:4]), components=[n400]), out)
     clean("erp roi, negative up + SEM, P1 (µV headroom)", ep.plot,
@@ -174,6 +182,11 @@ with tempfile.TemporaryDirectory() as d:
                error="sem", xlim_ms=[-100, 600], components=[{k: v for k, v in p1.items() if k != "channels"}]), out)
     units = [t for a in SAVED[-1].axes for t in a.texts if t.get_text() == "µV"]
     assert units and all(t.get_bbox_patch() is None for t in units), "µV needed a white box: no headroom (rule T1)"
+    clean("erp roi with box axes", ep.plot,
+          dict(base, conditions=dict(list(COND.items())[:4]), kind="erp", channels=p1["channels"], polarity="negative_up",
+               error="sem", xlim_ms=[-100, 600], components=[{k: v for k, v in p1.items() if k != "channels"}], axes="box", height_mm=140), out)
+    stops("axes: diagonal stops", ep.plot,
+          dict(base, conditions=dict(list(COND.items())[:3]), components=[n400], axes="diagonal"), "axes")
     clean("topo, 7 conditions × 3 groups", ep.plot,
           dict(base, conditions=COND, overlay="conditions", kind="topo", components=[n400]), out)
     clean("erp single panel, 7 conditions (legend inside)", ep.plot,
@@ -208,6 +221,9 @@ with tempfile.TemporaryDirectory() as d:
              ("none", None)),
             ("inset 2 × 3 design", dict(inset, conditions=six,
                                                                             grid=[["c1", "c2", "c3"], ["c4", "c5", "c6"]]), 6,
+             ("none", None)),
+            ("inset 2 × 3 design, box axes", dict(inset, conditions=six,
+                                                  grid=[["c1", "c2", "c3"], ["c4", "c5", "c6"]], axes="box"), 6,
              ("none", None)),
             ("inset, panels = 3 groups in a row", dict(inset, groups=["G1", "G2", "G3"], overlay="conditions",
                                                      conditions=c("c1", "c2"), width_mm=185), 3, ("none", None)),

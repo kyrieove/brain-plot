@@ -43,7 +43,7 @@ STYLE = {
 REQUIRED = {"data", "conditions"}
 OPTIONAL = {"claim", "key_comparison", "time_locked_to", "reference", "kind", "groups", "exclude", "query", "overlay", "ordered", "colors", "xlim_ms", "polarity", "width_mm",
             "height_mm", "cmap", "stats_note", "group_by", "linestyles", "error", "components", "channels", "layout",
-            "flat_channels", "map_placement", "grid"}
+            "flat_channels", "map_placement", "grid", "axes"}
 COMPONENT_KEYS = {"name", "channels", "tmin_ms", "tmax_ms"}  # + optional window_source (caption only)
 TOPO = dict(contours=8, extrapolate="head", image_interp="cubic")  # recorded in every caption; sphere: common_sphere()
 
@@ -218,6 +218,8 @@ def check_spec(spec):
         die("error must be 'none' or 'sem'")
     if spec.get("map_placement", "side") not in ("side", "inset"):
         die("map_placement must be 'side' or 'inset'")
+    if spec.get("axes", "cross") not in ("cross", "box"):
+        die("axes must be 'cross' or 'box'")
     if spec.get("map_placement", "side") == "inset" and spec.get("kind", "combo") != "combo":
         die("map_placement 'inset' belongs to kind 'combo' (maps inside the waveform panels)")
     if "grid" in spec:
@@ -785,6 +787,51 @@ def cross_axes(ax, fig, lo, hi, ylim, negative_up, x, low_env, high_env):
             t.set_bbox(MASK)
 
 
+def box_axes(ax, fig, lo, hi, ylim, negative_up):
+    """Rule T1, box mode (user, 2026-09-30): only the left and bottom spines at panel edges. Ticks point outward
+    (2.5 pt), tick labels outside the panel (fontsize 6): y labels left of the left spine, x labels below the bottom
+    spine. y tick values match cross mode (nice_ticks); x ticks at multiples of step inside [lo, hi] including 0 and lo.
+    Axis titles (fontsize 6): 'Time (ms)' centred under x ticks, 'Amplitude (µV)' rotated 90° left of y ticks.
+    Reference lines: horizontal at 0 µV (lw 0.4, colour '0.6', zorder below curves) and dotted vertical at 0 ms
+    (lw 0.4, colour '0.6', ls ':', zorder below curves) across the full panel."""
+    ax.set_xlim(lo, hi)
+    ax.set_ylim(*(ylim[::-1] if negative_up else ylim))
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_visible(True)
+    ax.spines["bottom"].set_visible(True)
+    ax.spines["left"].set_position(("axes", 0))
+    ax.spines["bottom"].set_position(("axes", 0))
+    ax.spines["left"].set_linewidth(0.6)
+    ax.spines["bottom"].set_linewidth(0.6)
+    ax.tick_params(bottom=True, left=True, top=False, right=False,
+                   direction="out", length=2.5, width=0.6, pad=1.5, labelsize=6)
+    yt, _, _ = nice_ticks(ylim, ax.get_position().height * fig.get_figheight() * 72)
+    yt = sorted(set(yt) | {0.0})  # nice_ticks leaves 0 out (cross axes label it at the origin); a box axis needs it
+    ax.set_yticks(yt, [f"{v:g}".replace("-", "−") for v in yt])
+    span = hi - lo
+    step = 200 if span >= 600 else 100 if span >= 300 else 50
+    fig.canvas.draw()
+    pt = fig.dpi / 72
+    renderer = fig.canvas.get_renderer()
+    while True:
+        xt = [float(v) for v in np.arange(np.ceil(lo / step) * step, hi + 1e-9, step)]
+        labs = [f"{v:g}".replace("-", "−") for v in xt]
+        boxes = []
+        for v, lab in zip(xt, labs):
+            probe = ax.annotate(lab, (v, 0), fontsize=6, ha="center")
+            boxes.append(probe.get_window_extent(renderer))
+            probe.remove()
+        if all(b1.x0 - b0.x1 >= 3 * pt for b0, b1 in zip(boxes, boxes[1:])) or len(xt) <= 1:
+            break
+        step *= 2
+    ax.set_xticks(xt, labs)
+    ax.set_xlabel("Time (ms)", fontsize=6, labelpad=2)
+    ax.set_ylabel("Amplitude (µV)", fontsize=6, labelpad=2)
+    ax.axhline(0, color="0.6", lw=0.4, zorder=0.5)
+    ax.axvline(0, color="0.6", lw=0.4, ls=":", zorder=0.5)
+
+
 def canvas_size(spec):
     """Rule T6: the canvas is fixed by the spec (default 180 × 120 mm), never derived from the content."""
     return spec.get("width_mm", 180), spec.get("height_mm", 120)
@@ -883,9 +930,10 @@ def topo_grid(n_lines):
 MIN_WAVE_MM = 15.0  # a waveform panel shorter than this cannot hold legible ticks, labels and lines (rule L3)
 
 
-def wave_panel_mm(H, n):
+def wave_panel_mm(H, n, box=False):
     """Height of each of n stacked waveform panels on an H-mm canvas (the geometry of canvas())."""
-    avail, need = H - 18, 13.0
+    top_m, bot_m = 9.0, 14.0 if box else 9.0
+    avail, need = H - top_m - bot_m, 18.0 if box else 13.0
     if n < 2 or 0.55 * avail / (n + 0.55 * (n - 1)) >= need:
         return avail / (n + 0.55 * (n - 1))
     return (avail - (n - 1) * need) / n
@@ -901,22 +949,27 @@ def canvas(spec, n, n_lines, gap=GAP_MM, maps=True):
     | topomaps (~19 mm per head column, at most 55 % of what is left) | spacer | colour bar. Stops when the stacked
     panels would be shorter than MIN_WAVE_MM (rule L3), naming a height_mm that works."""
     W, H = canvas_size(spec)
-    if wave_panel_mm(H, n) < MIN_WAVE_MM:
-        need = next((h for h in range(int(H) + 1, 1001) if wave_panel_mm(h, n) >= MIN_WAVE_MM), None)
+    is_box = spec.get("axes", "cross") == "box"
+    if wave_panel_mm(H, n, is_box) < MIN_WAVE_MM:
+        need = next((h for h in range(int(H) + 1, 1001) if wave_panel_mm(h, n, is_box) >= MIN_WAVE_MM), None)
         other = "conditions" if spec.get("overlay", "groups") == "groups" else "groups"
-        die(f"{n} stacked waveform panels would be {wave_panel_mm(H, n):.0f} mm tall each; at least {MIN_WAVE_MM:g} mm "
+        die(f"{n} stacked waveform panels would be {wave_panel_mm(H, n, is_box):.0f} mm tall each; at least {MIN_WAVE_MM:g} mm "
             f"keep ticks and labels legible (rule L3): use height_mm {need} or more at width_mm {W:g}"
             + (f", or overlay '{other}' ({n_lines} panel{'s' * (n_lines > 1)})"
-               if n_lines < n and wave_panel_mm(H, n_lines) >= MIN_WAVE_MM else "") + ", or fewer panels")
+               if n_lines < n and wave_panel_mm(H, n_lines, is_box) >= MIN_WAVE_MM else "") + ", or fewer panels")
     fig = plt.figure(figsize=(W * MM, H * MM))
     tiny = 1e-3  # kind "erp": the map and colour-bar columns collapse to nothing
     pad, bar = (CBAR_PAD_MM, CBAR_MM) if maps else (tiny, tiny)
-    usable = W - 24 - gap - pad - bar  # 12-mm side margins
+    left_m = 14.0 if is_box else 12.0
+    right_m = 12.0
+    top_m = 9.0
+    bot_m = 14.0 if is_box else 9.0
+    usable = W - left_m - right_m - gap - pad - bar  # side margins
     topo_mm = min(19 * topo_grid(n_lines)[1], 0.55 * usable) if maps else tiny
-    avail, need = H - 18, 13.0  # 9-mm top/bottom margins; facet label + ROI title + letter need 13 mm between panels
+    avail, need = H - top_m - bot_m, 18.0 if is_box else 13.0  # facet label + ROI title + letter need 13 mm (18 mm in box mode)
     hspace = 0.55 if n < 2 or 0.55 * avail / (n + 0.55 * (n - 1)) >= need else need / ((avail - (n - 1) * need) / n)
     gs = GridSpec(n, 5, figure=fig, width_ratios=[usable - topo_mm, gap, topo_mm, pad, bar],
-                  hspace=hspace, wspace=0, left=12 / W, right=1 - 12 / W, top=1 - 9 / H, bottom=9 / H)
+                  hspace=hspace, wspace=0, left=left_m / W, right=1 - right_m / W, top=1 - top_m / H, bottom=bot_m / H)
     return fig, gs
 
 
@@ -940,11 +993,12 @@ def common_sphere(info):
 
 
 def obstacles_of(fig):
-    """Window extents of every text and every axes (waveform areas, topomap heads) in the figure."""
+    """Window extents of every text and every axes (waveform areas with their tick labels and axis titles, topomap
+    heads) in the figure."""
     R = fig.canvas.get_renderer()
     boxes = [t.get_window_extent(R) for t in fig.texts if t.get_text()]
     for a in fig.axes:
-        boxes.append(a.get_window_extent(R))
+        boxes.append(a.get_tightbbox(R) if a.xaxis.label.get_text() else a.get_window_extent(R))  # box axes: labels outside
         boxes += [t.get_window_extent(R) for t in a.texts + [a.title] if t.get_visible() and t.get_text()]
     return boxes
 
@@ -1041,9 +1095,14 @@ def inset_geometry(spec, rows, labels, window, tier=0):
     n_lines = len(labels)
     tw = (max(text_widths_mm(labels, 5)), 0.0)  # no window text in the combo (user, 2026-09-30)
     W = spec.get("width_mm", 180)
+    is_box = spec.get("axes", "cross") == "box"
     gx, gy, mx = INSET_SPACING[tier]
+    if is_box:
+        gx += 4.5
+        gy += 5.5
+        mx = max(mx + 2.0, 13.0)
     R, C = len(rows), max(len(r) for r in rows)
-    top, bottom = 9.0, 10.5 + 3.6 * int(np.ceil(n_lines / 4))
+    top, bottom = 9.0, 10.5 + 3.6 * int(np.ceil(n_lines / 4)) + (5.0 if is_box else 0.0)
     pw = (W - 2 * mx - INSET_FIG_BAR_MM - (C - 1) * gx) / C
     block = inset_min_block(n_lines, pw, tw)  # curves keep ~60 % of the panel height: it holds the block and its margins
     ph = max(pw / INSET_ASPECT, (block + 3.2) / 0.38, 1.05 * block / INSET_SHARE_H)
@@ -1052,7 +1111,7 @@ def inset_geometry(spec, rows, labels, window, tier=0):
     return (W, H, pw, ph, [mx + c * (pw + gx) for c in range(C)], [H - top - (r + 1) * ph - r * gy for r in range(R)], tw)
 
 
-def inset_obstacles(pw, ph, x, series, lo, hi, ylim, negative_up, band_ms):
+def inset_obstacles(pw, ph, x, series, lo, hi, ylim, negative_up, band_ms, box=False):
     """Boolean raster (columns × rows of INSET_RES_MM) over a pw × ph mm waveform panel: True where the block would
     touch something. Occupied: the gray window band over its full height; the envelope of every visible line (mean ±
     SEM if drawn, the whole vertical extent between the lowest and highest line), and more at the x tick columns
@@ -1070,21 +1129,29 @@ def inset_obstacles(pw, ph, x, series, lo, hi, ylim, negative_up, band_ms):
     a = to_mm(np.min([np.interp(xd, x, m - e) for m, e in series], axis=0))
     b = to_mm(np.max([np.interp(xd, x, m + e) for m, e in series], axis=0))
     low, high = np.minimum(a, b), np.maximum(a, b)
-    step = 200 if hi - lo >= 600 else 100 if hi - lo >= 300 else 50  # the tick steps of cross_axes (before any doubling)
     x_of = lambda ms: (ms - lo) / (hi - lo) * pw
-    near_tick = np.zeros(nx, bool)
-    for v in np.arange(np.ceil(lo / step) * step, hi + 1e-9, step):
-        if v != 0:
-            near_tick |= np.abs(xm - x_of(v)) <= 3.6
     y0 = float(to_mm(0.0))
-    pad = INSET_CLEAR_MM + np.where(near_tick & (low <= y0) & (high >= y0), 3.2, 0.0)  # a label past lines on both sides
     k = int(round(2 * INSET_CLEAR_MM / r)) | 1
-    low, high = minimum_filter1d(low - pad, k), maximum_filter1d(high + pad, k)
-    occ = (ym[None, :] >= low[:, None]) & (ym[None, :] <= high[:, None])
-    occ |= (np.abs(ym - y0) <= 3.4)[None, :]  # x-axis and its labels
-    x0 = x_of(0.0)
-    occ[(xm >= x0 - 5.5) & (xm <= x0 + 1.5), :] = True  # y-axis and its labels
-    occ[np.ix_((xm >= x0 - 0.5) & (xm <= x0 + 6.5), ym >= ph - 4.4)] = True  # "µV"
+    if box:
+        pad = INSET_CLEAR_MM
+        low, high = minimum_filter1d(low - pad, k), maximum_filter1d(high + pad, k)
+        occ = (ym[None, :] >= low[:, None]) & (ym[None, :] <= high[:, None])
+        occ |= (np.abs(ym - y0) <= INSET_CLEAR_MM)[None, :]  # 0-µV line
+        x0 = x_of(0.0)
+        occ[np.abs(xm - x0) <= INSET_CLEAR_MM, :] = True  # 0-ms line
+    else:
+        step = 200 if hi - lo >= 600 else 100 if hi - lo >= 300 else 50  # the tick steps of cross_axes (before any doubling)
+        near_tick = np.zeros(nx, bool)
+        for v in np.arange(np.ceil(lo / step) * step, hi + 1e-9, step):
+            if v != 0:
+                near_tick |= np.abs(xm - x_of(v)) <= 3.6
+        pad = INSET_CLEAR_MM + np.where(near_tick & (low <= y0) & (high >= y0), 3.2, 0.0)  # a label past lines on both sides
+        low, high = minimum_filter1d(low - pad, k), maximum_filter1d(high + pad, k)
+        occ = (ym[None, :] >= low[:, None]) & (ym[None, :] <= high[:, None])
+        occ |= (np.abs(ym - y0) <= 3.4)[None, :]  # x-axis and its labels
+        x0 = x_of(0.0)
+        occ[(xm >= x0 - 5.5) & (xm <= x0 + 1.5), :] = True  # y-axis and its labels
+        occ[np.ix_((xm >= x0 - 0.5) & (xm <= x0 + 6.5), ym >= ph - 4.4)] = True  # "µV"
     if band_ms:  # the gray window band, full height (user, 2026-09-30: maps never on it)
         occ[(xm >= x_of(band_ms[0]) - INSET_CLEAR_MM) & (xm <= x_of(band_ms[1]) + INSET_CLEAR_MM), :] = True
     return occ
@@ -1115,7 +1182,7 @@ def inset_slot(occ, pw, ph, gw, gh, window_mm, prefer_top):
     return float(I[i, j] * r), float(J[i, j] * r)
 
 
-def inset_plan(comp, p, lines, stats, ms_t, lo, hi, negative_up, pw, ph, lay, tw, ylim, side=None, cap=None):
+def inset_plan(comp, p, lines, stats, ms_t, lo, hi, negative_up, pw, ph, lay, tw, ylim, side=None, cap=None, box=False):
     """Rule L12 for one panel p (pw × ph mm): the map size and the free place of the block, or None. `ylim` is grown in
     place while the block needs room, up to span `cap` (None: not at all). With `side` the maps have exactly that
     size, otherwise the largest that fits (down to INSET_MIN_MM). Returns (side_mm, (x0, y0) mm from the panel's
@@ -1129,7 +1196,7 @@ def inset_plan(comp, p, lines, stats, ms_t, lo, hi, negative_up, pw, ph, lay, tw
     for sz in sizes:  # largest first; each size may grow the y-range up to `cap` (user, 2026-09-30: maps as big as possible)
         yl = list(ylim)
         for _ in range(30):
-            occ = inset_obstacles(pw, ph, ms_t, ser, lo, hi, yl, negative_up, None)
+            occ = inset_obstacles(pw, ph, ms_t, ser, lo, hi, yl, negative_up, None, box=box)
             slot = inset_slot(occ, pw, ph, *inset_group(sz, lay, tw), win, prefer_top)
             if slot:
                 ylim[:] = yl
@@ -1144,7 +1211,7 @@ def inset_plan(comp, p, lines, stats, ms_t, lo, hi, negative_up, pw, ph, lay, tw
     return None
 
 
-def inset_settle(comp, keys, lines, stats, ms_t, lo, hi, negative_up, pw, ph, tw, lay):
+def inset_settle(comp, keys, lines, stats, ms_t, lo, hi, negative_up, pw, ph, tw, lay, box=False):
     """One y-range and one map size for all the panels of a figure (they are meant to be compared), for the layout
     `lay` = (shape, colour bar right or under): start from the shared data range, plan every panel, keep the widest
     range and the smallest size, repeat until nothing changes. None when some panel has no place (without growing the
@@ -1156,7 +1223,7 @@ def inset_settle(comp, keys, lines, stats, ms_t, lo, hi, negative_up, pw, ph, tw
         before, sides = (list(ylim), side), []
         for p in keys:
             yl = list(ylim)
-            got = inset_plan(comp, p, lines, stats, ms_t, lo, hi, negative_up, pw, ph, lay, tw, yl, side, cap)
+            got = inset_plan(comp, p, lines, stats, ms_t, lo, hi, negative_up, pw, ph, lay, tw, yl, side, cap, box=box)
             if got is None:
                 return None
             ylim = [min(ylim[0], yl[0]), max(ylim[1], yl[1])]
@@ -1174,6 +1241,7 @@ def inset_fit(spec, comp, rows, keys, labels, lines, stats, ms_t, lo, hi, negati
     Returns (geo, shared) with shared = ylim, side, layout, spacing tier; stops with the fixes if nothing fits."""
     window = f"{comp['tmin_ms']:g}–{comp['tmax_ms']:g} ms"
     tried = []
+    is_box = spec.get("axes", "cross") == "box"
     for bar in ("none",):
         for tier in range(len(INSET_SPACING)):
             geo = inset_geometry(spec, rows, labels, window, tier)
@@ -1181,7 +1249,7 @@ def inset_fit(spec, comp, rows, keys, labels, lines, stats, ms_t, lo, hi, negati
             tried.append(f"{geo[2]:.0f} × {geo[3]:.0f} mm")
             if inset_top(lay, geo[2], geo[3], geo[6]) < INSET_MIN_MM - 1e-9:
                 continue
-            got = inset_settle(comp, keys, lines, stats, ms_t, lo, hi, negative_up, geo[2], geo[3], geo[6], lay)
+            got = inset_settle(comp, keys, lines, stats, ms_t, lo, hi, negative_up, geo[2], geo[3], geo[6], lay, box=is_box)
             if got:
                 return geo, dict(ylim=got[0], side=got[1], layout=lay, tier=tier)
     die(f"no free place for {len(lines)} maps in one row inside the waveform panels (rule L12: the block must clear the "
@@ -1223,6 +1291,7 @@ def draw_inset(spec, comp, rows, names, lines, colors, stats, topo, v, info, ms,
     fig = plt.figure(figsize=(W * MM, H * MM))
     levels = np.linspace(-v, v, TOPO["contours"] + 1)  # one set of contour levels for every map
     styles = line_styles(spec, len(lines))
+    is_box = spec.get("axes", "cross") == "box"
     n_lines = n_maps = 0
     peak = 0.0
     axes = []
@@ -1238,19 +1307,23 @@ def draw_inset(spec, comp, rows, names, lines, colors, stats, topo, v, info, ms,
                 ax.plot(ms[t], m, color=col, ls=ls, lw=0.9, label=lab)
                 n_lines += 1
             ax.set_title(f"{comp['name']} · " + ", ".join(comp["channels"]), pad=6, fontsize=7)  # L5: component, electrodes
-            ax.annotate(names[key], (0.5, 0), xycoords="axes fraction", xytext=(0, -min(0.06 * ph * 72 / 25.4, 7.1)),
+            below_pt = 20.0 if is_box else min(0.06 * ph * 72 / 25.4, 7.1)
+            ax.annotate(names[key], (0.5, 0), xycoords="axes fraction", xytext=(0, -below_pt),
                         textcoords="offset points", ha="center", va="top", fontsize=7.5, fontweight="bold")  # rule L6
             ax.set_xlim(lo, hi)
     for ax, key, _, _ in axes:  # ticks last: the y-range is the shared one
-        env = [(m, np.zeros_like(m) if e is None else e) for (pp, _), (m, e) in stats.items() if pp == key]
-        cross_axes(ax, fig, lo, hi, shared["ylim"], negative_up, ms[t],
-                   np.min([m - e for m, e in env], axis=0), np.max([m + e for m, e in env], axis=0))
+        if is_box:
+            box_axes(ax, fig, lo, hi, shared["ylim"], negative_up)
+        else:
+            env = [(m, np.zeros_like(m) if e is None else e) for (pp, _), (m, e) in stats.items() if pp == key]
+            cross_axes(ax, fig, lo, hi, shared["ylim"], negative_up, ms[t],
+                       np.min([m - e for m, e in env], axis=0), np.max([m + e for m, e in env], axis=0))
     lay = shared["layout"]
     (nrow_t, ncol_t), bar = lay
     side, R = shared["side"], fig.canvas.get_renderer()
     audit = dict(panels=len(axes), parts_checked=0, clashes=[])
     for ax, key, y0, x0 in axes:  # maps, colour bar and window text, once the panel is final
-        got = inset_plan(comp, key, lines, stats, ms[t], lo, hi, negative_up, pw, ph, lay, tw, list(shared["ylim"]), side)
+        got = inset_plan(comp, key, lines, stats, ms[t], lo, hi, negative_up, pw, ph, lay, tw, list(shared["ylim"]), side, box=is_box)
         if got is None:
             die(f"no free place for the maps inside panel {key!r} at the shared size and y-range (rule L12); "
                 "use map_placement 'side'")
@@ -1336,7 +1409,8 @@ def draw(spec, comp, panels, lines, colors, stats, topo, v, info, ms, t, lo, hi,
             ax.plot(ms[t], m, color=col, ls=ls, lw=0.9, label=lab)
             n_lines += 1
         ax.set_title(", ".join(comp["channels"]), pad=11, fontsize=7)  # rule L5: electrodes above the panel
-        below_pt = min(0.06 * gs[r_i, 0].get_position(fig).height * fig.get_figheight() * 72, 7.1)  # a tall panel: not
+        is_box = spec.get("axes", "cross") == "box"
+        below_pt = 20.0 if is_box else min(0.06 * gs[r_i, 0].get_position(fig).height * fig.get_figheight() * 72, 7.1)  # a tall panel: not
         ax.annotate(plabel, (0.5, 0), xycoords="axes fraction", xytext=(0, -below_pt), textcoords="offset points",
                     ha="center", va="top", fontsize=7.5, fontweight="bold")  # rule L6: facet name below its panel
         ax.set_xlim(lo, hi)
@@ -1369,9 +1443,12 @@ def draw(spec, comp, panels, lines, colors, stats, topo, v, info, ms, t, lo, hi,
         fig.text((pos.x0 + pos.x1) / 2, pos.y1 + 0.01, f"{comp['name']}  {comp['tmin_ms']:g}–{comp['tmax_ms']:g} ms",
                  ha="center", va="bottom", fontsize=6.5)  # rule S4: window stated in the figure
     for ax, p in axes:  # ticks last: a single-panel legend may have grown the shared y-range
-        env = [(m, np.zeros_like(m) if e is None else e) for (pp, _), (m, e) in stats.items() if pp == p]
-        cross_axes(ax, fig, lo, hi, ylim, negative_up, ms[t],
-                   np.min([m - e for m, e in env], axis=0), np.max([m + e for m, e in env], axis=0))
+        if spec.get("axes", "cross") == "box":
+            box_axes(ax, fig, lo, hi, ylim, negative_up)
+        else:
+            env = [(m, np.zeros_like(m) if e is None else e) for (pp, _), (m, e) in stats.items() if pp == p]
+            cross_axes(ax, fig, lo, hi, ylim, negative_up, ms[t],
+                       np.min([m - e for m, e in env], axis=0), np.max([m + e for m, e in env], axis=0))
     placed = "inside panel"
     if corner == "between":  # rule L7
         g = len(axes) // 2 - 1
@@ -1579,7 +1656,7 @@ def plot(spec):
             if peak > v:  # interpolation overshoots the sensor range: the colour limit must cover the maps
                 v, changed = peak, True
             if placed is None and gap_mm == GAP_MM:  # rule L7: widen the waveform-map gap for the legend
-                gap_mm, changed = leg_size[3] + 6, True
+                gap_mm, changed = leg_size[3] + (10 if spec.get("axes", "cross") == "box" else 6), True  # box: "1000" pokes into the gap
             if not changed:
                 break
             plt.close(fig)
