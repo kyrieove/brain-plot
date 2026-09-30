@@ -48,7 +48,34 @@ Outputs go to `brain-plot/` next to the data folder (rules O1–O3): `ERP_topo/E
 
 ## Not supported in v1 (stop, don't approximate)
 
-Difference waves, lateralised components (N2pc, LRP), CSD or source data, time–frequency, significance marks, response-locked data with no 0 in range, more than 7 overlaid lines.
+Difference waves, lateralised components (N2pc, LRP), CSD or source data, significance marks, response-locked data with no 0 in range, more than 7 overlaid lines. (Time–frequency is supported via `tfr_plot.py`, see below.)
+
+## Time–frequency spec (`python tfr_plot.py plot <spec.json>`)
+
+Required: `data` (folder of `*-epo.fif` files), `conditions` (`{key: label}`), `channels` (ROI list, e.g. `["Fz", "Cz"]`), `measure` (`"power"` or `"itc"`).
+
+| Key | Default | Meaning |
+|---|---|---|
+| `measure` | — | `"power"` (total Morlet power relative to baseline, displayed in dB) or `"itc"` (inter-trial phase coherence, 0–1). |
+| `channels` | — | List of channel names to average over for the ROI panels. |
+| `grid` | up to 3 per row | Rows × columns of condition keys, e.g. `[["Hmet","Hlit","Hrep"],["Lmet","Llit","Lrep"]]`. |
+| `groups` | all discovered | List of groups to draw (one figure per group). |
+| `group_by` | none | Metadata column holding between-subject group (e.g. `"WM"`). |
+| `exclude` | none | List of subject IDs to exclude. |
+| `query` | none | Pandas-style query applied to epochs metadata (e.g. `"acc == 1"`). |
+| `freqs` | `{"fmin": 3, "fmax": 40, "n": 30}` | Log-spaced frequencies dict or list of frequencies. |
+| `n_cycles` | `"freqs/2"` | Number of cycles per wavelet, or `"freqs/2"` (~0.5 s wavelets). |
+| `decim` | to ~100 Hz | Decimation factor for time points. |
+| `baseline_ms` | `[-500, -200]` | Baseline interval in ms (measure `"power"` only). |
+| `baseline_mode` | `"logratio"` | Baseline mode (`"logratio"` gives dB when × 10; measure `"power"` only). |
+| `xlim_ms` | `[-500, 1500]` | Time range to display in ms. Must not reach into edge zone. |
+| `windows` | none | List of `{name, fmin, fmax, tmin_ms, tmax_ms}`. Adds dashed rectangle in panels and a topomap row per window. |
+| `cmap` | `"RdBu_r"` (power) / `"Reds"` (itc) | Colormap for TF panels and topomaps. |
+| `width_mm` | 180 | Figure width in mm. |
+| `height_mm` | auto | Figure height in mm (~1.4 : 1 per panel plus 26 mm per topomap row). |
+
+Outputs go to `TFR/` under the output root: `TFR-<measure>_<channels>_<group>[_<windows>]_vNN.png/.svg`, `_run.json`, `_caption.md`.
+
 
 ## Microstate spec (`python microstate_plot.py plot <spec.json>`)
 

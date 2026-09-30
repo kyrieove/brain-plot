@@ -11,9 +11,10 @@ Route first, then read that module's file (next to this one, in `references/`):
 |---|---|---|
 | ERP waveforms / topomaps / combo / overview | `erp_plot.py` | `references/erp.md` |
 | Microstate figures from saved templates | `microstate_plot.py` | `references/microstate.md` |
+| Time-frequency figures (power, ITC) | `tfr_plot.py` | `references/tfr.md` |
 
-Spec keys for both: `references/spec.md`. Worked specs: `../examples/specs/` (run `../examples/make_demo_data.py`
-first for synthetic data). Statistics, preprocessing, clustering, source and time–frequency data are out of scope:
+Spec keys: `references/spec.md`. Worked specs: `../examples/specs/` (run `../examples/make_demo_data.py`
+first for synthetic data). Statistics, preprocessing, clustering and source data are out of scope:
 say "not supported".
 
 ## Before the first run

@@ -377,7 +377,11 @@ def groups_from_metadata(found, col):
     for f in found["all"]:
         if not f.name.endswith("-epo.fif"):
             die(f"{f.name}: group_by needs epochs files with metadata")
-        md = mne.read_epochs(f, preload=False, verbose="error").metadata
+        try:
+            md = mne.read_epochs(f, preload=False, verbose="error").metadata
+        except Exception as e:
+            print(f"WARNING: skipping unreadable/incomplete file {f.name}: {e}")
+            continue
         if md is None or col not in md:
             die(f"{f.name}: no metadata column {col!r}")
         vals = md[col].dropna().unique()
@@ -721,7 +725,7 @@ def x_ticks(ax, fig, lo, hi, zero):
         labs = [f"{v:g}".replace("-", "−") for v in xt]
         boxes = []
         for v, lab in zip(xt, labs):
-            probe = ax.annotate(lab, (v, 0), fontsize=6, ha="center")
+            probe = ax.annotate(lab, (v, 0), xycoords=("data", "axes fraction"), fontsize=6, ha="center")
             boxes.append(probe.get_window_extent(renderer))
             probe.remove()
         if all(b1.x0 - b0.x1 >= 3 * pt for b0, b1 in zip(boxes, boxes[1:])) or len(xt) <= 1:

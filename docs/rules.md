@@ -87,7 +87,22 @@ Rules S1 (input contract), S9 (caption structure), S10 (flat channels), T5 (PNG 
 | MS9 | Arrangement of the time panels: 1–2 rows are stacked with the maps in a left column; more rows need `grid` (rows × columns of condition keys, each once, e.g. a 2 × 3 design as 2 rows of 3) with at least two columns — the script stops otherwise. A grid with more than one column puts the template maps in one row above it (8 mm above the first panel titles), takes one time panel per condition — `butterfly` or `gfp`, not both — and labels y once per grid row; all three together only when the panels are stacked. (User rule, 2026-09-26: never stack six conditions.)  With `per_group`, more than 2 rows (conditions × groups) are not supported: draw one figure per group. | U | Code |
 | MS10 | Every time panel (butterfly and GFP alike) keeps width : height between 1.8 and 3.5; otherwise the script stops and lists every `height_mm` range that works (the map column can switch between 1 and 3 columns, so they need not be one range). Default height (a fixed table by layout, measured at 180 mm width over K = 2–10): 1 row with maps 62 mm, without 80; 2 rows with maps 110 (both panel types: 70), without 140 (both: 90); grid 100. A spec `height_mm` wins. (User rule, 2026-09-26; table the same day: one condition always stopped at 110.) | U | Code |
 
+## Time–frequency figures (`tfr_plot.py`, plan `docs/PLAN-tfr-module.md`)
+
+Rules S1 (input contract), S9 (caption structure), T5 (PNG + SVG), T6 (fixed canvas) and O1–O3 apply; the ERP waveform rules do not.
+
+| # | Rule | Type | Enforced |
+|---|---|---|---|
+| TF1 | Descriptive figures only: grand average of per-subject Morlet wavelets (equal weight across subjects). No significance marks, cluster contours, or statistics (house principle). | U | Code (no statistics option) |
+| TF2 | Edge-zone stop: `xlim_ms` and `baseline_ms` must not reach into the edge zone (half the longest wavelet duration, `(n_cycles / fmin) / 2` s, from either epoch boundary). The script stops with a clear message naming the boundary violation and fix. | M | Code |
+| TF3 | Panel grid: conditions arranged in a reading-order grid (default up to 3 per row). Logarithmic frequency axis (log-spaced frequencies) with ticks at standard band edges (4, 8, 13, 30 Hz); outward ticks, box axes; dotted vertical line at 0 ms. "Frequency (Hz)" on leftmost column only; "Time (ms)" on bottom row only. Bold condition name (7.5 pt) under each panel; panel letter (`a`, `b`, ...) at upper left. | D/U | Code |
+| TF4 | Scales: one shared color scale across all panels of the figure. Power: symmetric ±v (v = max \|dB\|, 1 decimal) with `RdBu_r`; baseline default logratio (dB = 10 × log10(power / baseline)). ITC: 0..v (v = max ITC, 2 decimals) with `Reds`. Single vertical color bar at the figure's right edge at mid-height. | D/M | Code |
+| TF5 | Windows and topomap rows: each window (`name`, `fmin`, `fmax`, `tmin_ms`, `tmax_ms`) is drawn as a dashed black rectangle (lw 0.6) on every panel with its name at top-left. For each window, one row of topomaps is drawn underneath the grid: one map per condition (in grid reading order), with a shared symmetric color scale and right-edge color bar; topomaps follow rule L11 (no sensor dots, `common_sphere`). | U/M | Code |
+| TF6 | Cache policy: per-subject Morlet results (power and ITC, all conditions) cached as `.h5` files in `.cache/tfr/<hash>/`. Directory-level cache pruning retains the most recent `CACHE_KEEP` parameter runs. | M | Code |
+| TF7 | Canvas and QA: default width 180 mm; height auto (~1.4 : 1 panel aspect ratio plus 26 mm per topomap row); self-checks layout using `ep.layout_issues` and records result in `_run.json`. | U | Code + test |
+
 ## QA after every render
 
-The QA checklists (what the agent checks on the PNG) are in `brain-plot/references/erp.md` (ERP) and
-`brain-plot/references/microstate.md` (microstate).
+The QA checklists (what the agent checks on the PNG) are in `brain-plot/references/erp.md` (ERP),
+`brain-plot/references/microstate.md` (microstate), and `brain-plot/references/tfr.md` (time–frequency).
+
