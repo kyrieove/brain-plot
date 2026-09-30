@@ -29,6 +29,11 @@ Two branches, both working, tests pass, everything committed and pushed
   (`condition` HM/HL/HR/LM/LL/LR = `condition_label`; H/L = `SND` high/low, not WM). Waiting on the user: TFR ROI /
   windows (theta 4–8 × 100–650 ms, alpha/beta × 650–1500 ms are placeholders), sub27 acc coding, whether condition
   labels should say "high SND" instead of "(high)".
+  Later the same night: ERP default = **negative up**, cross axes, side maps (user); `polarity: "positive_up"`,
+  `axes: "box"`, `grid` (inset) stay optional; non-default polarity is named `_pos-up`. **N400 = 300–500 ms after the
+  subject noun** (user: components come from the subject, never the verb; the 650–850 ms "verb N400" was wrong and is
+  in `_superseded_2026-09-30`). Subject→verb marker interval is 333 ms (316–351) — the verb onset falls inside the
+  N400 window; the windows helper finds no negative peak in 300–500 ms at Pz/CPz. All ERP specs re-drawn.
 - 2026-09-30 afternoon (local, branch **`tfr`**, NOT pushed, not merged — user: "暂不推送"): **time-frequency module**.
   Plan agreed with the user via /grilling. Roles: Claude plans + reviews, codex (gpt-6-luna, max) = literature,
   agy = implementation. Done:
