@@ -1,6 +1,6 @@
-# brain-plot — handoff (2026-09-26, end of day)
+# brain-plot — handoff (2026-09-30, end of day)
 
-Start of every new session: read this file, then `docs/review-log.md` (newest entries at the bottom), 
+Start of every new session: read this file, then `docs/review-log.md` (newest entries at the bottom).
 
 ## State
 Two branches, both working, tests pass, everything committed and pushed
@@ -8,7 +8,7 @@ Two branches, both working, tests pass, everything committed and pushed
 - **ERP** (`erp_plot.py`): `combo` (waveforms + maps per component), `topo` (maps only), `erp` (waveforms by channel:
   `roi` mean / `single` incl. `channels: "all"` / `grid`, gray bands only if asked), `explore` (3 × 3 overview +
   topomap table), `windows` (candidate windows, optional helper). The skill only draws — no localizer (user decision
-  2026-09-26: windows come from the analysis).
+  2026-09-26: windows come from the analysis). Every waveform figure takes `axes: "cross"` (default) or `"box"`.
 - **Microstate** (`microstate_plot.py`, plan `docs/plan-microstate.md`, rules MS1–MS10): `figure: "states"` (template
   maps + butterfly or GFP + segmentation ribbon; ≤ 2 conditions stacked with maps left, more need `grid` with maps on
   top; one time-panel type per multi-column grid) and `"by-K"` (template rows across K, identity colours). Reads saved
@@ -17,11 +17,22 @@ Two branches, both working, tests pass, everything committed and pushed
   `microstate/`, `specs/`; names say what the figure is; re-renders get `_vNN+1`, old versions move to `_history/`.
 
 ## Next (start here)
-- 2026-09-30 (local): **inset layout revised with the user on the metaphor N400 figure (v17 accepted, "先这样")** —
-  no gray band, component name in the panel title, no window text, one colour bar at the figure's right edge, maps at
-  the lower right as large as fits (≤ 27 % of panel width, y-range grows down ≤ 2×), square panels, map labels 5 pt.
-  ERP line colours now the Lancet palette for any line count (T3). Details: review log 2026-09-30. Figure B (panels =
-  groups, six lines) not re-tried; `hatch`/other optional items below unchanged.
+- 2026-09-30 (local, all on `main`, pushed; last commit `501553f`; three suites OK on Windows):
+  1. Fast-forwarded local `main` to `origin/main` (inset layout from the cloud); the old uncommitted local
+     `erp_plot.py` change (explore topo-table tweaks) merged cleanly — the 2026-09-29 "commit before pulling" note is done.
+  2. **Inset combo revised with the user** on the metaphor N400 figure A (v02–v17; v17 accepted, "先这样"): no gray
+     band (name in the title `N400 · Pz, CPz`), no window text, one colour bar at the figure's right edge, maps at the
+     lower right as large as fits (≤ 27 % of the panel width; the y-range grows down ≤ 2×; planner tries sizes largest
+     first), square panels, map labels 5 pt. Rules L12/L13 rewritten. Commit `6ec961c`.
+  3. **ERP line colours = Lancet** (ggsci, in order, any line count; rule T3), same family as microstate.
+  4. **`axes: "box"`** (left + bottom axes, outward ticks, `Time (ms)` / `Amplitude (µV)`, 0-µV line, dotted 0-ms
+     line) for every ERP waveform figure: combo side/inset, erp roi/single/grid, explore (grid: titles on the outer
+     panels only). Implemented by agy from Claude's PLAN (~20 min, 2.26 M tokens, mostly waiting for tests); two
+     defects found in review and fixed (missing 0 tick; legend over outside tick labels → `obstacles_of` uses tight
+     boxes). User: "还不错 先这样". Commits `b1d9add`, `501553f`.
+  Real-data specs added in `…\derivatives\brain-plot\specs\`: `n400_inset_2x3.json` (inset, cross) and `*_box.json`
+  (inset v19, side combo v09, ERP grid 3×3 v01). Open: inset figure B (panels = groups, six lines) still stops, not
+  re-tried; README figures not redrawn with the new colours / inset / box. Nothing pending; next = the user's pick.
 - 2026-09-29 end of day (cloud; merged to `main`): **ERP combo, maps inside the waveforms** (`map_placement: "inset"`
   + `grid`, rules L12/L13, `docs/review-log.md` last entries). Built with the user over five rounds on synthetic
   figures; layout rules: maps of a panel in one row (never two stacked), colour bar 0.9 mm right of or under the maps,
@@ -37,12 +48,6 @@ Two branches, both working, tests pass, everything committed and pushed
   tried 74 × 51, 79 × 54 mm"): map labels like "Repetition (high)" are ~18 mm wide, three columns need panels ≳ 90 mm.
   Idea, not done: wrap long map labels at the space (two lines, column ~10 mm) so B fits. Other open points: README
   figures not redrawn; side layout untouched.
-  Local `main` (Windows, `C:\dev\brain-plot`) has uncommitted work of the user: only `brain-plot/erp_plot.py` has real
-  changes (+23/−10 lines, not seen by the cloud); README(s), SKILL.md, erp.md, spec.md, rules.md show as modified only
-  through LF/CRLF; untracked `promo/`, `research/gn-extension-preview/`, `research/preview_gn_extensions.py`,
-  `agent-test-split-2026-09-27.md`. The merge into `main` was done on GitHub (fast-forward): **before `git pull` locally,
-  commit or stash those changes; conflicts can only come from `erp_plot.py`** — get `git diff brain-plot/erp_plot.py`
-  from the user first and check it against the inset code (functions `inset_*`, `draw_inset`, `plot()`, `caption()`).
 - 2026-09-29 (cloud, branch `claude/loving-johnson-7x5qrn`): full draw + QA run with the split skill on the synthetic
   demo (microstate K4): PNG and `qa` steps exercised, both files read fine. It showed the butterfly "GFP" label sitting
   on a boundary line; a placement fix and its code-review follow-ups were written, then the user dropped the label
