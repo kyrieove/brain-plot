@@ -18,6 +18,12 @@ Three modules (ERP, microstate, time-frequency), tests pass, everything committe
   `microstate/`, `specs/`, `.cache/`; names say what the figure is; re-renders get `_vNN+1`, old versions move to `_history/`.
 
 ## Next (start here)
+**Source-localization module (user, 2026-09-30): built by codex desktop + agy CLI, without Claude.** Follow
+`docs/PLAYBOOK-source.md` (roles, agy command, stages 0–7 with gates, decisions D1–D10 with defaults, traps); literature
+tasks in `research/source/`; codex project rules in `AGENTS.md`. Checked 2026-09-30: epochs carry a montage (63 EEG
+channels, linked-mastoid reference), fsaverage BEM/src/inflated surfaces are in `~/mne_data/MNE-fsaverage-data/`,
+pyvista 0.48 is in `mnedev`.
+
 Everything is on `main` and pushed (4b33c69); `tfr` is merged. Data: `D:\1-python_datasets\metaphor production\`.
 
 **Markers (user, final, 2026-09-30 22:30; matches the recording S15 0 / S1 +350 / S7 +2900 ms):** S15–20 = **verb
