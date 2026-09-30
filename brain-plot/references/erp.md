@@ -39,7 +39,7 @@ Never ask (settled by the user; leave out or use the default):
   copy it verbatim into `stats_note`, never derive one.
 - **`time_locked_to`, `reference`** — caption only: read them from the preprocessing scripts and files; if they are
   not there, leave them out. Never ask, never fill from memory.
-- **Style** — polarity (positive up), colours (groups: first black then Okabe–Ito; 2 conditions teal / red; ordered
+- **Style** — polarity (positive up), colours (Lancet palette in order, any line count; ordered
   levels viridis), line styles, fonts, colour map (RdBu_r), SEM band (none): house defaults; change only when the
   user asks (`polarity`, `colors`, `linestyles`, `cmap`, `error: "sem"`). Line pairing from round 2 is part of the
   key comparison, not a style question.
@@ -70,7 +70,7 @@ Fix the cause, never work around it; tell the user when the fix changes the figu
 1. Nothing overlaps: legend vs lines, SEM shading, gray band and its label; tick labels vs lines; titles vs letters.
    The script checks texts, legends and lines itself (`layout_issues` in `_run.json`, also printed): report every
    entry, fix what the spec can fix, and still look for what it cannot see (SEM shading, bands).
-2. Gray band, topomap window text and caption window agree.
+2. Gray band, topomap window text and caption window agree (inset: no band and no window text; the caption states it).
 3. combo/topo: no dots or other electrode marks on the maps.
 4. `open_items` in `_run.json` is empty, or every listed field is reported to the user as open.
 5. `colour_distinctness`: report a normal-vision value below 10 with the two colours (colour-blind values are
@@ -78,7 +78,7 @@ Fix the cause, never work around it; tell the user when the fix changes the figu
 6. Readability (report, don't change the figure on your own): `xlim_ms` hides part of the baseline; or one map
    dominates the shared colour scale so the others look near-white — correct, but readers may read it as no activity.
 7. `map_placement: "inset"`: `inset_audit` in `_run.json` has no clashes (the script has already stopped on any: maps
-   over the gray band, a curve, an axis or a text, rule L13); look anyway. One legend under the grid, panel letters in
+   over a curve, an axis or a text, rule L13); look anyway. One legend under the grid, panel letters in
    reading order, and the same y-range and map size in every panel. If the script stops because nothing fits, follow
    its message (fewer panels per row, larger canvas, fewer lines) — never fall back to overlapping maps.
 8. `_run.json`: `lines`/`maps` fit the kind (combo: both = expected; erp: maps 0; topo: lines 0); `size_mm` equals

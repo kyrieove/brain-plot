@@ -450,3 +450,20 @@ final rules read as they do.
   (HANDOFF, first "Next" bullet, deleted after it is said).
   Candidate change for B (not done): wrap long map labels onto two lines.
 
+## 2026-09-30 — inset layout revised on the metaphor N400 figure (user review of figure A)
+- User's points on v01: colour bar belongs on the right, not under the maps; no window text ("350–500 ms") in this
+  layout; maps too small against the waveforms; line colours not an SCI palette. Reference: the user's Go/NoGo figure
+  (maps inside the waveform panels, no gray band, one bar beside the maps).
+- Done (v02–v17, each shown to the user): one vertical colour bar for the whole figure at its right edge (scale is
+  shared anyway), ~11 mm from the panels; window text removed (caption keeps it); gray band removed and the component
+  name moved into the title (user: "干脆就不要mask了"), so the band no longer blocks the maps; maps placed at the lower
+  right; planner now tries each map size from the largest down and grows the y-range per size (before, it grew the
+  y-range only at the largest size and fell to 7 mm); constants: map ≤ 27 % of panel width, growth ≤ 2 × data range,
+  square panels (aspect 1.0), map labels 5 pt. Tried and rejected on the way: maps over the gray band (user: overlap is
+  the old mistake), parula map colours (user: map colours were fine), growth 2.4 / aspect 1.05 (maps too big, ERP
+  squashed), growth 1.4–1.6 (maps back at 7 mm).
+- ERP line colours: Lancet (ggsci) in order for any line count, groups and conditions alike (was: first group black +
+  Okabe–Ito, two conditions teal/red). Rule T3 rewritten.
+- test_layout: inset expectations updated (colour bar 'none' inside panels, one shared 2-mm bar, parts = maps only,
+  3 lines in 2 × 3 panels now fit instead of stopping, the 'tighter spacing must be hit' check dropped). Suites:
+  test_erp_plot OK, test_layout OK, test_microstate OK (mnedev, Arial).

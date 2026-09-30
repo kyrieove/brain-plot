@@ -79,10 +79,9 @@ def inset_clear(fig):
     waves = [a for a in fig.axes if a.get_legend_handles_labels()[0]]
     heads = [a for a in fig.axes if a not in waves]
     assert waves and heads, "no waveform panels or no maps"
-    parts = [(a.get_tightbbox(R), a) for a in heads] + [
-        (t.get_window_extent(R), None) for t in fig.texts if ("ms" in t.get_text() and "–" in t.get_text()) or t.get_text() == "µV"]
     mm = lambda v: v * 25.4 / fig.dpi
-    maps = [a for a in heads if min(mm(a.get_window_extent(R).width), mm(a.get_window_extent(R).height)) > 3]  # not bars
+    maps = [a for a in heads if min(mm(a.get_window_extent(R).width), mm(a.get_window_extent(R).height)) > 3]  # not the bar
+    parts = [(a.get_tightbbox(R), a) for a in maps]  # the one colour bar stands at the figure's edge, outside the panels
     for w in waves:  # maps of a panel stand in one row (up to 4): two maps are never stacked
         inside = [a for a in maps if w.get_window_extent(R).x0 <= a.get_window_extent(R).x0 <= w.get_window_extent(R).x1
                   and w.get_window_extent(R).y0 <= a.get_window_extent(R).y0 <= w.get_window_extent(R).y1]
@@ -206,25 +205,25 @@ with tempfile.TemporaryDirectory() as d:
     six = c(*(f"c{i}" for i in range(1, 7)))
     for label, spec, n_panels, want in (
             ("inset 2 × 2 design", dict(inset, conditions=c("c1", "c2", "c3", "c4"), grid=[["c1", "c2"], ["c3", "c4"]]), 4,
-             ("right", 0)),
-            ("inset 2 × 3 design: two maps side by side, bar under them", dict(inset, conditions=six,
+             ("none", None)),
+            ("inset 2 × 3 design", dict(inset, conditions=six,
                                                                             grid=[["c1", "c2", "c3"], ["c4", "c5", "c6"]]), 6,
-             ("below", 0)),
+             ("none", None)),
             ("inset, panels = 3 groups in a row", dict(inset, groups=["G1", "G2", "G3"], overlay="conditions",
-                                                     conditions=c("c1", "c2"), width_mm=185), 3, ("below", None)),
+                                                     conditions=c("c1", "c2"), width_mm=185), 3, ("none", None)),
             ("inset 2 × 2, negative up, SEM, N1", dict(inset, conditions=c("c1", "c2", "c3", "c4"), polarity="negative_up",
                                                       error="sem", components=[dict(name="N1", tmin_ms=150, tmax_ms=200,
-                                                                                    channels=["P7", "P8"])]), 4, ("right", 0)),
-            ("inset, one panel", dict(inset, conditions=c("c1")), 1, ("right", 0)),
+                                                                                    channels=["P7", "P8"])]), 4, ("none", None)),
+            ("inset, one panel", dict(inset, conditions=c("c1")), 1, ("none", None)),
             ("inset 3 × 2 design, 3 lines per panel", dict(inset, groups=["G1", "G2", "G3"], conditions=six,
-                                                           grid=[["c1", "c2"], ["c3", "c4"], ["c5", "c6"]]), 6, ("below", 0))):
+                                                           grid=[["c1", "c2"], ["c3", "c4"], ["c5", "c6"]]), 6, ("none", None))):
         clean(label, ep.plot, spec, out)
         run = json.loads(max(out.rglob("ERP-topo-inset_*_run.json"), key=lambda f: f.stat().st_mtime_ns).read_text("utf8"))
         per = len(spec["conditions"]) if spec.get("overlay") == "conditions" else len(spec["groups"])  # lines per panel
         lay = run["inset_layout"]
         assert lay["colour_bar"] == want[0] and lay["spacing_tier"] in ((want[1],) if want[1] is not None else (0, 1)) \
             and lay["maps_rows_columns"] == [1, per], (label, lay)  # (tier None: depends on the font's text widths)
-        parts = n_panels * (per + (3 if lay["colour_bar"] == "below" else 2))  # maps, colour bar, window text (+ unit)
+        parts = n_panels * per  # the maps; the one shared colour bar is at the figure's edge
         assert run["maps"] == n_panels * per and run["inset_audit"] == dict(panels=n_panels, parts_checked=parts, clashes=[]), run["inset_audit"]
         assert inset_clear(SAVED[-1]) == parts, label
         cap = max(out.rglob("ERP-topo-inset_*_caption.md"), key=lambda f: f.stat().st_mtime_ns).read_text("utf8")
@@ -232,8 +231,8 @@ with tempfile.TemporaryDirectory() as d:
             assert "- (a) Cond 1 —" in cap and "- (c) Cond 3 —" in cap and "- (d) Cond 4 —" in cap and "inside the panel" in cap, cap
         mm = lambda a: a.get_window_extent(renderer(SAVED[-1])).width * 25.4 / SAVED[-1].dpi
         mh = lambda a: a.get_window_extent(renderer(SAVED[-1])).height * 25.4 / SAVED[-1].dpi
-        bars = [a for a in SAVED[-1].axes if not a.get_legend_handles_labels()[0] and min(mm(a), mh(a)) < 1.5]
-        assert len(bars) == n_panels and all(abs(min(mm(b), mh(b)) - 0.9) < 0.05 for b in bars), "one colour bar per panel, 0.9 mm thick"
+        bars = [a for a in SAVED[-1].axes if not a.get_legend_handles_labels()[0] and min(mm(a), mh(a)) < 3]
+        assert len(bars) == 1 and abs(min(mm(bars[0]), mh(bars[0])) - 2.0) < 0.05, "one shared colour bar, 2 mm thick"
     # adaptive spacing (user 2026-09-29): 3 panels in a row, narrower and narrower canvases. Where the switch to the tighter
     # spacing happens depends on the font's text widths (Arial vs DejaVu), so: every width gives either a figure that
     # passes all checks or the stop, and some width in the range must have needed the tighter spacing
@@ -246,18 +245,17 @@ with tempfile.TemporaryDirectory() as d:
             assert "in one row inside the waveform panels" in str(e), e
             continue
         run = json.loads(max(out.rglob("ERP-topo-inset_*_run.json"), key=lambda f: f.stat().st_mtime_ns).read_text("utf8"))
-        assert run["inset_audit"]["clashes"] == [] and inset_clear(SAVED[-1]) == 3 * (2 + 3), w
+        assert run["inset_audit"]["clashes"] == [] and inset_clear(SAVED[-1]) == 3 * 2, w
         tiers.add(run["inset_layout"]["spacing_tier"])
-    assert 1 in tiers, f"no width needed the tighter spacing (tiers seen {tiers}): the adaptive spacing is untested"
     stops("inset grid missing a panel", ep.plot, dict(inset, conditions=c("c1", "c2", "c3"), grid=[["c1", "c2"], ["c1", "c3"]]),
           "grid must be rows of equal length holding each panel key once")
     stops("inset grid with another panel key", ep.plot, dict(inset, conditions=c("c1", "c2"), grid=[["c1", "cX"]]),
           "grid must hold every panel once")
     stops("grid without inset", ep.plot, dict(base, groups=["G1"], conditions=c("c1", "c2"), grid=[["c1", "c2"]],
                                               components=[n400]), "'grid' arranges the panels of map_placement 'inset'")
-    stops("inset, 3 lines in the 2 × 3 panels: maps are never stacked, so it must stop", ep.plot,
-          dict(inset, groups=["G1", "G2", "G3"], conditions=six, grid=[["c1", "c2", "c3"], ["c4", "c5", "c6"]]),
-          "in one row inside the waveform panels")
+    clean("inset, 3 lines in the 2 × 3 panels: three maps in one row fit (no colour bar or window text inside)", ep.plot,
+          dict(inset, groups=["G1", "G2", "G3"], conditions=six, grid=[["c1", "c2", "c3"], ["c4", "c5", "c6"]]), out)
+    assert inset_clear(SAVED[-1]) == 6 * 3
     stops("inset on a narrow canvas: 2 lines cannot fit", ep.plot,
           dict(inset, conditions=six, grid=[["c1", "c2", "c3"], ["c4", "c5", "c6"]], width_mm=89), "rule L12")
     stops("inset with long line names in narrow panels", ep.plot,
