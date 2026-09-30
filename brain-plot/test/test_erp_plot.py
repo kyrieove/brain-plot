@@ -181,7 +181,7 @@ with tempfile.TemporaryDirectory() as d:
     early = [dict(name="P3", channels=["Cz", "Pz"], tmin_ms=100, tmax_ms=200, window_source="test")]
     ep.plot(spec(root, groups=["G1"], overlay="conditions", ordered=True, polarity="negative_up", components=early,
                  time_locked_to="TO BE CONFIRMED"))
-    run = json.loads(latest(root, "ERP_topo", "ERP-topo_P3_*_run.json").read_text(encoding="utf8"))
+    run = json.loads(latest(root, "ERP_topo", "ERP-topo_P3_*_neg-up_v01_run.json").read_text(encoding="utf8"))  # rule O3
     assert run["legend"] == "inside panel" and run["open_items"] == ["time_locked_to"]
     assert "OPEN (not confirmed): time_locked_to" in latest(root, "ERP_topo", "ERP-topo_P3_*_caption.md").read_text(encoding="utf8")
     s = spec(root, exclude=["G1s0"])  # caption-only fields are optional; their caption lines drop out

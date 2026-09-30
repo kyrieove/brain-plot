@@ -442,11 +442,11 @@ def subset_part(spec, meta, parts=("groups", "conditions")):
 
 
 def name_part(spec):
-    """Rule O3: `_box` for box axes and `_lock-<event>` when the spec names its time-locking event, so that the two axis
+    """Rule O3: `_box` for box axes, `_neg-up` for negative up and `_lock-<event>` when the spec names its time-locking event, so that the two axis
     styles, and figures of epoch sets locked to different events that share an output folder, never take each other's
     names (and never archive each other as versions)."""
     lock = spec.get("time_locked_to") and "time_locked_to" not in open_items(spec)
-    return ("_box" if spec.get("axes") == "box" else "") + ("_lock-" + safe(spec["time_locked_to"]) if lock else "")
+    return ("_box" if spec.get("axes") == "box" else "") + ("_neg-up" if spec.get("polarity") == "negative_up" else "") + ("_lock-" + safe(spec["time_locked_to"]) if lock else "")
 
 
 def query_epochs(epochs, f, conditions, query):
