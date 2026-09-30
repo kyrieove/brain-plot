@@ -223,29 +223,25 @@ with tempfile.TemporaryDirectory() as d:
     inset = dict(base, groups=["G1", "G2"], map_placement="inset", components=[n400])
     c = lambda *ks: {k: COND[k] for k in ks}
     six = c(*(f"c{i}" for i in range(1, 7)))
-    for label, spec, n_panels, want in (
-            ("inset 2 × 2 design", dict(inset, conditions=c("c1", "c2", "c3", "c4"), grid=[["c1", "c2"], ["c3", "c4"]]), 4,
-             ("figure right", None)),
-            ("inset 2 × 3 design", dict(inset, conditions=six,
-                                                                            grid=[["c1", "c2", "c3"], ["c4", "c5", "c6"]]), 6,
-             ("figure right", None)),
-            ("inset 2 × 3 design, box axes", dict(inset, conditions=six,
-                                                  grid=[["c1", "c2", "c3"], ["c4", "c5", "c6"]], axes="box"), 6,
-             ("figure right", None)),
+    grid6 = [["c1", "c2", "c3"], ["c4", "c5", "c6"]]
+    for label, spec, n_panels in (
+            ("inset 2 × 2 design", dict(inset, conditions=c("c1", "c2", "c3", "c4"), grid=[["c1", "c2"], ["c3", "c4"]]), 4),
+            ("inset 2 × 3 design", dict(inset, conditions=six, grid=grid6), 6),
+            ("inset 2 × 3 design, box axes", dict(inset, conditions=six, grid=grid6, axes="box"), 6),
             ("inset, panels = 3 groups in a row", dict(inset, groups=["G1", "G2", "G3"], overlay="conditions",
-                                                     conditions=c("c1", "c2"), width_mm=185), 3, ("figure right", None)),
+                                                     conditions=c("c1", "c2"), width_mm=185), 3),
             ("inset 2 × 2, negative up, SEM, N1", dict(inset, conditions=c("c1", "c2", "c3", "c4"), polarity="negative_up",
                                                       error="sem", components=[dict(name="N1", tmin_ms=150, tmax_ms=200,
-                                                                                    channels=["P7", "P8"])]), 4, ("figure right", None)),
-            ("inset, one panel", dict(inset, conditions=c("c1")), 1, ("figure right", None)),
+                                                                                    channels=["P7", "P8"])]), 4),
+            ("inset, one panel", dict(inset, conditions=c("c1")), 1),
             ("inset 3 × 2 design, 3 lines per panel", dict(inset, groups=["G1", "G2", "G3"], conditions=six,
-                                                           grid=[["c1", "c2"], ["c3", "c4"], ["c5", "c6"]]), 6, ("figure right", None))):
+                                                           grid=[["c1", "c2"], ["c3", "c4"], ["c5", "c6"]]), 6)):
         clean(label, ep.plot, spec, out)
         run = json.loads(max(out.rglob("ERP-topo-inset_*_run.json"), key=lambda f: f.stat().st_mtime_ns).read_text("utf8"))
         per = len(spec["conditions"]) if spec.get("overlay") == "conditions" else len(spec["groups"])  # lines per panel
         lay = run["inset_layout"]
-        assert lay["colour_bar"] == want[0] and lay["spacing_tier"] in ((want[1],) if want[1] is not None else (0, 1)) \
-            and lay["maps_rows_columns"] == [1, per], (label, lay)  # (tier None: depends on the font's text widths)
+        assert lay["colour_bar"] == "figure right" and lay["spacing_tier"] in (0, 1) \
+            and lay["maps_rows_columns"] == [1, per], (label, lay)  # (the tier depends on the font's text widths)
         parts = n_panels * per  # the maps; the one shared colour bar is at the figure's edge
         assert run["maps"] == n_panels * per and run["inset_audit"] == dict(panels=n_panels, parts_checked=parts, clashes=[]), run["inset_audit"]
         assert inset_clear(SAVED[-1]) == parts, label
