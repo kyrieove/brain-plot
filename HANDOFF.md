@@ -32,10 +32,14 @@ Two branches, both working, tests pass, everything committed and pushed
   3. `brain-plot/tfr_plot.py` + `test/test_tfr.py` + `references/tfr.md` + spec/rules/SKILL entries (commits `f824a9d`,
      `f689321`); suites erp/layout/tfr OK. Real data specs `…\brain-plot\specs\tfr_verb_power.json`, `tfr_verb_itc.json`
      (ROI Fz, Cz — FCz is not in the data; query `acc == 1`; theta 4–8 Hz 200–500 ms window as a demo).
-  **Open for the user:** (a) all conditions show a strong phase-locked event ~400 ms BEFORE the verb marker (ITC up to
-  0.78, broadband stripe in power) — inside the baseline window; an untriggered display onset or a marker delay? The
-  baseline may need to move once the user says what happens there. (b) ROI / windows of the demo figures are
-  placeholders, not analysis choices. (c) Merge `tfr` into `main` and push only after the user has seen the figures.
+  Trial (user's design figure): fixation 500 → subject 300 → blank 200 → **verb (S15–20) 300** → blank 2500 (S1–6 ≈
+  +350 ms) → sound prompt 3000 (S7–12 ≈ +2900 ms) → blank 500. The subject word (no marker) starts 500 ms before the
+  verb: its response is the phase-locked event at ≈ −400 ms. Baseline therefore moved to **−750…−550 ms** (fixation,
+  before the subject; −750 = the edge-zone limit of the −1…2 s epochs) → power v07. Known limit: 3–4 Hz wavelets still
+  reach past −500 ms; a clean low-frequency baseline needs re-epoching (e.g. −2…2 s, ~3 h of preprocessing).
+  **Open for the user:** (a) ROI / windows of the demo figures are placeholders (user checks at home). (b) sub27: `acc`
+  is 3 on every trial in `epoch_10800_60_final.xlsx` — user thinks the acc coding is wrong; excluded in the TFR specs
+  until fixed. (c) Do NOT merge `tfr` into `main` or push until the user says so (2026-09-30).
   Cost note: agy used 1.2 M (preprocessing), 4.6 M + 7.1 M (TFR module + 2 fixes, mostly waiting on tests) tokens;
   codex 0.76 M (first run failed on image downloads — give codex text-only tasks).
 - 2026-09-30 (local, all on `main`, pushed; last commit `501553f`; three suites OK on Windows):
