@@ -17,6 +17,26 @@ Two branches, both working, tests pass, everything committed and pushed
   `microstate/`, `specs/`; names say what the figure is; re-renders get `_vNN+1`, old versions move to `_history/`.
 
 ## Next (start here)
+- 2026-09-30 afternoon (local, branch **`tfr`**, NOT pushed, not merged — user: "暂不推送"): **time-frequency module**.
+  Plan agreed with the user via /grilling. Roles: Claude plans + reviews, codex (gpt-6-luna, max) = literature,
+  agy = implementation. Done:
+  1. Survey `research/tfr/survey.md` (12 papers, all DOIs checked on Crossref, 3 figures opened and checked; the other
+     rows are text-only hints). Chosen layout: ROI TF maps in a condition grid per group + optional band × window
+     topomap rows, one colour bar at the right; dB (logratio), baseline −500…−200 ms (literature default).
+  2. New verb-locked epochs (S15–20, −1…2 s, 0.1–45 Hz, AutoReject local after ICA, else = `scripts/preprocess_eeg.py`)
+     in `D:\…\metaphor production\derivatives\preprocessed_epochs_verb\` (script in `_code\`, resumable). First pass
+     lost 8 subjects to out-of-memory (AutoReject `n_jobs=-1` = 16 workers on 15 GB); `n_jobs` set to 2; a background
+     chain (`chain.sh` in the session scratchpad) reruns the failures, then re-renders both TFR specs with all subjects.
+     Check: 60 `sub*-epo.fif`, `logs/run_all.log` without "failed"; if some remain, run `_code\run_all.cmd` again.
+  3. `brain-plot/tfr_plot.py` + `test/test_tfr.py` + `references/tfr.md` + spec/rules/SKILL entries (commits `f824a9d`,
+     `f689321`); suites erp/layout/tfr OK. Real data specs `…\brain-plot\specs\tfr_verb_power.json`, `tfr_verb_itc.json`
+     (ROI Fz, Cz — FCz is not in the data; query `acc == 1`; theta 4–8 Hz 200–500 ms window as a demo).
+  **Open for the user:** (a) all conditions show a strong phase-locked event ~400 ms BEFORE the verb marker (ITC up to
+  0.78, broadband stripe in power) — inside the baseline window; an untriggered display onset or a marker delay? The
+  baseline may need to move once the user says what happens there. (b) ROI / windows of the demo figures are
+  placeholders, not analysis choices. (c) Merge `tfr` into `main` and push only after the user has seen the figures.
+  Cost note: agy used 1.2 M (preprocessing), 4.6 M + 7.1 M (TFR module + 2 fixes, mostly waiting on tests) tokens;
+  codex 0.76 M (first run failed on image downloads — give codex text-only tasks).
 - 2026-09-30 (local, all on `main`, pushed; last commit `501553f`; three suites OK on Windows):
   1. Fast-forwarded local `main` to `origin/main` (inset layout from the cloud); the old uncommitted local
      `erp_plot.py` change (explore topo-table tweaks) merged cleanly — the 2026-09-29 "commit before pulling" note is done.
