@@ -145,7 +145,9 @@ def load_and_compute(spec):
     cache_dir = ep.out_root(spec) / ".cache" / "tfr" / param_hash
     cache_dir.mkdir(parents=True, exist_ok=True)
 
-    sub_tfrs = {}
+    measure = spec["measure"]
+    b_mode = spec.get("baseline_mode", "logratio")
+    grand_avg = {}  # running sums per (group, condition), divided by N at the end: one subject in memory at a time
     trial_counts = {}
     valid_ids = {}
 
@@ -155,22 +157,19 @@ def load_and_compute(spec):
         for u in fs:
             f = ep.unit_files(u)[0]
             s_id = ep.uid(f)
-            cfile = cache_dir / f"{s_id}.h5"
+            # plain arrays, not MNE .h5: read_tfrs parses a full info per object (4.6 s per subject vs ms for npz)
+            cfile = cache_dir / f"{s_id}.npz"
             tfr_dict = {}
             counts = {}
 
             if cfile.exists():
                 cfile.touch()
-                try:
-                    loaded = mne.time_frequency.read_tfrs(cfile)
-                    for obj in loaded:
-                        c, mtype = obj.comment.split("/")
-                        tfr_dict.setdefault(c, {})[mtype] = obj
-                        counts[c] = int(obj.nave)
-                except Exception:
-                    tfr_dict = {}
-
-            if not tfr_dict:
+                with np.load(cfile) as z:
+                    times_s, data = z["times"], z[measure]  # read each array once
+                    for i, c in enumerate(spec["conditions"]):
+                        tfr_dict[c] = {measure: data[i]}
+                        counts[c] = int(z["nave"][i])
+            else:
                 try:
                     ep_sub = mne.read_epochs(f, proj=False, verbose="error")
                 except Exception as e:
@@ -179,24 +178,29 @@ def load_and_compute(spec):
 
                 ep_sub = ep.query_epochs(ep_sub, f, spec["conditions"], spec.get("query"))
 
-                objs_to_save = []
                 for c in spec["conditions"]:
                     p, itc = ep_sub[c].compute_tfr(
                         "morlet", freqs=freqs, n_cycles=n_cycles, decim=decim,
                         return_itc=True, average=True,
                     )
-                    p.comment = f"{c}/power"
-                    itc.comment = f"{c}/itc"
-                    tfr_dict.setdefault(c, {})["power"] = p
-                    tfr_dict.setdefault(c, {})["itc"] = itc
+                    tfr_dict[c] = {"power": p.data, "itc": itc.data}
                     counts[c] = int(p.nave)
-                    objs_to_save.extend([p, itc])
-
-                mne.time_frequency.write_tfrs(cfile, objs_to_save, overwrite=True)
+                    times_s = p.times
+                np.savez(cfile, times=times_s, nave=[counts[c] for c in spec["conditions"]],
+                         power=[tfr_dict[c]["power"] for c in spec["conditions"]],
+                         itc=[tfr_dict[c]["itc"] for c in spec["conditions"]])
                 del ep_sub
                 gc.collect()
 
-            sub_tfrs[g, s_id] = tfr_dict
+            for c in spec["conditions"]:
+                x = tfr_dict[c][measure]
+                if measure == "power":
+                    x = mne.baseline.rescale(x, times_s, (baseline_ms[0] / 1000.0, baseline_ms[1] / 1000.0),
+                                             mode=b_mode, copy=True, verbose="error")
+                    if b_mode == "logratio":
+                        x = x * 10.0
+                grand_avg[g, c] = grand_avg.get((g, c), 0) + x
+            del tfr_dict
             trial_counts[g][s_id] = counts
             valid_ids[g].append(s_id)
 
@@ -209,24 +213,10 @@ def load_and_compute(spec):
             if old_dir != cache_dir:
                 shutil.rmtree(old_dir, ignore_errors=True)
 
-    measure = spec["measure"]
-    grand_avg = {}
-    for g in groups:
-        for c in spec["conditions"]:
-            sub_arrs = []
-            for s_id in valid_ids[g]:
-                tfr = sub_tfrs[g, s_id][c][measure].copy()
-                if measure == "power":
-                    b_sec = (baseline_ms[0] / 1000.0, baseline_ms[1] / 1000.0)
-                    b_mode = spec.get("baseline_mode", "logratio")
-                    tfr.apply_baseline(b_sec, mode=b_mode)
-                    if b_mode == "logratio":
-                        tfr.data *= 10.0
-                sub_arrs.append(tfr.data)
-            grand_avg[g, c] = np.mean(sub_arrs, axis=0)
+    for (g, c) in grand_avg:
+        grand_avg[g, c] = grand_avg[g, c] / len(valid_ids[g])
 
-    sample_tfr = next(iter(sub_tfrs.values()))[next(iter(spec["conditions"]))]["power"]
-    times = sample_tfr.times * 1000.0
+    times = times_s * 1000.0
 
     tf_params = dict(
         freqs={"fmin": float(freqs[0]), "fmax": float(freqs[-1]), "n": len(freqs)},
@@ -414,7 +404,7 @@ def plot(spec):
                         fill=False, edgecolor="black", linestyle="--", linewidth=0.6, zorder=3,
                     )
                     ax.add_patch(rect)
-                    ax.text(w["tmin_ms"] + 4, w["fmax"] * 1.04, w["name"], fontsize=6, ha="left", va="bottom", zorder=4)
+                    ax.text(w["tmin_ms"] + 4, w["fmax"] / 1.03, w["name"], fontsize=6, ha="left", va="top", zorder=4)  # inside its box: stacked boxes share edges
 
                 panel_idx += 1
 
