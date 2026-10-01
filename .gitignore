@@ -15,3 +15,5 @@ examples/demo_data/
 examples/demo_templates/
 examples/brain-plot/
 .orchestrate/
+research/gn-extension-preview/
+research/preview_gn_extensions.py

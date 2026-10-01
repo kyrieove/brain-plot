@@ -526,12 +526,18 @@ def contract(ev):
                 dig=hashlib.md5(dig.tobytes()).hexdigest())
 
 
+def file_stamp(f):
+    """Cache identity of an input file: path, size, modification time (a changed file invalidates its cache)."""
+    st = Path(f).stat()
+    return [str(f), st.st_size, st.st_mtime_ns]
+
+
 def load(spec):
     """Validated arrays per group: (n_subj, n_cond, n_ch, n_t) in µV; cache keyed on the exact input files."""
     groups, groups_all = select_files(spec)
     conds = list(spec["conditions"])
     files = [p for fs in groups.values() for f in fs for p in unit_files(f)]
-    stamp = [[str(f), f.stat().st_size, f.stat().st_mtime_ns] for f in files]
+    stamp = [file_stamp(f) for f in files]
     key = json.dumps([LOADER_VERSION, list(groups), groups_all, stamp, conds, spec.get("query")])
     cache = out_root(spec) / ".cache" / (hashlib.md5(key.encode()).hexdigest() + ".npz")
     if cache.exists():
@@ -2115,9 +2121,10 @@ def explore(spec):
     grid = [[info.ch_names.index(c) for c in r] for r in rows]
     sphere = common_sphere(info)
     root, shape = out_root(spec), f"{len(rows)}x{max(len(r) for r in rows)}"
+    chan = "" if rows == EXPLORE_CHANNELS else "_" + "-".join(safe(c) for r in rows for c in r)
     outs = []
     for g in groups:  # rule O3
-        outs.append(versioned(root / "ERP", f"ERP-grid-{shape}_conditions_{safe(g)}{name_part(spec)}"))
+        outs.append(versioned(root / "ERP", f"ERP-grid-{shape}{chan}_conditions_{safe(g)}{name_part(spec)}"))
         wave_grid(spec, "Waveforms", grid, info, data[g].mean(0), labels, colors, styles, ms, t, lo, hi, neg, g, outs[-1])
         archive(outs[-1])
         if spec.get("components"):

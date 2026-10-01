@@ -286,6 +286,25 @@ def main():
             assert "time axis differs" in str(e), e
         print("assertion (j) passed: different time grids stopped")
 
+        # (k) a replaced input file is recomputed, not served from the cache
+        f01 = Path(data_dir) / "sub01-epo.fif"
+        ga_before = sp.load_and_compute(spec_win, subjects_dir=SUBJECTS_DIR, src=src, bem=bem, fwd=fwd)[0]
+        e01 = mne.read_epochs(f01, proj=False, verbose="error")
+        d01 = e01.get_data()
+        d01[:, :, e01.times > 0] *= 0.5
+        mne.EpochsArray(d01, e01.info, events=e01.events, event_id=e01.event_id, tmin=e01.times[0],
+                        baseline=None).save(f01, overwrite=True, verbose="error")
+        ga_after = sp.load_and_compute(spec_win, subjects_dir=SUBJECTS_DIR, src=src, bem=bem, fwd=fwd)[0]
+        assert not np.allclose(ga_before, ga_after), "replaced input served from cache"
+        print("assertion (k) passed: replaced input file recomputed")
+
+        # (l) same window name, different range / condition subset -> different names
+        o1 = sp.plot(dict(spec_win, windows=[{"name": "N", "tmin_ms": 250, "tmax_ms": 350}]), subjects_dir=SUBJECTS_DIR, src=src, bem=bem, fwd=fwd)[0]
+        o2 = sp.plot(dict(spec_win, windows=[{"name": "N", "tmin_ms": 300, "tmax_ms": 400}]), subjects_dir=SUBJECTS_DIR, src=src, bem=bem, fwd=fwd)[0]
+        assert o1.name != o2.name and Path(f"{o1}.png").exists() and Path(f"{o2}.png").exists(), (o1, o2)
+        assert "N-250-350ms" in o1.name and "_cond-condA" in o1.name, o1.name
+        print(f"assertion (l) passed: distinct names {o1.name} / {o2.name}")
+
     print("OK")
 
 

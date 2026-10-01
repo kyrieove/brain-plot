@@ -243,8 +243,8 @@ def load_and_compute(spec, subjects_dir=None, src=None, bem=None, fwd=None):
         if geometry_key(mne.io.read_info(active_files[s_id], verbose="error")) != geom:
             ep.die(f"subject {s_id} electrode positions differ from the first subject; the shared forward solution would be wrong")
 
-    sorted_subj_str = "_".join(s_ids)
-    ga_hash = hashlib.md5((param_hash + geom + sorted_subj_str).encode()).hexdigest()[:8]
+    stamps = {s: json.dumps(ep.file_stamp(active_files[s])) for s in s_ids}
+    ga_hash = hashlib.md5((param_hash + geom + json.dumps(stamps, sort_keys=True)).encode()).hexdigest()[:8]
     ga_cache = cache_dir / f"grand_avg_{ga_hash}.npz"
 
     first_ch_names = None
@@ -294,7 +294,7 @@ def load_and_compute(spec, subjects_dir=None, src=None, bem=None, fwd=None):
         if subj_cache.exists():
             try:
                 with np.load(subj_cache, allow_pickle=True) as z:
-                    if "rank" in z and "sfreq" in z:
+                    if "rank" in z and "sfreq" in z and "stamp" in z and str(z["stamp"]) == stamps[s_id]:
                         evoked_data = z["evoked_data"]
                         nave = [int(n) for n in z["nave"]]
                         cov_data = z["cov_data"]
@@ -355,6 +355,7 @@ def load_and_compute(spec, subjects_dir=None, src=None, bem=None, fwd=None):
                 times=times_sub,
                 sfreq=sfreq_sub,
                 rank=json.dumps(rank),
+                stamp=stamps[s_id],
             )
 
         if first_ch_names is None:
@@ -596,11 +597,14 @@ def plot(spec, subjects_dir=None, src=None, bem=None, fwd=None):
             cb.outline.set_linewidth(0.5)
             cax.set_title(method, fontsize=7, pad=5)
 
+    active_files, _ = select_source_files(spec)
+    subset = ep.subset_part(spec, {"conditions_all": ep.available_conditions(spec, next(iter(active_files.values())))}, ("conditions",))
     if fig_type == "windows":
-        win_part = "_" + "-".join(ep.safe(w["name"]) for w in windows)
-        stem = f"source-windows_{method}{win_part}{ep.name_part(spec)}"
+        win_part = "_" + "-".join(f"{ep.safe(w['name'])}-{w['tmin_ms']:g}-{w['tmax_ms']:g}ms" for w in windows)
+        stem = f"source-windows_{method}{win_part}{subset}"
     else:
-        stem = f"source-timeline_{method}{ep.name_part(spec)}"
+        t_pts = spec.get("times_ms", [100, 200, 300, 400, 500, 600, 700, 800])
+        stem = f"source-timeline_{method}_{t_pts[0]:g}-{t_pts[-1]:g}ms-n{len(t_pts)}-hw{half_w:g}{subset}"
 
     out = ep.versioned(ep.out_root(spec) / "source", stem)
     issues = ep.report_layout(fig, out.name)

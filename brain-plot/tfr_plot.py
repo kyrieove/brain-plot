@@ -154,10 +154,15 @@ def load_and_compute(spec):
             s_id = ep.uid(f)
             # plain arrays, not MNE .h5: read_tfrs parses a full info per object (4.6 s per subject vs ms for npz)
             cfile = cache_dir / f"{s_id}.npz"
+            stamp = json.dumps(ep.file_stamp(f))
+            cached = None
             if cfile.exists():
-                cfile.touch()
                 with np.load(cfile) as z:
-                    times_s, data, nave = z["times"], z[measure], z["nave"]  # read each array once
+                    if "stamp" in z and str(z["stamp"]) == stamp:
+                        cached = z["times"], z[measure], z["nave"]  # read each array once
+            if cached is not None:
+                cfile.touch()
+                times_s, data, nave = cached
             else:
                 try:
                     ep_sub = mne.read_epochs(f, proj=False, verbose="error")
@@ -171,7 +176,7 @@ def load_and_compute(spec):
                                              return_itc=True, average=True) for c in spec["conditions"]]
                 times_s, nave = res[0][0].times, [p.nave for p, _ in res]
                 arrays = dict(power=[p.data for p, _ in res], itc=[i.data for _, i in res])
-                np.savez(cfile, times=times_s, nave=nave, **arrays)
+                np.savez(cfile, times=times_s, nave=nave, stamp=stamp, **arrays)
                 data = arrays[measure]
 
             for i, c in enumerate(spec["conditions"]):
@@ -261,6 +266,9 @@ def write_caption_md(out, spec, group, n_subj, tf_params):
 def plot(spec):
     plt.rcParams.update(ep.STYLE)
     grand_avg, times, freqs, info, valid_ids, trial_counts, tf_params = load_and_compute(spec)
+
+    first_unit = next(iter(ep.select_files(spec)[0].values()))[0]
+    subset = ep.subset_part(spec, {"conditions_all": ep.available_conditions(spec, first_unit)}, ("conditions",))
 
     cond_keys = list(spec["conditions"])
     grid = spec.get("grid") or [cond_keys[i:i + 3] for i in range(0, len(cond_keys), 3)]
@@ -454,7 +462,7 @@ def plot(spec):
             cb_row.outline.set_linewidth(0.4)
 
         win_part = ("_" + "-".join(ep.safe(w["name"]) for w in windows)) if windows else ""
-        out_stem = f"TFR-{measure}_{'-'.join(map(ep.safe, spec['channels']))}_{ep.safe(g)}{win_part}{ep.name_part(spec)}"
+        out_stem = f"TFR-{measure}_{'-'.join(map(ep.safe, spec['channels']))}_{ep.safe(g)}{win_part}{subset}"
         out = ep.versioned(ep.out_root(spec) / "TFR", out_stem)
 
         issues = ep.report_layout(fig, out.name)

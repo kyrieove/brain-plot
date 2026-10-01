@@ -21,7 +21,7 @@ Three modules (ERP, microstate, time-frequency), tests pass, everything committe
 **2026-10-01 — fix the astra review, with orchestrate v2.** Independent review by astra:
 `research/astra-review-brainplot.md` (20 findings). Real data is 500 Hz → finding 1 does not change the
 existing source figures; finding 2 (stale TFR/source cache) may — clear `.cache` and re-render to check.
-Planned cards, in order: (1) source: findings 1, 3, 6, 8, 9; (2) shared input fingerprint for caches: 2, 16;
+Planned cards, in order: (1) source: findings 1, 3, 6, 8, 9 — **done** (`docs/orch/2026-10-01-source-fixes/`, real-data windows figure re-rendered as v03, nearly unchanged); (2) shared input fingerprint for caches: 2, 16 — **done** (`docs/orch/2026-10-01-cache-fingerprint/`; next source render recomputes all 59 subjects once and gets new names with window ranges);
 (3) TFR: 4, 5, 7, 10, 11. Workflow = `orchestrate` skill v2 (`/orch`): Claude reads the code and writes a
 detailed step-by-step card in `docs/orch/<date>-<name>/card.md`, agy executes, codex reviews once (ask the
 user which model; default gpt-6.1-sol), Claude accepts and commits (no push). Cards must be detailed —
@@ -37,8 +37,7 @@ User decisions: P200 kept although weak (+0.5 µV); no late window (`specs\sn_ch
 400–2000 ms, continuous with the N400 — not an SN or LPC); per-column scales in the timeline; 16-mm brains, 8-pt text.
 **Open (small):** (1) neighbouring colour bars' end ticks sit ~1 mm apart ("2.40 2.46") — consider fewer ticks or
 wider block gaps; (2) the user's reference
-figure stacks L above R per condition — offered as an alternative layout, not requested; (3) `.mne-test-profile/`
-in the repo root is a codex leftover (untracked) — delete.
+figure stacks L above R per condition — offered as an alternative layout, not requested.
 
 **Markers (user, final, 2026-09-30 22:30; matches the recording S15 0 / S1 +350 / S7 +2900 ms):** S15–20 = **verb
 onset**, S1–6 = onset of the 2500-ms blank after the verb, S7–12 = sound prompt. Conditions per block: Hmet, Hlit,

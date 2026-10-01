@@ -186,6 +186,23 @@ def run_tests():
         assert_stops(s5, "not found in conditions")
         assert_stops({**base_spec, "query": "acc == 99"}, "leaves no trials")
 
+        # cache invalidated when an input file changes
+        f = sorted(data_dir.rglob("*-epo.fif"))[0]
+        g_f = f.parent.name
+        ga1 = tfr_plot.load_and_compute(base_spec)[0]
+        e = mne.read_epochs(f, verbose="error")
+        d = e.get_data()
+        d[:, :, e.times > 0] *= 3.0
+        mne.EpochsArray(d, e.info, events=e.events, event_id=e.event_id, tmin=e.times[0], verbose=False).save(f, overwrite=True)
+        ga2 = tfr_plot.load_and_compute(base_spec)[0]
+        assert not np.allclose(ga1[g_f, "burst"], ga2[g_f, "burst"]), "replaced input served from TFR cache"
+        print("TFR cache invalidated by a replaced input file")
+
+        # a condition subset is part of the file name
+        outs = tfr_plot.plot(dict(base_spec, conditions={"burst": "10 Hz Burst"}))
+        assert all("_cond-burst" in Path(o).name for o in outs), outs
+        print("TFR condition subset named")
+
     print("OK")
 
 
