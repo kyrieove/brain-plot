@@ -647,6 +647,10 @@ def plot(spec, subjects_dir=None, src=None, bem=None, fwd=None):
     fig.savefig(f"{out}.svg")
     plt.close(fig)
 
+    snr = "infinite" if params["lambda2"] == 0 else f"{params['lambda2'] ** -0.5:.3g}"
+    orientation = ("fixed orientation (loose=0): signed current normal to the cortex"
+                   if params["loose"] == 0 else
+                   "pick_ori=None: magnitude of the three orientations per vertex (non-negative)")
     run_record = {
         "spec": spec,
         "figure": fig_type,
@@ -668,8 +672,8 @@ def plot(spec, subjects_dir=None, src=None, bem=None, fwd=None):
         "versions": dict(mne=mne.__version__, matplotlib=matplotlib.__version__, numpy=np.__version__),
         "method_facts": {
             "estimate": f"{method} on the fsaverage template (no individual anatomy), loose={params['loose']}, "
-                        f"depth={params['depth']}, lambda2={params['lambda2']:.4g} (SNR {params['lambda2'] ** -0.5:.3g})",
-            "orientation": "pick_ori=None: magnitude of the three orientations per vertex (non-negative)",
+                        f"depth={params['depth']}, lambda2={params['lambda2']:.4g} (SNR {snr})",
+            "orientation": orientation,
             "aggregation": "inverse per subject and condition with that subject's real trial count (nave), "
                            "then equal-weight mean over subjects; not a group statistic",
             "trial_counts": "dSPM noise normalisation scales with nave: conditions with different trial counts are "

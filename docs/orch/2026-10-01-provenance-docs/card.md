@@ -165,3 +165,24 @@ in Fix 1. Check re-run by Claude: check_env `OK` (pyvista listed), test_source (
 test_microstate all `OK`. agy 458 s + Fix 1. Finding 20's larger refactors (shared base classes, run-record
 framework) deliberately skipped: the shared pieces that mattered (contract check, file stamp, cache-dir pruning,
 interpolated peak) are already in `erp_plot.py`.
+
+## Fix 2
+Codex re-review (gpt-6.1-sol, after quota returned): two real findings in `method_facts`. Only
+`brain-plot/source_plot.py` and `brain-plot/references/source.md`.
+1. `source_plot.py`, in `plot()` just before `run_record = {`, add:
+   ```python
+    snr = "infinite" if params["lambda2"] == 0 else f"{params['lambda2'] ** -0.5:.3g}"
+    orientation = ("fixed orientation (loose=0): signed current normal to the cortex"
+                   if params["loose"] == 0 else
+                   "pick_ori=None: magnitude of the three orientations per vertex (non-negative)")
+   ```
+   then in `method_facts` use `(SNR {snr})` instead of `(SNR {params['lambda2'] ** -0.5:.3g})`, and
+   `"orientation": orientation,` instead of the fixed string.
+2. `references/source.md`, the "Orientation" bullet: "`pick_ori=None`: magnitude of the three orientations per vertex
+   (non-negative); with `loose: 0` the orientation is fixed normal to the cortex and values are signed."
+Check: `cd C:/dev/brain-plot/brain-plot && python test/test_source.py` prints `OK`.
+Don't: no commits, no other files.
+
+## Fix 2 acceptance
+Codex re-review (gpt-6.1-sol) found lambda2=0 crashing the SNR text and the loose=0 orientation text; fixed in Fix 2
+(diff read by Claude, test_source `OK`). Its third point (card/HANDOFF/review-log in the commit) is workflow records.

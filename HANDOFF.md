@@ -19,11 +19,10 @@ Three modules (ERP, microstate, time-frequency), tests pass, everything committe
 
 ## Next (start here)
 **2026-10-01 end of day — all 20 astra findings fixed and pushed** (5 cards + zcode fixes, `docs/orch/2026-10-01-*`).
-Open, in order: (1) Codex `gpt-6.1-sol` re-review of cards 4 (`display-fixes`) and 5 (`provenance-docs`) — Codex quota
-was out, Claude reviewed them; (2) re-render the real-data figures (source windows/timeline recompute all 59 subjects
-once, ~20 min each; TFR/microstate colour limits may widen slightly; names change: source/TFR windows carry ranges);
-(3) zcode A2: run eval cases 9–12 in fresh sessions and log them in `brain-plot/evals/results.md` (~1 h, user answers
-the interviews). Reviews done today: codex (cards 1–3), open-code-review (1 low, fixed), zcode/yao Review Studio
+Open: zcode A2 only — run eval cases 9–12 in fresh sessions and log them in `brain-plot/evals/results.md` (~1 h,
+user answers the interviews). Real-data figures were deliberately not re-rendered (user, 2026-10-01): the next
+source render recomputes all 59 subjects once (~20 min); TFR/source window figures get new names with ranges.
+Reviews done today: codex (cards 1–5; 4–5 after its quota returned, Fix 2 on card 5), open-code-review (1 low, fixed), zcode/yao Review Studio
 (WARN, A1/A3 fixed).
 
 **2026-10-01 — fix the astra review, with orchestrate v2.** Independent review by astra:

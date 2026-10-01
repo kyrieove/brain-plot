@@ -176,3 +176,7 @@ reused in TFR and microstate, no extra files. Check re-run by Claude: test_tfr (
 test_erp_plot, test_microstate all `OK`. agy 488 s. Effect on existing figures: microstate and TFR power topomap
 limits can grow slightly (interpolated peak), TFR ITC maps are now linear-interpolated, TFR window file names carry
 ranges, localizer ROI may differ for peaks on an offset.
+
+## Codex re-review (after quota returned)
+gpt-6.1-sol: "steps 1–8 follow the card, no copied code"; its FAIL lists only the card and review-log entries, which
+are the workflow's own acceptance records, not code — no action.
