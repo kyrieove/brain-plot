@@ -59,6 +59,15 @@ def check_spec(spec):
         names = [w["name"] for w in spec["windows"]]
         if len(set(names)) != len(names):
             ep.die(f"window names must be unique (got {names!r})")
+    if spec.get("baseline_mode", "logratio") != "logratio":
+        ep.die(f"baseline_mode {spec['baseline_mode']!r} is not supported: only 'logratio' (dB) is drawn and labelled")
+    if len(set(spec["channels"])) != len(spec["channels"]):
+        ep.die(f"channels must not repeat (got {spec['channels']!r}); a repeated channel gets double weight in the ROI mean")
+    if "grid" in spec:
+        flat = [k for r in spec["grid"] for k in r]
+        if not spec["grid"] or any(not r for r in spec["grid"]) or sorted(flat) != sorted(spec["conditions"]):
+            ep.die(f"grid must list every condition exactly once with no empty rows (got {spec['grid']!r}, "
+                   f"conditions {list(spec['conditions'])})")
 
 
 def get_freqs(spec):
@@ -96,9 +105,10 @@ def load_and_compute(spec):
         ep.die(f"channels {missing} not in data channels ({info.ch_names}); choose channels present in the data")
 
     freqs = get_freqs(spec)
-    n_cycles, n_cycles_fmin = get_n_cycles(spec, freqs)
-
-    edge_ms = n_cycles_fmin / freqs[0] / 2.0 * 1000.0  # half the longest wavelet
+    n_cycles, _ = get_n_cycles(spec, freqs)
+    # half the longest wavelet MNE actually convolves with (±5 sigma, sigma = n_cycles / (2 pi f))
+    sfreq = info["sfreq"]
+    edge_ms = max((len(w) - 1) / 2.0 for w in mne.time_frequency.morlet(sfreq, freqs, n_cycles=n_cycles)) / sfreq * 1000.0
 
     epoch_tmin_ms = ep_test.times[0] * 1000.0
     epoch_tmax_ms = ep_test.times[-1] * 1000.0
@@ -129,6 +139,13 @@ def load_and_compute(spec):
     decim = spec.get("decim")
     if decim is None:
         decim = max(1, int(round(info["sfreq"] / 100.0)))
+    t_out_ms = ep_test.times[::int(decim)] * 1000.0  # compute_tfr keeps every decim-th sample
+    for w in spec.get("windows", []):
+        n_f = int(((freqs >= w["fmin"] - 1e-6) & (freqs <= w["fmax"] + 1e-6)).sum())
+        n_t = int(((t_out_ms >= w["tmin_ms"] - 1e-3) & (t_out_ms <= w["tmax_ms"] + 1e-3)).sum())
+        if n_f == 0 or n_t == 0:
+            ep.die(f"window {w['name']!r} ({w['fmin']:g}–{w['fmax']:g} Hz, {w['tmin_ms']:g}–{w['tmax_ms']:g} ms) contains "
+                   f"{n_f} frequency bins and {n_t} time samples; widen it or change freqs/decim")
 
     tf_dict = {
         "freqs": [round(float(f), 4) for f in freqs],
@@ -146,6 +163,7 @@ def load_and_compute(spec):
     trial_counts = {}
     valid_ids = {}
 
+    ref_contract, ref_id = None, None
     for g, fs in groups.items():
         valid_ids[g] = []
         trial_counts[g] = {}
@@ -158,8 +176,9 @@ def load_and_compute(spec):
             cached = None
             if cfile.exists():
                 with np.load(cfile) as z:
-                    if "stamp" in z and str(z["stamp"]) == stamp:
+                    if "stamp" in z and "contract" in z and str(z["stamp"]) == stamp:
                         cached = z["times"], z[measure], z["nave"]  # read each array once
+                        k = json.loads(str(z["contract"]))
             if cached is not None:
                 cfile.touch()
                 times_s, data, nave = cached
@@ -167,8 +186,10 @@ def load_and_compute(spec):
                 try:
                     ep_sub = mne.read_epochs(f, proj=False, verbose="error")
                 except Exception as e:
-                    print(f"WARNING: skipping unreadable/incomplete file {f.name}: {e}")
-                    continue
+                    ep.die(f"cannot read {f.name}: {e}; fix the file or list the subject in 'exclude'")
+                if ep_sub.info["bads"]:
+                    ep.die(f"{f.name}: bad channels {ep_sub.info['bads']} are still marked; resolve them before plotting")
+                k = json.loads(json.dumps(ep.contract(ep_sub)))
 
                 ep_sub = ep.query_epochs(ep_sub, f, spec["conditions"], spec.get("query"))
 
@@ -176,8 +197,14 @@ def load_and_compute(spec):
                                              return_itc=True, average=True) for c in spec["conditions"]]
                 times_s, nave = res[0][0].times, [p.nave for p, _ in res]
                 arrays = dict(power=[p.data for p, _ in res], itc=[i.data for _, i in res])
-                np.savez(cfile, times=times_s, nave=nave, stamp=stamp, **arrays)
+                np.savez(cfile, times=times_s, nave=nave, stamp=stamp, contract=json.dumps(k), **arrays)
                 data = arrays[measure]
+
+            if ref_contract is None:
+                ref_contract, ref_id = k, f.name
+            ep.check_contract(f.name, k, ref_contract, ref_id)
+            if not np.isfinite(data).all():
+                ep.die(f"{f.name}: non-finite values in the time-frequency data")
 
             for i, c in enumerate(spec["conditions"]):
                 x = data[i]
@@ -230,7 +257,7 @@ def write_run_json(out, spec, valid_ids, trial_counts, tf_params, color_limits, 
         size_mm=size_mm,
         qa="PENDING: the agent records the visual QA result here after checking the PNG",
     )
-    Path(f"{out}_run.json").write_text(json.dumps(data, indent=1, ensure_ascii=False), encoding="utf8")
+    Path(f"{out}_run.json").write_text(json.dumps(data, indent=1, ensure_ascii=False, allow_nan=False), encoding="utf8")
 
 
 def write_caption_md(out, spec, group, n_subj, tf_params):

@@ -237,10 +237,17 @@ def load_and_compute(spec, subjects_dir=None, src=None, bem=None, fwd=None):
     cache_dir = ep.out_root(spec) / ".cache" / "source" / param_hash
     cache_dir.mkdir(parents=True, exist_ok=True)
 
-    first_info = mne.io.read_info(active_files[s_ids[0]], verbose="error")
+    try:
+        first_info = mne.io.read_info(active_files[s_ids[0]], verbose="error")
+    except Exception as e:
+        ep.die(f"cannot read subject {s_ids[0]} ({active_files[s_ids[0]].name}): {e}; fix the file or list the subject in 'exclude'")
     geom = geometry_key(first_info)
     for s_id in s_ids[1:]:
-        if geometry_key(mne.io.read_info(active_files[s_id], verbose="error")) != geom:
+        try:
+            info_s = mne.io.read_info(active_files[s_id], verbose="error")
+        except Exception as e:
+            ep.die(f"cannot read subject {s_id} ({active_files[s_id].name}): {e}; fix the file or list the subject in 'exclude'")
+        if geometry_key(info_s) != geom:
             ep.die(f"subject {s_id} electrode positions differ from the first subject; the shared forward solution would be wrong")
 
     stamps = {s: json.dumps(ep.file_stamp(active_files[s])) for s in s_ids}
@@ -249,13 +256,15 @@ def load_and_compute(spec, subjects_dir=None, src=None, bem=None, fwd=None):
 
     first_ch_names = None
     first_times = None
+    ref_contract, ref_id = None, None
     trial_counts = {}
     valid_ids = []
 
     # Check if grand average is already cached
     if ga_cache.exists():
         with np.load(ga_cache, allow_pickle=True) as z:
-            if "subject_p99" in z and "outlier_subjects" in z and "rank" in z:
+            # "contract": written only after every subject passed the S1 contract and finite checks
+            if "subject_p99" in z and "outlier_subjects" in z and "rank" in z and "contract" in z:
                 grand_avg = z["data"]
                 times_s = z["times"]
                 trial_counts = json.loads(str(z["trial_counts"]))
@@ -294,7 +303,7 @@ def load_and_compute(spec, subjects_dir=None, src=None, bem=None, fwd=None):
         if subj_cache.exists():
             try:
                 with np.load(subj_cache, allow_pickle=True) as z:
-                    if "rank" in z and "sfreq" in z and "stamp" in z and str(z["stamp"]) == stamps[s_id]:
+                    if "rank" in z and "sfreq" in z and "stamp" in z and "contract" in z and str(z["stamp"]) == stamps[s_id]:
                         evoked_data = z["evoked_data"]
                         nave = [int(n) for n in z["nave"]]
                         cov_data = z["cov_data"]
@@ -304,6 +313,7 @@ def load_and_compute(spec, subjects_dir=None, src=None, bem=None, fwd=None):
                         times_sub = z["times"]
                         sfreq_sub = float(z["sfreq"])
                         rank = json.loads(str(z["rank"]))
+                        k = json.loads(str(z["contract"]))
                         cache_valid = True
             except Exception:
                 cache_valid = False
@@ -312,8 +322,10 @@ def load_and_compute(spec, subjects_dir=None, src=None, bem=None, fwd=None):
             try:
                 ep_sub = mne.read_epochs(f, proj=False, verbose="error")
             except Exception as e:
-                print(f"WARNING: skipping unreadable subject {s_id}: {e}")
-                continue
+                ep.die(f"cannot read subject {s_id} ({f.name}): {e}; fix the file or list the subject in 'exclude'")
+            if ep_sub.info["bads"]:
+                ep.die(f"{f.name}: bad channels {ep_sub.info['bads']} are still marked; resolve them before plotting")
+            k = json.loads(json.dumps(ep.contract(ep_sub)))
 
             ep_sub = ep.query_epochs(ep_sub, f, cond_keys, spec.get("query"))
             t_epoch_min = ep_sub.times[0] * 1000.0
@@ -356,12 +368,19 @@ def load_and_compute(spec, subjects_dir=None, src=None, bem=None, fwd=None):
                 sfreq=sfreq_sub,
                 rank=json.dumps(rank),
                 stamp=stamps[s_id],
+                contract=json.dumps(k),
             )
 
         if first_ch_names is None:
             first_ch_names = ch_names
         elif ch_names != first_ch_names:
             ep.die(f"subject {s_id} channel names differ from first subject")
+
+        if ref_contract is None:
+            ref_contract, ref_id = k, s_id
+        ep.check_contract(f"subject {s_id}", k, ref_contract, f"subject {ref_id}")
+        if not np.isfinite(evoked_data).all():
+            ep.die(f"subject {s_id}: non-finite values in the evoked data")
 
         if first_times is None:
             first_times = times_sub
@@ -434,6 +453,7 @@ def load_and_compute(spec, subjects_dir=None, src=None, bem=None, fwd=None):
         subject_p99=json.dumps(subject_p99),
         outlier_subjects=json.dumps(outlier_subjects),
         rank=json.dumps(subject_ranks),
+        contract=json.dumps(ref_contract),
     )
     return grand_avg, times_s, s_dir, src_obj, valid_ids, excluded, trial_counts, param_dict
 

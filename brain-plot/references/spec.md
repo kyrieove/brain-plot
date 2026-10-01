@@ -67,7 +67,7 @@ Required: `data` (folder of `*-epo.fif` files), `conditions` (`{key: label}`), `
 | `n_cycles` | `"freqs/2"` | Number of cycles per wavelet, or `"freqs/2"` (~0.5 s wavelets). |
 | `decim` | to ~100 Hz | Decimation factor for time points. |
 | `baseline_ms` | `[-500, -200]` | Baseline interval in ms (measure `"power"` only). |
-| `baseline_mode` | `"logratio"` | Baseline mode (`"logratio"` gives dB when × 10; measure `"power"` only). |
+| `baseline_mode` | `"logratio"` | Only `"logratio"` (dB); other values stop. Measure `"power"` only. |
 | `xlim_ms` | `[-500, 1500]` | Time range to display in ms. Must not reach into edge zone. |
 | `windows` | none | List of `{name, fmin, fmax, tmin_ms, tmax_ms}`. Adds dashed rectangle in panels and a topomap row per window. |
 | `cmap` | `"RdBu_r"` (power) / `"Reds"` (itc) | Colormap for TF panels and topomaps. |

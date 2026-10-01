@@ -525,3 +525,4 @@ final rules read as they do.
 ## 2026-10-01 — source fixes (astra findings 1, 3, 6, 8, 9)
 - Real post-decimation sfreq, no crop, out-of-range windows stop, forward keyed by geometry + src/BEM identity (no sibling reuse), hard-threshold LUT, unique window names (source + TFR). Card, review and acceptance: `docs/orch/2026-10-01-source-fixes/card.md`.
 - 2026-10-01 — cache fingerprints + figure identity (astra findings 2, 16): TFR/source caches keyed on input file stamps; TFR/source/explore names carry subset, window ranges, custom channels. `docs/orch/2026-10-01-cache-fingerprint/card.md`.
+- 2026-10-01 — TFR fixes (astra 4, 5, 7, 10, 11): shared S1 contract check for ERP/TFR/source (also on cache hits), no skipping unreadable files, real-wavelet edge zone, logratio only, grid/ROI/window checks. `docs/orch/2026-10-01-tfr-fixes/card.md`.

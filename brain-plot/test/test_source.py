@@ -283,7 +283,7 @@ def main():
             sp.load_and_compute(dict(spec_win, data=str(data_dir_mix)), subjects_dir=SUBJECTS_DIR, src=src, bem=bem, fwd=fwd)
             raise AssertionError("averaged subjects with different time grids")
         except SystemExit as e:
-            assert "time axis differs" in str(e), e
+            assert "differs from" in str(e) or "time axis differs" in str(e), e
         print("assertion (j) passed: different time grids stopped")
 
         # (k) a replaced input file is recomputed, not served from the cache
@@ -304,6 +304,31 @@ def main():
         assert o1.name != o2.name and Path(f"{o1}.png").exists() and Path(f"{o2}.png").exists(), (o1, o2)
         assert "N-250-350ms" in o1.name and "_cond-condA" in o1.name, o1.name
         print(f"assertion (l) passed: distinct names {o1.name} / {o2.name}")
+
+        # (m) unreadable subject file stops instead of being skipped
+        data_dir_bad = Path(tmp_dir) / "data_bad"
+        data_dir_bad.mkdir()
+        make_synthetic_dataset(data_dir_bad, fwd, src, st_label, info, name="sub01")
+        (data_dir_bad / "sub02-epo.fif").write_bytes(b"not a fif file")
+        try:
+            sp.load_and_compute(dict(spec_win, data=str(data_dir_bad)), subjects_dir=SUBJECTS_DIR, src=src, bem=bem, fwd=fwd)
+            raise AssertionError("unreadable subject was skipped")
+        except SystemExit as e:
+            assert "cannot read" in str(e), e
+        print("assertion (m) passed: unreadable subject stops")
+
+        # (n) a grand-average cache without the contract mark (older code) is not served
+        ga_ok = sp.load_and_compute(spec_win, subjects_dir=SUBJECTS_DIR, src=src, bem=bem, fwd=fwd)[0]
+        ga_files = list((ep.out_root(spec_win) / ".cache" / "source").glob("*/grand_avg_*.npz"))
+        assert ga_files, "no grand-average cache written"
+        for gf in ga_files:
+            with np.load(gf, allow_pickle=True) as z:
+                old = {k: z[k] for k in z.files if k != "contract"}
+            old["data"] = np.zeros_like(old["data"])
+            np.savez(gf, **old)
+        ga_again = sp.load_and_compute(spec_win, subjects_dir=SUBJECTS_DIR, src=src, bem=bem, fwd=fwd)[0]
+        assert np.allclose(ga_again, ga_ok) and np.abs(ga_again).max() > 0, "unmarked grand-average cache was served"
+        print("assertion (n) passed: unmarked grand-average cache recomputed")
 
     print("OK")
 

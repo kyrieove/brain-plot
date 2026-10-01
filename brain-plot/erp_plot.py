@@ -526,6 +526,19 @@ def contract(ev):
                 dig=hashlib.md5(dig.tobytes()).hexdigest())
 
 
+def check_contract(label, k, ref, ref_label):
+    """Rule S1: stop unless one input's contract is supported and identical to the reference input's."""
+    if k["types"] != ["eeg"] or k["units"] != [int(mne.io.constants.FIFF.FIFF_UNIT_V)]:
+        die(f"{label}: only EEG potentials in volts are supported (types {k['types']}, units {k['units']})")
+    if k["projs_unapplied"]:
+        die(f"{label}: unapplied projectors {k['projs_unapplied']}; apply or remove them upstream")
+    if not k["locs_finite"] or k["coord_frames"] != [int(mne.io.constants.FIFF.FIFFV_COORD_HEAD)]:
+        die(f"{label}: channel positions missing or not in head coordinates; set the montage upstream")
+    diff = [x for x in k if k[x] != ref[x]]
+    if diff:
+        die(f"{label} differs from {ref_label} in {diff}; the loader does not re-reference, resample or interpolate")
+
+
 def file_stamp(f):
     """Cache identity of an input file: path, size, modification time (a changed file invalidates its cache)."""
     st = Path(f).stat()
@@ -559,18 +572,9 @@ def load(spec):
                 if ev.info["bads"]:
                     die(f"{f.name} [{c}]: bad channels {ev.info['bads']} are still marked; resolve them before plotting")
                 k = contract(ev)
-                if k["types"] != ["eeg"] or k["units"] != [int(mne.io.constants.FIFF.FIFF_UNIT_V)]:
-                    die(f"{f.name}: only EEG potentials in volts are supported (types {k['types']}, units {k['units']})")
-                if k["projs_unapplied"]:
-                    die(f"{f.name}: unapplied projectors {k['projs_unapplied']}; apply or remove them upstream")
-                if not k["locs_finite"] or k["coord_frames"] != [int(mne.io.constants.FIFF.FIFFV_COORD_HEAD)]:
-                    die(f"{f.name}: channel positions missing or not in head coordinates; set the montage upstream")
                 if ref is None:
                     ref, ref_file, times, info = k, f.name, ev.times, ev.info
-                diff = [x for x in k if k[x] != ref[x]]
-                if diff:
-                    die(f"{f.name} [{c}] differs from {ref_file} in {diff}; the loader does not re-reference, "
-                        "resample or interpolate")
+                check_contract(f"{f.name} [{c}]", k, ref, ref_file)
             x = np.array([ev.data for ev in evs]) * 1e6
             if not np.isfinite(x).all():
                 die(f"{f.name}: non-finite values in the data")

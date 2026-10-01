@@ -27,7 +27,7 @@ TF computation parameters (`freqs`, `n_cycles`, `decim`, `baseline_ms`, `baselin
   window, ask for the trial timeline (what appears, when, relative to the marker) and put the baseline before its first
   event, inside the valid (non-edge) part of the epoch. (2026-09-30: a fixation cross 500 ms before the marker sat in
   the default window and showed as a broadband stripe.)
-- `baseline_mode`: default `"logratio"` (dB = 10 × log10(power / baseline); power only).
+- `baseline_mode`: only `"logratio"` (dB = 10 × log10(power / baseline); power only); other modes stop.
 - `xlim_ms`: default `[-500, 1500]`.
 
 Never ask (settled by house conventions; leave out or use default):
@@ -40,7 +40,7 @@ Never ask (settled by house conventions; leave out or use default):
 Fix the cause, never work around it; tell the user when the fix changes the figure:
 - **`measure must be 'power' or 'itc'`** — set `measure` to `"power"` or `"itc"`.
 - **`channels ... not in data channels`** — select channels that exist in the preprocessed epoch files (check online reference electrodes).
-- **`... reaches into the edge zone`** — `xlim_ms` or `baseline_ms` is within half the longest wavelet (`(n_cycles/fmin)/2` seconds) of the epoch start or end. Widen the epoch length upstream, or adjust `xlim_ms`, `baseline_ms`, `fmin`, or `n_cycles`.
+- **`... reaches into the edge zone`** — `xlim_ms` or `baseline_ms` is within 5 σ, σ = n_cycles / (2π·fmin) of the epoch start or end. Widen the epoch length upstream, or adjust `xlim_ms`, `baseline_ms`, `fmin`, or `n_cycles`.
 - **`window ... outside freqs or xlim_ms`** — adjust window `fmin`/`fmax` to stay within `freqs` and `tmin_ms`/`tmax_ms` to stay within `xlim_ms`.
 - **`grid key ... not found in conditions`** — fix typo in `grid` to match keys in `conditions`.
 - **`group ... has no valid readable subject files`** — check data directory and subject files.

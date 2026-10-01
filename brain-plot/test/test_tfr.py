@@ -186,6 +186,19 @@ def run_tests():
         assert_stops(s5, "not found in conditions")
         assert_stops({**base_spec, "query": "acc == 99"}, "leaves no trials")
 
+        # review 2026-10-01: unit, grid, ROI, edge zone from real wavelets, empty windows
+        assert_stops({**base_spec, "baseline_mode": "ratio"}, "only 'logratio'")
+        assert_stops({**base_spec, "grid": [["burst", "phase"]]}, "exactly once")
+        assert_stops({**base_spec, "grid": [["burst", "burst", "phase", "noise"]]}, "exactly once")
+        assert_stops({**base_spec, "grid": [["burst", "phase", "noise"], []]}, "exactly once")
+        assert_stops({**base_spec, "channels": ["Fz", "Fz", "Cz"]}, "must not repeat")
+        assert_stops({**base_spec, "baseline_ms": [-680, -400]}, "reaches into the edge zone")  # 250 < 320 < 396 ms
+        assert_stops({**base_spec, "freqs": [4, 8, 13, 30],
+                      "windows": [{"name": "gap", "fmin": 9, "fmax": 10, "tmin_ms": 300, "tmax_ms": 600}]}, "0 frequency bins")
+        w = mne.time_frequency.morlet(250.0, [3.0], n_cycles=1.5)[0]
+        assert abs((len(w) - 1) / 2 / 250.0 * 1000 - 396) < 5, len(w)
+        print("TFR stops: logratio only, grid coverage, ROI repeats, real wavelet edge, empty window")
+
         # cache invalidated when an input file changes
         f = sorted(data_dir.rglob("*-epo.fif"))[0]
         g_f = f.parent.name
@@ -202,6 +215,16 @@ def run_tests():
         outs = tfr_plot.plot(dict(base_spec, conditions={"burst": "10 Hz Burst"}))
         assert all("_cond-burst" in Path(o).name for o in outs), outs
         print("TFR condition subset named")
+
+        # S1 contract: a subject with the same shape but reordered channels stops; an unreadable file stops
+        files = sorted(data_dir.rglob("*-epo.fif"))
+        e = mne.read_epochs(files[1], verbose="error")
+        e.reorder_channels(list(reversed(e.ch_names)))
+        e.save(files[1], overwrite=True, verbose="error")
+        assert_stops(base_spec, "differs from")
+        files[1].write_bytes(b"not a fif file")
+        assert_stops(base_spec, "cannot read")
+        print("TFR contract: reordered channels and unreadable file stop")
 
     print("OK")
 
