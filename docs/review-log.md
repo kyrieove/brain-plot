@@ -521,3 +521,6 @@ final rules read as they do.
   scale left most maps grey); size self-check in `layout_issues`. Done by codex (agy quota out). −101 lines net.
   Figures: windows v02 (105 × 113 mm), timeline v06 (180 × 216 mm). Late window: dropped (user: "不用管了").
   Merged into `main` 2026-10-01 (user).
+
+## 2026-10-01 — source fixes (astra findings 1, 3, 6, 8, 9)
+- Real post-decimation sfreq, no crop, out-of-range windows stop, forward keyed by geometry + src/BEM identity (no sibling reuse), hard-threshold LUT, unique window names (source + TFR). Card, review and acceptance: `docs/orch/2026-10-01-source-fixes/card.md`.

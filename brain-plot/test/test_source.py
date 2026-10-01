@@ -14,16 +14,20 @@ import source_plot as sp  # noqa: E402
 SUBJECTS_DIR = sp.DEFAULT_SUBJECTS_DIR
 
 
-def make_synthetic_dataset(data_dir, fwd, src, st_label, info):
-    times = np.arange(-20, 101) / 100.0  # -0.2 s to 1.0 s at 100 Hz
+def make_synthetic_dataset(data_dir, fwd, src, st_label, info, sfreq=100.0, tmax_s=1.0, peak_s=0.3, lowpass=None, name="sub01"):
+    info = info.copy()
+    with info._unlock():
+        info["sfreq"] = sfreq
+        info["lowpass"] = lowpass if lowpass is not None else sfreq / 2.0
+    times = np.arange(int(round(-0.2 * sfreq)), int(round(tmax_s * sfreq)) + 1) / sfreq
     lh_v, rh_v = src[0]["vertno"], src[1]["vertno"]
     idx = np.where(np.isin(lh_v, st_label.vertices))[0][0]
 
-    # Pulse at 300 ms (250-350 ms) in left superior temporal gyrus
-    pulse = np.exp(-((times - 0.3) / 0.05) ** 2)
+    # Pulse at peak_s (250-350 ms) in left superior temporal gyrus
+    pulse = np.exp(-((times - peak_s) / 0.05) ** 2)
     stc_data = np.zeros((len(lh_v) + len(rh_v), len(times)))
     stc_data[idx] = pulse * 1e-8
-    stc = mne.SourceEstimate(stc_data, vertices=[lh_v, rh_v], tmin=times[0], tstep=0.01)
+    stc = mne.SourceEstimate(stc_data, vertices=[lh_v, rh_v], tmin=times[0], tstep=1.0 / sfreq)
 
     ev = mne.simulation.simulate_evoked(fwd, stc, info, cov=None, nave=30, random_state=42)
 
@@ -36,7 +40,7 @@ def make_synthetic_dataset(data_dir, fwd, src, st_label, info):
     events = np.column_stack([np.arange(n_trials) * 200, np.zeros(n_trials, int), event_codes])
     epochs = mne.EpochsArray(trials, info, events=events, event_id={"condA": 1, "condB": 2, "condC": 3}, tmin=times[0], baseline=None)
 
-    sub_file = Path(data_dir) / "sub01-epo.fif"
+    sub_file = Path(data_dir) / f"{name}-epo.fif"
     epochs.save(sub_file, overwrite=True, verbose="error")
     return sub_file
 
@@ -46,6 +50,29 @@ def count_colored(img):
     non_white = ~np.all(img >= 254, axis=-1)
     non_grey = np.ptp(img, axis=-1) > 20
     return int(np.sum(non_white & non_grey))
+
+
+def test_pure_helpers():
+    assert sp.pick_decim(500, 30) == 5
+    assert sp.pick_decim(250, 40) == 2
+    assert sp.pick_decim(250, 100) == 1
+    assert sp.pick_decim(1000, 40) == 8
+    assert sp.pick_decim(512, 30) == 5
+    from mne.viz._brain.colormap import calculate_lut
+    lut = calculate_lut(sp.threshold_cmap(), 1.0, 1.0, 2.0, 3.0, transparent=False)
+    assert lut[0, 3] == 0 and np.all(lut[1:, 3] > 0.99), lut[:3]
+    base = {"data": ".", "conditions": {"a": "A"}}
+    for bad in (
+        dict(base, figure="windows", windows=[{"name": "N4", "tmin_ms": 300, "tmax_ms": 400},
+                                             {"name": "N4", "tmin_ms": 400, "tmax_ms": 500}]),
+        dict(base, figure="timeline", times_ms=[100, 100]),
+    ):
+        try:
+            sp.check_spec(bad)
+            raise AssertionError(f"accepted duplicate names: {bad}")
+        except SystemExit as e:
+            assert "unique" in str(e) or "repeat" in str(e), e
+    print("assertion (helpers) passed: decimation guard, hard-threshold LUT, duplicate names stopped")
 
 
 def test_source_layout_selfcheck():
@@ -66,6 +93,7 @@ def test_source_layout_selfcheck():
 
 def main():
     test_source_layout_selfcheck()
+    test_pure_helpers()
     print("Setting up coarse fsaverage source space (oct4)...")
     src = mne.setup_source_space("fsaverage", spacing="oct4", subjects_dir=SUBJECTS_DIR, add_dist=False, verbose="error")
     labels = mne.read_labels_from_annot("fsaverage", parc="aparc", hemi="lh", subjects_dir=SUBJECTS_DIR, verbose="error")
@@ -206,6 +234,57 @@ def main():
         assert run_3x2["layout_issues"] == []
         assert Path(f"{out_3x2}.png").exists()
         print("assertion (f2) passed: 3 rows x 2 cols figure passed render_check: ok")
+
+        # (g) 250 Hz input, epoch to 1.5 s: real sfreq kept, no crop, peak latency right
+        data_dir_250 = Path(tmp_dir) / "data_250"
+        data_dir_250.mkdir()
+        make_synthetic_dataset(data_dir_250, fwd, src, st_label, info, sfreq=250.0, tmax_s=1.5, peak_s=0.4, lowpass=40.0)
+        spec_250 = dict(base_spec, data=str(data_dir_250), figure="windows",
+                        windows=[{"name": "P4", "tmin_ms": 350, "tmax_ms": 450}])
+        ga_250, t_250, *_ = sp.load_and_compute(spec_250, subjects_dir=SUBJECTS_DIR, src=src, bem=bem, fwd=fwd)
+        assert np.allclose(np.diff(t_250), 1.0 / 125.0), np.diff(t_250)[:3]
+        assert t_250[-1] > 1.49, t_250[-1]
+        peak_ms = t_250[np.argmax(ga_250[0].max(axis=0))] * 1000.0
+        assert abs(peak_ms - 400.0) <= 16.0, peak_ms
+        print(f"assertion (g) passed: 250 Hz kept as 125 Hz, epoch to {t_250[-1]:.2f} s, peak at {peak_ms:.0f} ms")
+
+        # (h) window beyond the data stops before rendering
+        renders = [0]
+        orig_render = sp.BrainRenderer.render
+        def counting_render(self, *a, **k):
+            renders[0] += 1
+            return orig_render(self, *a, **k)
+        sp.BrainRenderer.render = counting_render
+        try:
+            for wins in ([{"name": "late", "tmin_ms": 900, "tmax_ms": 1200}],
+                         [{"name": "ok", "tmin_ms": 250, "tmax_ms": 350}, {"name": "early", "tmin_ms": -400, "tmax_ms": -100}]):
+                try:
+                    sp.plot(dict(spec_win, windows=wins), subjects_dir=SUBJECTS_DIR, src=src, bem=bem, fwd=fwd)
+                    raise AssertionError(f"accepted out-of-range window {wins}")
+                except SystemExit as e:
+                    assert "not fully inside" in str(e), e
+        finally:
+            sp.BrainRenderer.render = orig_render
+        assert renders[0] == 0, renders[0]
+        print("assertion (h) passed: out-of-range windows stop before any rendering")
+
+        # (i) src/BEM objects passed in: forward computed, never written to the cache
+        sp.load_and_compute(dict(spec_win, baseline_ms=[-150, 0]), subjects_dir=SUBJECTS_DIR, src=src, bem=bem)
+        written = list((ep.out_root(spec_win) / ".cache" / "source").glob("*/fwd-*.fif"))
+        assert written == [], written
+        print("assertion (i) passed: forward from custom src/BEM objects not persisted")
+
+        # (j) subjects with different time grids stop instead of being averaged
+        data_dir_mix = Path(tmp_dir) / "data_mix"
+        data_dir_mix.mkdir()
+        make_synthetic_dataset(data_dir_mix, fwd, src, st_label, info, name="sub01")
+        make_synthetic_dataset(data_dir_mix, fwd, src, st_label, info, sfreq=250.0, lowpass=40.0, name="sub02")
+        try:
+            sp.load_and_compute(dict(spec_win, data=str(data_dir_mix)), subjects_dir=SUBJECTS_DIR, src=src, bem=bem, fwd=fwd)
+            raise AssertionError("averaged subjects with different time grids")
+        except SystemExit as e:
+            assert "time axis differs" in str(e), e
+        print("assertion (j) passed: different time grids stopped")
 
     print("OK")
 

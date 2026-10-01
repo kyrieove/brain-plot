@@ -56,6 +56,9 @@ def check_spec(spec):
                 ep.die(f"window {w.get('name')!r} has fmin >= fmax ({w['fmin']} >= {w['fmax']}); fmin must be less than fmax")
             if w["tmin_ms"] >= w["tmax_ms"]:
                 ep.die(f"window {w.get('name')!r} has tmin_ms >= tmax_ms ({w['tmin_ms']} >= {w['tmax_ms']}); tmin_ms must be less than tmax_ms")
+        names = [w["name"] for w in spec["windows"]]
+        if len(set(names)) != len(names):
+            ep.die(f"window names must be unique (got {names!r})")
 
 
 def get_freqs(spec):

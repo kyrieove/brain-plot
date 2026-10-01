@@ -69,11 +69,16 @@ def check_spec(spec):
                 ep.die(f"window dict missing keys: {sorted(req_w - set(w))}")
             if w["tmin_ms"] >= w["tmax_ms"]:
                 ep.die(f"window {w.get('name')!r}: tmin_ms ({w['tmin_ms']}) must be less than tmax_ms ({w['tmax_ms']})")
+        names = [w["name"] for w in windows]
+        if len(set(names)) != len(names):
+            ep.die(f"window names must be unique (got {names!r})")
 
     if fig_type == "timeline":
         times = spec.get("times_ms", [100, 200, 300, 400, 500, 600, 700, 800])
         if not (isinstance(times, list) and times and all(isinstance(x, (int, float)) for x in times)):
             ep.die("times_ms must be a non-empty list of numbers")
+        if len(set(times)) != len(times):
+            ep.die(f"times_ms must not repeat (got {times!r})")
         half_w = spec.get("half_width_ms", 50)
         if not (isinstance(half_w, (int, float)) and half_w > 0):
             ep.die("half_width_ms must be a positive number")
@@ -115,6 +120,34 @@ def select_source_files(spec):
     return {s: by_id[s] for s in active_ids}, excl
 
 
+def pick_decim(sfreq, lowpass):
+    """Integer decimation toward ~100 Hz that keeps lowpass <= new sfreq / 3 (anti-aliasing)."""
+    decim = max(1, int(round(sfreq / 100.0)))
+    while decim > 1 and lowpass is not None and lowpass > sfreq / decim / 3.0:
+        decim -= 1
+    return decim
+
+
+def geometry_key(info):
+    """Hash of channel names, kinds and electrode positions; the forward solution depends on these."""
+    chs = [(ch["ch_name"], int(ch["kind"]), [round(float(x), 6) for x in ch["loc"][:3]]) for ch in info["chs"]]
+    return hashlib.md5(json.dumps(chs).encode()).hexdigest()[:8]
+
+
+def file_id(path):
+    """Identity of a src/BEM file: resolved path, size and modification time."""
+    p = Path(path).resolve()
+    st = p.stat()
+    return f"{p}|{st.st_size}|{st.st_mtime_ns}"
+
+
+def threshold_cmap():
+    """hot with the lowest LUT entry fully transparent: values <= fmin are hidden, everything above is opaque (SRC4)."""
+    lut = matplotlib.colormaps["hot"](np.linspace(0.0, 1.0, 256))
+    lut[0, 3] = 0.0
+    return matplotlib.colors.ListedColormap(lut)
+
+
 class BrainRenderer:
     def __init__(self, subjects_dir, src):
         self.subjects_dir = str(subjects_dir)
@@ -135,7 +168,7 @@ class BrainRenderer:
         v = self.vertno[hemi]
         b.add_data(
             values, fmin=fmin, fmid=fmid, fmax=fmax,
-            transparent=True, colormap="hot", colorbar=False,
+            transparent=False, colormap=threshold_cmap(), colorbar=False,
             vertices=v, hemi=hemi, smoothing_steps=10,
         )
         raw_img = b.screenshot()
@@ -157,25 +190,27 @@ def load_and_compute(spec, subjects_dir=None, src=None, bem=None, fwd=None):
     s_dir = Path(subjects_dir or spec.get("subjects_dir") or DEFAULT_SUBJECTS_DIR).resolve()
     if isinstance(src, (str, Path)):
         src_obj = mne.read_source_spaces(src, verbose="error")
-        src_name = Path(src).name
+        src_name = file_id(src)
     elif src is not None:
         src_obj = src
         src_name = "custom-src"
     else:
         src_path = Path(spec.get("src") or (s_dir / "fsaverage" / "bem" / "fsaverage-ico-5-src.fif"))
         src_obj = mne.read_source_spaces(src_path, verbose="error")
-        src_name = src_path.name
+        src_name = file_id(src_path)
 
     if isinstance(bem, (str, Path)):
         bem_obj = mne.read_bem_solution(bem, verbose="error")
-        bem_name = Path(bem).name
+        bem_name = file_id(bem)
     elif bem is not None:
         bem_obj = bem
         bem_name = "custom-bem"
     else:
         bem_path = Path(spec.get("bem") or (s_dir / "fsaverage" / "bem" / "fsaverage-5120-5120-5120-bem-sol.fif"))
         bem_obj = mne.read_bem_solution(bem_path, verbose="error")
-        bem_name = bem_path.name
+        bem_name = file_id(bem_path)
+
+    persist_fwd = src_name != "custom-src" and bem_name != "custom-bem"
 
     method = spec.get("method", "dSPM")
     lambda2 = float(spec.get("lambda2", 1.0 / 9.0))
@@ -186,7 +221,7 @@ def load_and_compute(spec, subjects_dir=None, src=None, bem=None, fwd=None):
     cond_keys = list(spec["conditions"])
 
     param_dict = {
-        "cache_version": 2,
+        "cache_version": 3,
         "conditions": cond_keys,
         "query": spec.get("query"),
         "baseline_ms": baseline_ms,
@@ -202,35 +237,18 @@ def load_and_compute(spec, subjects_dir=None, src=None, bem=None, fwd=None):
     cache_dir = ep.out_root(spec) / ".cache" / "source" / param_hash
     cache_dir.mkdir(parents=True, exist_ok=True)
 
+    first_info = mne.io.read_info(active_files[s_ids[0]], verbose="error")
+    geom = geometry_key(first_info)
+    for s_id in s_ids[1:]:
+        if geometry_key(mne.io.read_info(active_files[s_id], verbose="error")) != geom:
+            ep.die(f"subject {s_id} electrode positions differ from the first subject; the shared forward solution would be wrong")
+
     sorted_subj_str = "_".join(s_ids)
-    ga_hash = hashlib.md5((param_hash + sorted_subj_str).encode()).hexdigest()[:8]
+    ga_hash = hashlib.md5((param_hash + geom + sorted_subj_str).encode()).hexdigest()[:8]
     ga_cache = cache_dir / f"grand_avg_{ga_hash}.npz"
 
-    # Forward solution
-    fwd_file = cache_dir / "fsaverage-fwd.fif"
-    if fwd is not None:
-        fwd_sol = fwd
-    elif fwd_file.exists():
-        fwd_sol = mne.read_forward_solution(fwd_file, verbose="error")
-    else:
-        sibling_fwds = list(cache_dir.parent.glob("*/fsaverage-fwd.fif"))
-        if sibling_fwds:
-            fwd_sol = mne.read_forward_solution(sibling_fwds[0], verbose="error")
-            mne.write_forward_solution(fwd_file, fwd_sol, overwrite=True, verbose="error")
-        else:
-            first_ep = mne.read_epochs(active_files[s_ids[0]], preload=False, proj=False, verbose="error")
-            first_info = first_ep.info.copy()
-            with first_info._unlock():
-                first_info["sfreq"] = 100.0
-            ev_proto = mne.EvokedArray(np.zeros((len(first_info["ch_names"]), 10)), first_info, tmin=0)
-            ev_proto.set_eeg_reference("average", projection=True)
-            fwd_sol = mne.make_forward_solution(
-                ev_proto.info, trans="fsaverage", src=src_obj, bem=bem_obj,
-                eeg=True, meg=False, mindist=5.0, n_jobs=2, verbose="error",
-            )
-            mne.write_forward_solution(fwd_file, fwd_sol, overwrite=True, verbose="error")
-
     first_ch_names = None
+    first_times = None
     trial_counts = {}
     valid_ids = []
 
@@ -247,6 +265,22 @@ def load_and_compute(spec, subjects_dir=None, src=None, bem=None, fwd=None):
                 param_dict["rank"] = json.loads(str(z["rank"]))
                 return grand_avg, times_s, s_dir, src_obj, valid_ids, excluded, trial_counts, param_dict
 
+    # Forward solution: one per electrode geometry, never borrowed from another parameter folder
+    fwd_file = cache_dir / f"fwd-{geom}.fif"
+    if fwd is not None:
+        fwd_sol = fwd
+    elif persist_fwd and fwd_file.exists():
+        fwd_sol = mne.read_forward_solution(fwd_file, verbose="error")
+    else:
+        ev_proto = mne.EvokedArray(np.zeros((len(first_info["ch_names"]), 1)), first_info, tmin=0)
+        ev_proto.set_eeg_reference("average", projection=True)
+        fwd_sol = mne.make_forward_solution(
+            ev_proto.info, trans="fsaverage", src=src_obj, bem=bem_obj,
+            eeg=True, meg=False, mindist=5.0, n_jobs=2, verbose="error",
+        )
+        if persist_fwd:
+            mne.write_forward_solution(fwd_file, fwd_sol, overwrite=True, verbose="error")
+
     running_sum = None
     times_s = None
     subject_p99 = {}
@@ -260,7 +294,7 @@ def load_and_compute(spec, subjects_dir=None, src=None, bem=None, fwd=None):
         if subj_cache.exists():
             try:
                 with np.load(subj_cache, allow_pickle=True) as z:
-                    if "rank" in z:
+                    if "rank" in z and "sfreq" in z:
                         evoked_data = z["evoked_data"]
                         nave = [int(n) for n in z["nave"]]
                         cov_data = z["cov_data"]
@@ -268,6 +302,7 @@ def load_and_compute(spec, subjects_dir=None, src=None, bem=None, fwd=None):
                         cov_nfree = int(z["cov_nfree"])
                         ch_names = list(z["ch_names"])
                         times_sub = z["times"]
+                        sfreq_sub = float(z["sfreq"])
                         rank = json.loads(str(z["rank"]))
                         cache_valid = True
             except Exception:
@@ -297,11 +332,8 @@ def load_and_compute(spec, subjects_dir=None, src=None, bem=None, fwd=None):
                 ep_sub, tmin=noise_cov_ms[0] / 1000.0, tmax=noise_cov_ms[1] / 1000.0,
                 method="shrunk", rank=rank, verbose="error",
             )
-            sfreq = ep_sub.info["sfreq"]
-            decim = max(1, int(round(sfreq / 100.0)))
-            t_min_crop = max(ep_sub.times[0], -0.2)
-            t_max_crop = min(ep_sub.times[-1], 1.0)
-            evokeds = [ep_sub[c].average().crop(tmin=t_min_crop, tmax=t_max_crop).decimate(decim) for c in cond_keys]
+            decim = pick_decim(ep_sub.info["sfreq"], ep_sub.info["lowpass"])
+            evokeds = [ep_sub[c].average().decimate(decim) for c in cond_keys]
 
             evoked_data = np.array([e.data for e in evokeds])
             nave = [int(e.nave) for e in evokeds]
@@ -310,6 +342,7 @@ def load_and_compute(spec, subjects_dir=None, src=None, bem=None, fwd=None):
             cov_nfree = int(cov["nfree"])
             ch_names = list(ep_sub.info["ch_names"])
             times_sub = evokeds[0].times
+            sfreq_sub = float(evokeds[0].info["sfreq"])
 
             np.savez(
                 subj_cache,
@@ -320,6 +353,7 @@ def load_and_compute(spec, subjects_dir=None, src=None, bem=None, fwd=None):
                 cov_nfree=cov_nfree,
                 ch_names=ch_names,
                 times=times_sub,
+                sfreq=sfreq_sub,
                 rank=json.dumps(rank),
             )
 
@@ -328,9 +362,16 @@ def load_and_compute(spec, subjects_dir=None, src=None, bem=None, fwd=None):
         elif ch_names != first_ch_names:
             ep.die(f"subject {s_id} channel names differ from first subject")
 
+        if first_times is None:
+            first_times = times_sub
+        elif len(times_sub) != len(first_times) or not np.allclose(times_sub, first_times):
+            ep.die(f"subject {s_id} time axis differs from the first subject "
+                   f"({len(times_sub)} samples from {times_sub[0] * 1000:.0f} ms vs {len(first_times)} from {first_times[0] * 1000:.0f} ms); "
+                   "use the same sampling rate, lowpass and epoch window for all subjects")
+
         info_sub = mne.io.read_info(f, verbose="error")
         with info_sub._unlock():
-            info_sub["sfreq"] = 100.0
+            info_sub["sfreq"] = sfreq_sub
         ev_proto = mne.EvokedArray(evoked_data[0], info_sub, tmin=times_sub[0], nave=nave[0])
         ev_proto.set_eeg_reference("average", projection=True)
         info_with_proj = ev_proto.info
@@ -346,6 +387,7 @@ def load_and_compute(spec, subjects_dir=None, src=None, bem=None, fwd=None):
         for i, c in enumerate(cond_keys):
             ev_obj = mne.EvokedArray(evoked_data[i], info_with_proj, tmin=times_sub[0], nave=nave[i])
             stc = mne.minimum_norm.apply_inverse(ev_obj, inv, lambda2=lambda2, method=method, pick_ori=None, verbose="error")
+            assert np.allclose(stc.times, times_sub), "STC time axis differs from cached evoked times"
             stc_arr = stc.data.astype(np.float32)
 
             if running_sum is None:
@@ -437,6 +479,12 @@ def plot(spec, subjects_dir=None, src=None, bem=None, fwd=None):
         windows = spec["windows"]
         columns_per_row = len(windows)
 
+    step_ms = float(times_ms[1] - times_ms[0])
+    for w in windows:
+        if w["tmin_ms"] < times_ms[0] - step_ms / 2 or w["tmax_ms"] > times_ms[-1] + step_ms / 2:
+            ep.die(f"window {w['name']} [{w['tmin_ms']:g}, {w['tmax_ms']:g}] ms is not fully inside the data "
+                   f"[{times_ms[0]:.0f}, {times_ms[-1]:.0f}] ms")
+
     renderer = BrainRenderer(s_dir, src_obj)
     color_limits = {}
     window_images = []
@@ -453,7 +501,7 @@ def plot(spec, subjects_dir=None, src=None, bem=None, fwd=None):
         if fmin >= fmax:
             fmax = fmin + 1e-6
         fmid = (fmin + fmax) / 2.0
-        lim = dict(fmin=fmin, fmid=fmid, fmax=fmax)
+        lim = dict(fmin=fmin, fmid=fmid, fmax=fmax, samples_ms=[float(times_ms[t_mask][0]), float(times_ms[t_mask][-1])])
         color_limits[f"window_{w['name']}"] = lim
 
         cond_images = []
