@@ -14,3 +14,4 @@ __pycache__/
 examples/demo_data/
 examples/demo_templates/
 examples/brain-plot/
+.orchestrate/
