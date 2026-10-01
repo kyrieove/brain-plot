@@ -29,7 +29,16 @@ OPTIONAL = {
     "group_by", "subjects_dir", "src", "bem",
 }
 
-DEFAULT_SUBJECTS_DIR = r"C:\Users\ASUS\mne_data\MNE-fsaverage-data"
+def default_subjects_dir():
+    """fsaverage parent folder: MNE's SUBJECTS_DIR config / environment, else where mne.datasets.fetch_fsaverage()
+    puts it (MNE_DATA or ~/mne_data); never downloads."""
+    candidates = [mne.get_config("SUBJECTS_DIR"),
+                  Path(mne.get_config("MNE_DATA") or Path.home() / "mne_data") / "MNE-fsaverage-data"]
+    for d in candidates:
+        if d and (Path(d) / "fsaverage").is_dir():
+            return Path(d)
+    ep.die("fsaverage not found: set 'subjects_dir' in the spec (the folder that contains fsaverage), or run "
+           "mne.datasets.fetch_fsaverage() once")
 
 
 def check_spec(spec):
@@ -187,7 +196,7 @@ def load_and_compute(spec, subjects_dir=None, src=None, bem=None, fwd=None):
     active_files, excluded = select_source_files(spec)
     s_ids = sorted(active_files)
 
-    s_dir = Path(subjects_dir or spec.get("subjects_dir") or DEFAULT_SUBJECTS_DIR).resolve()
+    s_dir = Path(subjects_dir or spec.get("subjects_dir") or default_subjects_dir()).resolve()
     if isinstance(src, (str, Path)):
         src_obj = mne.read_source_spaces(src, verbose="error")
         src_name = file_id(src)
@@ -236,6 +245,7 @@ def load_and_compute(spec, subjects_dir=None, src=None, bem=None, fwd=None):
     param_hash = hashlib.md5(json.dumps(param_dict, sort_keys=True).encode()).hexdigest()[:8]
     cache_dir = ep.out_root(spec) / ".cache" / "source" / param_hash
     cache_dir.mkdir(parents=True, exist_ok=True)
+    ep.prune_cache_dirs(cache_dir.parent, cache_dir)
 
     try:
         first_info = mne.io.read_info(active_files[s_ids[0]], verbose="error")
@@ -651,6 +661,22 @@ def plot(spec, subjects_dir=None, src=None, bem=None, fwd=None):
         "layout_issues": issues,
         "hemisphere_check": None,
         "canvas_size_mm": [W, H],
+        "inputs": {s: ep.file_stamp(f) for s, f in select_source_files(spec)[0].items()},
+        "code_md5": {f.name: hashlib.md5(f.read_bytes()).hexdigest() for f in (Path(__file__), Path(ep.__file__))},
+        "versions": dict(mne=mne.__version__, matplotlib=matplotlib.__version__, numpy=np.__version__),
+        "method_facts": {
+            "estimate": f"{method} on the fsaverage template (no individual anatomy), loose={params['loose']}, "
+                        f"depth={params['depth']}, lambda2={params['lambda2']:.4g} (SNR {params['lambda2'] ** -0.5:.3g})",
+            "orientation": "pick_ori=None: magnitude of the three orientations per vertex (non-negative)",
+            "aggregation": "inverse per subject and condition with that subject's real trial count (nave), "
+                           "then equal-weight mean over subjects; not a group statistic",
+            "trial_counts": "dSPM noise normalisation scales with nave: conditions with different trial counts are "
+                            "not directly comparable in brightness (see trials_per_subject_condition)",
+            "colour_scale": "each window/time column has its own range from percentiles across its conditions "
+                            "(display threshold, not significance); compare colours only within a column",
+            "noise_cov": f"from {params['noise_cov_ms'][0]:g} to {params['noise_cov_ms'][1]:g} ms of each epoch "
+                         "(relative to the time-locking event; check that this interval holds no stimulus)",
+        },
     }
     Path(f"{out}_run.json").write_text(json.dumps(run_record, indent=2, ensure_ascii=False), encoding="utf8")
     ep.archive(out)

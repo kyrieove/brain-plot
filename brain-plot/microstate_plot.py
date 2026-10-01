@@ -576,6 +576,7 @@ def plot(spec):
     caption(spec, meta, out, paths, facts)
     Path(f"{out}_run.json").write_text(json.dumps(dict(
         spec=spec, templates=[str(p) for p in paths], **facts, inputs=meta["inputs"], ids=meta["ids"],
+        nave=meta["nave"],
         contract=meta["contract"], code_md5={f.name: hashlib.md5(f.read_bytes()).hexdigest() for f in
                                              (Path(__file__), Path(ep.__file__))},
         time_semantics="labels_ms: centres of each run's first and last sample; spans (and every drawn boundary): "

@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import erp_plot as ep  # noqa: E402
 import source_plot as sp  # noqa: E402
 
-SUBJECTS_DIR = sp.DEFAULT_SUBJECTS_DIR
+SUBJECTS_DIR = str(sp.default_subjects_dir())
 
 
 def make_synthetic_dataset(data_dir, fwd, src, st_label, info, sfreq=100.0, tmax_s=1.0, peak_s=0.3, lowpass=None, name="sub01"):
@@ -329,6 +329,14 @@ def main():
         ga_again = sp.load_and_compute(spec_win, subjects_dir=SUBJECTS_DIR, src=src, bem=bem, fwd=fwd)[0]
         assert np.allclose(ga_again, ga_ok) and np.abs(ga_again).max() > 0, "unmarked grand-average cache was served"
         print("assertion (n) passed: unmarked grand-average cache recomputed")
+
+        # (o) run record carries method facts and provenance
+        out_o = sp.plot(spec_win, subjects_dir=SUBJECTS_DIR, src=src, bem=bem, fwd=fwd)[0]
+        run_o = json.loads(Path(f"{out_o}_run.json").read_text(encoding="utf8"))
+        assert {"estimate", "orientation", "aggregation", "trial_counts", "colour_scale", "noise_cov"} <= set(run_o["method_facts"]), run_o.keys()
+        assert run_o["inputs"] and run_o["code_md5"] and run_o["versions"]["mne"], run_o.keys()
+        assert len(list((ep.out_root(spec_win) / ".cache" / "source").iterdir())) <= ep.CACHE_KEEP
+        print("assertion (o) passed: method facts, provenance, source cache pruned")
 
     print("OK")
 

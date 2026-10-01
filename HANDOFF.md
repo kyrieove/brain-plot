@@ -22,7 +22,7 @@ Three modules (ERP, microstate, time-frequency), tests pass, everything committe
 `research/astra-review-brainplot.md` (20 findings). Real data is 500 Hz → finding 1 does not change the
 existing source figures; finding 2 (stale TFR/source cache) may — clear `.cache` and re-render to check.
 Planned cards, in order: (1) source: findings 1, 3, 6, 8, 9 — **done** (`docs/orch/2026-10-01-source-fixes/`, real-data windows figure re-rendered as v03, nearly unchanged); (2) shared input fingerprint for caches: 2, 16 — **done** (`docs/orch/2026-10-01-cache-fingerprint/`; next source render recomputes all 59 subjects once and gets new names with window ranges);
-(3) TFR: 4, 5, 7, 10, 11. Workflow = `orchestrate` skill v2 (`/orch`): Claude reads the code and writes a
+(3) TFR: 4, 5, 7, 10, 11 — **done**; (4) display 12, 14, 15 — **done**; (5) provenance/docs 13, 17, 18, 19, 20 (small parts) — **done**. All 20 findings handled (cards in `docs/orch/2026-10-01-*`; cards 4–5 reviewed by Claude, Codex quota was out). Real-data figures not re-rendered after cards 2–5: the next source render recomputes all subjects once; TFR/microstate maps can get slightly wider colour limits. Workflow = `orchestrate` skill v2 (`/orch`): Claude reads the code and writes a
 detailed step-by-step card in `docs/orch/<date>-<name>/card.md`, agy executes, codex reviews once (ask the
 user which model; default gpt-6.1-sol), Claude accepts and commits (no push). Cards must be detailed —
 goal-only cards cost ~20 M agy tokens each (measured).

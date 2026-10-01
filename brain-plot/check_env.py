@@ -8,8 +8,11 @@ Prints this interpreter, the versions of the packages the scripts need, whether 
 import importlib
 import sys
 
-NEED = {"mne": (1, 6), "matplotlib": (3, 8), "numpy": (1, 23), "scipy": (1, 9)}
-OPTIONAL = {"pandas": "only for `query` / `group_by` on Epochs metadata"}
+NEED = {"mne": (1, 7), "matplotlib": (3, 8), "numpy": (1, 23), "scipy": (1, 9)}
+OPTIONAL = {
+    "pandas": "only for `query` / `group_by` on Epochs metadata",
+    "pyvista": "only for source maps (3D brain rendering); also needs the fsaverage template",
+}
 
 
 def version(mod):

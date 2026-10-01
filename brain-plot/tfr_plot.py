@@ -7,7 +7,6 @@ panels = conditions in a grid, ROI-mean TF maps, with optional windows and topom
 """
 import hashlib
 import json
-import shutil
 import sys
 from pathlib import Path
 
@@ -223,11 +222,7 @@ def load_and_compute(spec):
         if not valid_ids[g]:
             ep.die(f"group {g!r} has no valid readable subject files")
 
-    tfr_cache_root = ep.out_root(spec) / ".cache" / "tfr"
-    if tfr_cache_root.exists():
-        for old_dir in sorted([p for p in tfr_cache_root.iterdir() if p.is_dir()], key=lambda p: p.stat().st_mtime_ns, reverse=True)[ep.CACHE_KEEP:]:
-            if old_dir != cache_dir:
-                shutil.rmtree(old_dir, ignore_errors=True)
+    ep.prune_cache_dirs(cache_dir.parent, cache_dir)
 
     for (g, c) in grand_avg:
         grand_avg[g, c] = grand_avg[g, c] / len(valid_ids[g])

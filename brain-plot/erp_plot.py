@@ -13,7 +13,9 @@ the data folder (rules O1–O3).
 """
 import hashlib
 import json
+import os
 import re
+import shutil
 import sys
 from pathlib import Path
 
@@ -193,10 +195,10 @@ def report_layout(fig, what):
 
 # ---------- spec ----------
 def read_spec(path):
-    """Spec JSON; relative `data` and `templates` paths are taken relative to the spec file's folder."""
+    """Spec JSON; relative `data`, `templates`, `subjects_dir`, `src` and `bem` paths are taken relative to the spec file's folder."""
     path = Path(path)
     spec = json.loads(path.read_text(encoding="utf8"))
-    for k in ("data", "templates"):
+    for k in ("data", "templates", "subjects_dir", "src", "bem"):
         if isinstance(spec.get(k), str) and not Path(spec[k]).is_absolute():
             spec[k] = str((path.parent / spec[k]).resolve())
     return spec
@@ -596,6 +598,15 @@ def prune_cache(folder):
     needed, so deleting them loses nothing but time."""
     for f in sorted(folder.glob("*.npz"), key=lambda f: f.stat().st_mtime_ns, reverse=True)[CACHE_KEEP:]:
         f.unlink(missing_ok=True)
+
+
+def prune_cache_dirs(root, current):
+    """Rule O1 for per-parameter cache folders (TFR, source): mark `current` as just used, keep the CACHE_KEEP
+    most recently used folders, delete the rest (rebuilt when needed)."""
+    os.utime(current)
+    for d in sorted([p for p in root.iterdir() if p.is_dir()], key=lambda p: p.stat().st_mtime_ns, reverse=True)[CACHE_KEEP:]:
+        if d != current:
+            shutil.rmtree(d, ignore_errors=True)
 
 
 def flat_check(spec, data, ch_names, meta):
@@ -1885,7 +1896,8 @@ def caption(spec, comp, meta, groups, conds, out, ms, v, sphere, kind, level=Non
         L.append(f"- Waveforms: {how} {', '.join(comp['channels'])}")
     for b in comp["bands"]:
         a = ms[sample_mask(ms, b["tmin_ms"], b["tmax_ms"])]
-        band = {"combo": "; gray band = topography window", "erp": "; gray band", "topo": ""}[kind]
+        band = {"combo": "; topography window" if inset_mode(spec) else "; gray band = topography window",
+                "erp": "; gray band", "topo": ""}[kind]
         roi = {"combo": f"mean of {', '.join(comp['channels'])}; ", "topo": f"ROI {', '.join(comp['channels'])}; ",
                "erp": ""}[kind]
         L.append(f"- {b['name']}: {roi}window {b['tmin_ms']:g}–{b['tmax_ms']:g} ms "

@@ -56,3 +56,12 @@ Fix the cause, never work around it; tell the user when the fix changes the figu
 5. **Size and proportions**: every brain image is 12–20 mm wide with its original aspect ratio within 2%; all text is at least 7 pt.
 6. **No overlaps**: condition labels on the left, column headers, brain pairs, and colour bars are cleanly separated; all layout checks in `_run.json` must be empty.
 6. **Outliers**: check `outlier_subjects` in `_run.json`; tell the user, never drop a subject yourself.
+
+## Reading the map (state in Methods)
+
+- **Estimate**: method on the fsaverage template (no individual anatomy), loose, depth, lambda2 (SNR = 1/√lambda2; 3 by default).
+- **Orientation**: `pick_ori=None`: magnitude of the three orientations per vertex (non-negative).
+- **Aggregation**: inverse per subject and condition with that subject's real trial count (`nave`), then equal-weight mean over subjects; not a group statistic.
+- **Trial counts**: dSPM noise normalisation scales with `nave`: conditions with different trial counts are not directly comparable in brightness (see `trials_per_subject_condition`). Matching trial counts across conditions is an analysis decision taken upstream; the plot never changes nave.
+- **Colour scale**: each window/time column has its own range from percentiles across its conditions (display threshold, not significance); compare colours only within a column.
+- **Noise covariance**: from pre-stimulus interval of each epoch (relative to the time-locking event; check that this interval holds no stimulus).

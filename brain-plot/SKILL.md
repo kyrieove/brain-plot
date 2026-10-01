@@ -21,12 +21,14 @@ say "not supported".
 ## Before the first run
 
 - Check the interpreter: `python check_env.py` (standard library only) prints Python, package versions and fonts, and
-  "OK" or what to install; use the interpreter that passes (Python ≥ 3.10, mne ≥ 1.6, matplotlib ≥ 3.8, scipy).
+  "OK" or what to install; use the interpreter that passes (Python ≥ 3.10, mne ≥ 1.7, matplotlib ≥ 3.8, scipy). Source maps also need
+  pyvista and the fsaverage template (spec `subjects_dir`, or `mne.datasets.fetch_fsaverage()` once).
 - Tell the user the side effects: the scripts read every input file, write a cache (`brain_plot_<data folder name>/.cache/`, the 6 most
   recently used, each can be tens of MB — mind synced folders like Dropbox) and all figures to `brain_plot_<data folder name>/` next to
   the data folder, and move older versions of a re-drawn figure to `_history/` (never delete or overwrite). Run them
   on a trusted local copy of the data.
-- The style is fixed in code. Never restyle or edit a figure by hand or with ad-hoc matplotlib — change the spec.
+- The style is fixed in code. You (the agent) never restyle or edit a figure by hand or with
+  ad-hoc matplotlib — change the spec. The SVG is editable so that the user can make final manual adjustments.
 
 ## Workflow (both modules)
 
@@ -42,7 +44,8 @@ say "not supported".
    fixes need no re-confirmation.
 4. **Draw.** `python <script> plot <spec.json>`. The script validates the spec and every input file and stops with a
    message on any problem — fix the cause, never work around it (the module file lists the usual stops). Outputs per
-   figure: `.png .svg` (fixed physical size, editable SVG text), `_caption.md` (facts for the caption), `_run.json`
+   figure: `.png .svg` (editable SVG text),
+   `_caption.md` (facts for the caption; not for source maps, by user decision), `_run.json`
    (spec, subjects, versions, checks), named by content and versioned `_vNN`. Later runs use a cache that is
    invalidated when any input file changes.
 5. **Check the PNG, then report.** Open each PNG and go through the module's QA list. Report every `layout_issues`

@@ -1,6 +1,7 @@
 # brain-plot: Python >= 3.10
-mne>=1.6
+mne>=1.7  # Epochs.compute_tfr (time-frequency) needs 1.7
 matplotlib>=3.8
 numpy
 scipy
 pandas  # only for `query` / `group_by` on Epochs metadata
+# source maps only: pyvista (3D rendering) and the fsaverage template (mne.datasets.fetch_fsaverage())
