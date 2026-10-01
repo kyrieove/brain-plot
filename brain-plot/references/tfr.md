@@ -57,3 +57,4 @@ Fix the cause, never work around it; tell the user when the fix changes the figu
 7. **Group named**: each figure carries its group label as the bold title at the top.
 8. **Trial selection**: a `query` that leaves a subject without trials stops the script; exclude that subject with a
    reason in `exclude` (it reaches the caption) only after the user agrees.
+9. **ITC**: compare conditions only with similar trial counts — the caption's bias value shows how much ITC random phase alone produces.

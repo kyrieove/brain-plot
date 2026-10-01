@@ -215,6 +215,9 @@ def load_and_compute(spec):
                         x = x * 10.0
                 grand_avg[g, c] = grand_avg.get((g, c), 0) + x
             trial_counts[g][s_id] = {c: int(n) for c, n in zip(spec["conditions"], nave)}
+            if measure == "itc" and min(trial_counts[g][s_id].values()) < 2:
+                ep.die(f"{f.name}: ITC needs at least 2 trials per condition (got {trial_counts[g][s_id]}); "
+                       "one trial always gives ITC = 1")
             valid_ids[g].append(s_id)
 
         if not valid_ids[g]:
@@ -260,7 +263,7 @@ def write_run_json(out, spec, valid_ids, trial_counts, tf_params, color_limits, 
     Path(f"{out}_run.json").write_text(json.dumps(data, indent=1, ensure_ascii=False, allow_nan=False), encoding="utf8")
 
 
-def write_caption_md(out, spec, group, n_subj, tf_params):
+def write_caption_md(out, spec, group, n_subj, tf_params, trials):
     measure_str = "Total power (dB relative to baseline)" if spec["measure"] == "power" else "Inter-trial phase coherence (ITC)"
     f_info = tf_params["freqs"]
     lines = [
@@ -268,7 +271,8 @@ def write_caption_md(out, spec, group, n_subj, tf_params):
         "",
         f"- **Measure**: {measure_str}",
         "- **Method**: Morlet wavelets",
-        f"- **Frequencies**: {f_info['fmin']:.1f}–{f_info['fmax']:.1f} Hz ({f_info['n']} log-spaced)",
+        f"- **Frequencies**: {f_info['fmin']:.1f}–{f_info['fmax']:.1f} Hz, {f_info['n']} "
+        + ("log-spaced" if isinstance(spec.get("freqs", {}), dict) else "listed: " + ", ".join(f"{x:g}" for x in spec["freqs"])),
         f"- **Wavelet cycles**: {tf_params['n_cycles']}",
     ]
     if spec["measure"] == "power":
@@ -281,6 +285,17 @@ def write_caption_md(out, spec, group, n_subj, tf_params):
         f"- **ROI channels**: {', '.join(spec['channels'])}",
         f"- **Time range**: {tf_params['xlim_ms'][0]:g} to {tf_params['xlim_ms'][1]:g} ms",
     ])
+    for c in spec["conditions"]:
+        ns = sorted(t[c] for t in trials.values())
+        med = float(np.median(ns))
+        line = f"- **Trials, {spec['conditions'][c]}**: {ns[0]}–{ns[-1]} per subject (median {med:g})"
+        if spec["measure"] == "itc":
+            line += f"; random phase alone gives ITC ≈ {np.sqrt(np.pi / (4 * med)):.2f} at the median"
+        lines.append(line)
+    if spec.get("query"):
+        lines.append(f"- **Trial selection**: `{spec['query']}`")
+    if spec.get("exclude"):
+        lines.append(f"- **Excluded**: {spec['exclude']}")
     if spec.get("windows"):
         w_strs = [f"{w['name']} ({w['fmin']:g}–{w['fmax']:g} Hz, {w['tmin_ms']:g}–{w['tmax_ms']:g} ms)" for w in spec["windows"]]
         lines.append(f"- **Windows**: {'; '.join(w_strs)}")
@@ -452,10 +467,12 @@ def plot(spec):
 
             row_topos = [grand_avg[g, c][:, f_mask, :][:, :, wt_mask].mean(axis=(1, 2)) for c in reading_conds]
             max_topo = max(np.max(np.abs(val)) for val in row_topos)
+            itc_interp = "linear" if measure == "itc" else ep.TOPO["image_interp"]  # linear stays within the data range (0–1)
+            interp_max = max(ep.interp_peak(val, info, sphere, itc_interp) for val in row_topos)
             dec = 10 if measure == "power" else 100  # labels show 1 / 2 decimals
-            v_row = float(np.ceil(max_topo * dec) / dec) or 1.0
+            v_row = float(np.ceil(max(max_topo, interp_max) * dec) / dec) or 1.0
             lo_row = -v_row if measure == "power" else 0.0  # ITC is 0…1: no negative half
-            color_limits[f"window_{w['name']}"] = dict(v=v_row, vmin=lo_row, vmax=v_row)
+            color_limits[f"window_{w['name']}"] = dict(v=v_row, vmin=lo_row, vmax=v_row, sensor_max=float(max_topo), interp_max=interp_max, image_interp=itc_interp)
 
             levels = np.linspace(lo_row, v_row, ep.TOPO["contours"] + 1)
             fig.text(
@@ -476,7 +493,7 @@ def plot(spec):
                 last_im, _ = mne.viz.plot_topomap(
                     t_val, info, axes=tax, show=False, cmap=cmap,
                     vlim=(lo_row, v_row), contours=levels, sensors=False,
-                    extrapolate=ep.TOPO["extrapolate"], image_interp=ep.TOPO["image_interp"],
+                    extrapolate=ep.TOPO["extrapolate"], image_interp=itc_interp,
                     sphere=sphere, mask_params=dict(markeredgewidth=0.3),
                 )
                 tax.text(0.5, -0.06, spec["conditions"][c_key], transform=tax.transAxes, ha="center", va="top", fontsize=5.5)
@@ -488,7 +505,7 @@ def plot(spec):
             cb_row.ax.tick_params(labelsize=6, width=0.4, length=2)
             cb_row.outline.set_linewidth(0.4)
 
-        win_part = ("_" + "-".join(ep.safe(w["name"]) for w in windows)) if windows else ""
+        win_part = ("_" + "-".join(f"{ep.safe(w['name'])}-{w['fmin']:g}-{w['fmax']:g}Hz-{w['tmin_ms']:g}-{w['tmax_ms']:g}ms" for w in windows)) if windows else ""
         out_stem = f"TFR-{measure}_{'-'.join(map(ep.safe, spec['channels']))}_{ep.safe(g)}{win_part}{subset}"
         out = ep.versioned(ep.out_root(spec) / "TFR", out_stem)
 
@@ -498,7 +515,7 @@ def plot(spec):
         plt.close(fig)
 
         write_run_json(out, spec, valid_ids, trial_counts, tf_params, color_limits, issues, [W, H])
-        write_caption_md(out, spec, g, len(subs), tf_params)
+        write_caption_md(out, spec, g, len(subs), tf_params, trial_counts[g])
         ep.archive(out)
         out_paths.append(out)
         print("wrote", f"{out}.png/.svg")

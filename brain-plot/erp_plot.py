@@ -26,7 +26,7 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.gridspec import GridSpec
 from matplotlib.ticker import MaxNLocator
 from scipy.ndimage import maximum_filter1d, minimum_filter1d
-from scipy.signal import find_peaks, peak_widths
+from scipy.signal import find_peaks, peak_prominences, peak_widths
 
 LOADER_VERSION = 4  # 4: meta records every group and condition in the data (rule O3 names a subset)
 CACHE_KEEP = 6  # most recently used caches kept in brain_plot_<data>/.cache/ (each can be tens of MB; rule O1)
@@ -724,15 +724,18 @@ def windows(spec):
             win_tmin = round(float(ms[idx_lo]))
             win_tmax = round(float(ms[idx_hi]))
 
-            # ROI = region channels whose value at the peak latency is >= 80 % of the peak (same sign)
-            roi = [ch for ch in c["region"] if sign * allsub[info.ch_names.index(ch), full_peak_idx] >= 0.8 * (sign * peak_val)]
+            # ROI = region channels whose deflection at the peak latency, measured from the peak's base (its height
+            # minus its prominence), is >= 80 % of the peak's prominence; the peak channel is always included
+            prom = float(peak_prominences(y_full, [full_peak_idx])[0][0])
+            base = sign * peak_val - prom
+            roi = [ch for ch in c["region"] if sign * allsub[info.ch_names.index(ch), full_peak_idx] - base >= 0.8 * prom]
 
             # GFP (std over all channels) peak latency inside the range
             gfp = allsub[:, sel].std(axis=0)
             gfp_peak_t = float(t[np.argmax(gfp)])
 
             print(f"  peak channel {peak_channel}, latency {peak_t:.0f} ms, amplitude {peak_val:.2f} µV   FWHP {win_tmin:.0f}–{win_tmax:.0f} ms")
-            print(f"  ROI ({len(roi)} channels): {', '.join(roi)}")
+            print(f"  ROI ({len(roi)} channels, >= 80 % of the peak's prominence {prom:.2f} µV above its base): {', '.join(roi)}")
             print(f"  GFP peak: {gfp_peak_t:.0f} ms")
             if abs(gfp_peak_t - peak_t) > 50:
                 print(f"WARNING: {c['name']}: GFP peak ({gfp_peak_t:.0f} ms) is more than 50 ms from channel peak ({peak_t:.0f} ms)")
@@ -1110,6 +1113,17 @@ def common_sphere(info):
     from mne.channels.layout import _find_topomap_coords
     pos = _find_topomap_coords(info, picks=np.arange(len(info.ch_names)), sphere=np.array([0, 0, 0, 0.095]))
     return [0.0, 0.0, 0.0, max(0.095, float(np.linalg.norm(pos, axis=1).max()) * 1.01)]
+
+
+def interp_peak(vec, info, sphere, image_interp=None):
+    """Largest |value| of the interpolated topomap image; cubic interpolation can overshoot the sensor values."""
+    fig, ax = plt.subplots()
+    im, _ = mne.viz.plot_topomap(vec, info, axes=ax, show=False, contours=0, sensors=False,
+                                 extrapolate=TOPO["extrapolate"], image_interp=image_interp or TOPO["image_interp"],
+                                 sphere=sphere)
+    a = im.get_array()
+    plt.close(fig)
+    return float(np.ma.abs(a).max()) if np.ma.count(a) else 0.0
 
 
 def obstacles_of(fig):

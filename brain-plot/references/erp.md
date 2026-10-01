@@ -51,8 +51,7 @@ titles; n goes into the caption facts automatically.
 
 Candidate windows, only if the user wants help: `windows` needs a spec whose components carry either ROI
 `channels` or `region` (list of channel names) + `polarity` (`"positive"` / `"negative"`), with search ranges in
-`tmin_ms`/`tmax_ms`. With `region`, it localizes peak channel, latency, amplitude, FWHP window, and ROI (channels >= 80%
-of peak), prints a GFP cross-check, and outputs a `WINDOWS_JSON` line. A `kind: "erp"` spec without channels or region
+`tmin_ms`/`tmax_ms`. With `region`, it localizes peak channel, latency, amplitude, FWHP window, and ROI (deflection from the peak's base >= 80 % of its prominence; peak channel always included), prints a GFP cross-check, and outputs a `WINDOWS_JSON` line. A `kind: "erp"` spec without channels or region
 is refused — tell the user so, don't guess an ROI. Its output is heuristic candidates; the user names components and
 fixes windows.
 

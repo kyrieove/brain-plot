@@ -362,7 +362,7 @@ def plot_states(spec, data, info, meta, ms, sphere):
                "keep width:height 1.8–3.5 with "
                + (f"height_mm {spans_text(ok)} at width_mm {W:g}" if ok else "another width_mm or grid") + " (rule MS10)")
     fig = plt.figure(figsize=(W * MM, H * MM))
-    vmax = float(np.abs(centers).max())
+    vmax = max(ep.interp_peak(c, info, sphere) for c in centers)  # cubic overshoot must not saturate
     for i, (st, (mx, my, ms_)) in enumerate(zip(order, maps)):
         sub = subs[st] if n_sub else ""  # rule MS7a
         framed_map(fig, W, H, mx, my, ms_, centers[st] * shown[st], info, sphere, vmax, col[st], f"S{i + 1}", sub,
@@ -487,7 +487,7 @@ def plot_by_k(spec, data, info, meta, ms, sphere):
     top, bottom, side, lab_w = 4.0, 3.0, 4.0, 14.0
     extra = 5.0  # mm: state label above each map + spacing
     s = min((W - 2 * side - lab_w) / (max(ks) * 1.18), (H - top - bottom) / len(ks) - extra)
-    vmax = max(float(np.abs(c).max()) for _, c, _ in rows)
+    vmax = max(ep.interp_peak(v, info, sphere) for _, c, _ in rows for v in c)
     pad = (H - top - bottom - len(ks) * (s + extra)) / 2  # rows centred vertically on the fixed canvas
     for r, (k, centers, order) in enumerate(rows):
         y = H - top - pad - r * (s + extra) - 3.5 - s

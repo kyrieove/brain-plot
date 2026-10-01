@@ -199,6 +199,26 @@ def run_tests():
         assert abs((len(w) - 1) / 2 / 250.0 * 1000 - 396) < 5, len(w)
         print("TFR stops: logratio only, grid coverage, ROI repeats, real wavelet edge, empty window")
 
+        # display facts: interpolated limits, ITC bounds, caption trials, ITC trial floor
+        outs = tfr_plot.plot(base_spec)
+        lim = json.loads(Path(f"{outs[0]}_run.json").read_text(encoding="utf8"))["color_limits"]["window_alpha"]
+        assert lim["v"] >= lim["interp_max"] - 1e-9 and lim["v"] >= lim["sensor_max"] - 1e-9, lim
+        outs_itc = tfr_plot.plot({**base_spec, "measure": "itc"})
+        lim_itc = json.loads(Path(f"{outs_itc[0]}_run.json").read_text(encoding="utf8"))["color_limits"]["window_alpha"]
+        assert lim_itc["interp_max"] <= 1.0 + 1e-9 and lim_itc["image_interp"] == "linear", lim_itc
+        cap = Path(f"{outs_itc[0]}_caption.md").read_text(encoding="utf8")
+        assert "Trials, 10 Hz Burst" in cap and "random phase alone gives ITC" in cap, cap
+        assert "-8-12Hz-300-600ms" in Path(outs[0]).name, outs[0]
+        f0 = sorted(data_dir.rglob("*-epo.fif"))[0]
+        orig = f0.read_bytes()
+        e0 = mne.read_epochs(f0, verbose="error")
+        keep = [i for i, ev in enumerate(e0.events[:, 2]) if ev != e0.event_id["phase"]] + \
+               [int(np.where(e0.events[:, 2] == e0.event_id["phase"])[0][0])]
+        e0[sorted(keep)].save(f0, overwrite=True, verbose="error")
+        assert_stops({**base_spec, "measure": "itc"}, "at least 2 trials")
+        f0.write_bytes(orig)
+        print("TFR display: interpolated limits, ITC in 0–1, caption trials, window ranges, ITC trial floor")
+
         # cache invalidated when an input file changes
         f = sorted(data_dir.rglob("*-epo.fif"))[0]
         g_f = f.parent.name

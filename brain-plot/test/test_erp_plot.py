@@ -354,8 +354,16 @@ with tempfile.TemporaryDirectory() as d:
             ]))
         out_relative = buf_relative.getvalue()
         assert "peak channel Cz, latency 300 ms" in out_relative, out_relative
+        assert "ROI (2 channels" in out_relative and "Cz, Pz" in out_relative, out_relative
         wj_relative = json.loads([l for l in out_relative.splitlines() if l.startswith("WINDOWS_JSON")][0].split(" ", 1)[1])
         assert len(wj_relative) == 1 and wj_relative[0]["name"] == "P3_relative"
+        neg_sig = 5e-6 - 1e-6 * np.exp(-0.5 * ((t_loc - 0.3) / 0.03) ** 2)
+        neg_ev = mne.EvokedArray(np.stack([neg_sig, neg_sig]), rel_info, tmin=-0.2, comment="A", nave=10)
+        mne.write_evokeds(root_loc / "G1" / "sub1-ave.fif", [neg_ev], overwrite=True, verbose="error")
+        buf_neg = io.StringIO()
+        with contextlib.redirect_stdout(buf_neg):
+            ep.windows(dict(**spec_loc, components=[dict(name="N3_relative", region=["Cz", "Pz"], polarity="negative", tmin_ms=200, tmax_ms=400)]))
+        assert "ROI (2 channels" in buf_neg.getvalue(), buf_neg.getvalue()
     fails(spec(root, kind="erp"), "needs channels")
     fails(spec(root, kind="erp", channels=["Cz", "Cz"]), "needs channels")
     fails(spec(root, groups=["G1", "G2"], kind="erp", channels=["Cz", "FCz"], components=[]), "not in data")
