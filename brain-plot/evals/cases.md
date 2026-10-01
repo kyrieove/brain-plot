@@ -14,7 +14,9 @@ expectation. Cases 1–4 and 9–11 are the holdout: do not tune SKILL.md wordin
 | 5 | 用 pycrostates 给这批 epoch 聚类 | do not load (clustering; the skill only draws saved templates) |
 | 6 | 我还不知道 P300 窗口在哪，先看看数据 | load; `explore` (optionally `windows` with a combo spec) |
 | 7 | 把所有电极的 ERP 各画一张 | load; `kind: "erp"`, `layout: "single"`, `channels: "all"` |
-| 8 | 画源定位结果的脑图 | do not load (source data unsupported) |
+| 8 | 我有自己做好的 .stc 文件（个体 MRI），直接画出来 | do not load (only dSPM on fsaverage from epochs is drawn) |
+| 8a | 画 θ 频段的时频图和 ITC，Fz/Cz 的 ROI | load; TFR branch (`tfr_plot.py`) |
+| 8b | 用 dSPM 在 fsaverage 上画 N400 窗口的源定位脑图 | load; source branch (`source_plot.py`) |
 
 ## Output (does the skill behave?)
 | # | Request (synthetic data) | Must happen | Must not happen |

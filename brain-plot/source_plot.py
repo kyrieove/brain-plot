@@ -417,7 +417,9 @@ def load_and_compute(spec, subjects_dir=None, src=None, bem=None, fwd=None):
         for i, c in enumerate(cond_keys):
             ev_obj = mne.EvokedArray(evoked_data[i], info_with_proj, tmin=times_sub[0], nave=nave[i])
             stc = mne.minimum_norm.apply_inverse(ev_obj, inv, lambda2=lambda2, method=method, pick_ori=None, verbose="error")
-            assert np.allclose(stc.times, times_sub), "STC time axis differs from cached evoked times"
+            if not np.allclose(stc.times, times_sub):
+                ep.die(f"subject {s_id}: STC time axis differs from the evoked time axis "
+                       f"({len(stc.times)} vs {len(times_sub)} samples)")
             stc_arr = stc.data.astype(np.float32)
 
             if running_sum is None:

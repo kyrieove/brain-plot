@@ -14,8 +14,9 @@ Route first, then read that module's file (next to this one, in `references/`):
 | Time-frequency figures (power, ITC) | `tfr_plot.py` | `references/tfr.md` |
 | Source maps (dSPM on fsaverage) | `source_plot.py` | `references/source.md` |
 
-Spec keys: `references/spec.md`. Worked specs: `../examples/specs/` (run `../examples/make_demo_data.py`
-first for synthetic data). Statistics, preprocessing, and clustering are out of scope:
+Spec keys: `references/spec.md`. Worked specs: `examples/specs/` in the repository root, one level above this skill's real folder (the installed
+skill folder may be a link — resolve it first; run `examples/make_demo_data.py` there for synthetic data, or use
+the synthetic data the `test/` scripts build). Statistics, preprocessing, and clustering are out of scope:
 say "not supported".
 
 ## Before the first run
