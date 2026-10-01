@@ -18,6 +18,15 @@ Three modules (ERP, microstate, time-frequency), tests pass, everything committe
   `microstate/`, `specs/`, `.cache/`; names say what the figure is; re-renders get `_vNN+1`, old versions move to `_history/`.
 
 ## Next (start here)
+**2026-10-01 — fix the astra review, with orchestrate v2.** Independent review by astra:
+`research/astra-review-brainplot.md` (20 findings). Real data is 500 Hz → finding 1 does not change the
+existing source figures; finding 2 (stale TFR/source cache) may — clear `.cache` and re-render to check.
+Planned cards, in order: (1) source: findings 1, 3, 6, 8, 9; (2) shared input fingerprint for caches: 2, 16;
+(3) TFR: 4, 5, 7, 10, 11. Workflow = `orchestrate` skill v2 (`/orch`): Claude reads the code and writes a
+detailed step-by-step card in `docs/orch/<date>-<name>/card.md`, agy executes, codex reviews once (ask the
+user which model; default gpt-6.1-sol), Claude accepts and commits (no push). Cards must be detailed —
+goal-only cards cost ~20 M agy tokens each (measured).
+
 **`source` module (2026-10-01): merged into `main` and pushed (user).** Claude planned and reviewed; agy implemented
 (plans `docs/AGY_PLAN_source-*.md`), codex did literature, the independent check and plans 2c + 3 after agy's quota
 ran out (`docs/PLAYBOOK-source.md` is superseded). Reasons for every change: `docs/review-log.md`, last entry.
