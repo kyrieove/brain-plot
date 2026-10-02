@@ -187,8 +187,8 @@ Nothing is waiting on the user. Optional:
   with `--no-deps` on 2026-09-26; MNE untouched).
 - Tests: `python brain-plot/test/test_erp_plot.py` and `python brain-plot/test/test_microstate.py` → both `OK`.
 - Commit + push after every tested change set (user rule); commit messages end with the Co-Authored-By line.
-- `CLAUDE.md` (binding): all user-facing text in Chinese (files for agents stay English); every new figure is sent with
-  SendUserFile (`display: "attach"`): the plot-preview pane shows it, the chat does not inline it; paths as a footnote.
+- `CLAUDE.md` (binding): all user-facing text in Chinese (files for agents stay English); every new figure goes to the
+  right-side pane via `mcp__plot-preview__show_plots` (no chat image, no file card); paths as a footnote.
 - Cloud sessions work on a fresh clone (branch `claude/bold-gates-u9nx46`); the user merges it locally and runs
   anything that needs the real data, pasting results back. After local commits, the local agent fast-forwards the cloud
   branch itself (`git push origin main:claude/bold-gates-u9nx46`, only if it is an ancestor of main) — don't ask the

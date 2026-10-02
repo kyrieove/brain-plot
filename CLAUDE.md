@@ -11,4 +11,4 @@
 
 ## 给用户看图（硬规则）
 
-**每次画出新图（`plot` 生成的 PNG），都用 SendUserFile（`display: "attach"`）发出**，不要只给路径让用户自己去文件夹打开。图由右侧 plot-preview 面板显示，对话里不内嵌图（`attach` 只留一张文件卡）。完整路径附在后面备查即可。（用户要求，2026-09-26；改为 attach 2026-10-02）
+**每次画出新图（`plot` 生成的 PNG），都用 `mcp__plot-preview__show_plots`（`paths` 列表）送到右侧 Plots 面板**，不用 SendUserFile（对话里不要图、也不要文件卡）。不要只给路径让用户自己去文件夹打开。完整路径附在后面备查即可。工具不可用（mod 没加载）时退回 SendUserFile `display: "attach"`。（用户要求，2026-09-26；改为面板 2026-10-02）
