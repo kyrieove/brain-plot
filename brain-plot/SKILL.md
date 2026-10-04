@@ -1,6 +1,6 @@
 ---
 name: brain-plot
-description: Paper-ready ERP figures (waveforms + scalp topographies) from per-subject MNE Epochs/Evoked .fif files, in one fixed house style. First interviews the user in rounds (claim, key comparison, groups, components and windows, layout), gets explicit confirmation of a written spec, then draws with erp_plot.py and checks the render. Also draws microstate figures (templates, butterfly, GFP, segmentation ribbon; across-K template rows) from saved templates, time-frequency figures (power, ITC), and source reconstruction maps (dSPM on fsaverage). Draws only — not for ERP statistics, EEG preprocessing, or microstate clustering. Use for ERP 波形图、地形图、ERP+地形图组合图、论文 ERP 配图、微状态图、microstate figure、源定位图、source plot、brain plot.
+description: Paper-ready ERP figures (waveforms + scalp topographies) from per-subject MNE Epochs/Evoked .fif files, in one fixed house style. First interviews the user in rounds (claim, key comparison, groups, components and windows, layout), gets explicit confirmation of a written spec, then draws with erp_plot.py and checks the render. Also draws microstate figures (templates, butterfly, GFP, segmentation ribbon; across-K template rows) from saved templates, time-frequency figures (power, ITC), and source reconstruction maps (dSPM on fsaverage). Draws only — not for ERP statistics, EEG preprocessing, or microstate clustering. Use for ERP 波形图、地形图、ERP+地形图组合图、论文 ERP 配图、微状态图、microstate figure、时频图、ITC 图、time-frequency plot、源定位图、source plot、brain plot.
 ---
 
 # brain-plot
@@ -31,7 +31,7 @@ say "not supported".
 - The style is fixed in code. You (the agent) never restyle or edit a figure by hand or with
   ad-hoc matplotlib — change the spec. The SVG is editable so that the user can make final manual adjustments.
 
-## Workflow (both modules)
+## Workflow (all modules)
 
 1. **Inspect — facts are your job, not the user's.** Read the data (`inspect`) and the study's own notes and
    scripts. Never ask the user for something you can read.

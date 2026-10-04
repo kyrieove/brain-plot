@@ -37,6 +37,11 @@ def check_spec(spec):
         ep.die(f"measure must be 'power' or 'itc' (got {spec['measure']!r}); set measure to 'power' or 'itc'")
     if not isinstance(spec["channels"], list) or not spec["channels"]:
         ep.die("channels must be a non-empty list of channel names; provide at least one channel")
+    for key in ("xlim_ms", "baseline_ms"):
+        if key in spec and not (isinstance(spec[key], list) and len(spec[key]) == 2):
+            ep.die(f"{key} must be two numbers [start, end] in ms (got {spec[key]!r})")
+    if "decim" in spec and not (isinstance(spec["decim"], int) and spec["decim"] >= 1):
+        ep.die(f"decim must be a positive integer (got {spec['decim']!r})")
     if "grid" in spec:
         if not isinstance(spec["grid"], list) or not all(isinstance(r, list) for r in spec["grid"]):
             ep.die("grid must be a list of lists of condition keys")

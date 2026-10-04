@@ -40,7 +40,7 @@ def main():
             problems.append(f"install {name}")
     for name, why in OPTIONAL.items():
         try:
-            print(f"{name:11s} {importlib.import_module(name).__version__}")
+            print(f"{name:11s} {getattr(importlib.import_module(name), '__version__', '?')}")
         except ImportError:
             print(f"{name:11s} missing ({why})")
     fonts = []
