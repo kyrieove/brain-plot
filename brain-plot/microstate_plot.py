@@ -522,6 +522,7 @@ def caption(spec, meta, out, paths, facts):
              f"highest {'signed' if spec.get('polarity', 'sensitive') == 'sensitive' else 'absolute'} spatial correlation; "
              f"runs shorter than {spec.get('min_segment_ms', 30)} ms take the better-fitting neighbour; window "
              f"{spec.get('window_ms', [0, 800])} ms" + (f", time-locked to {spec['time_locked_to']}" if spec.get("time_locked_to") else ""))
+    if "segmentation" in facts: L.append("- Ribbon and state colours: " + facts["segmentation"])
     if "spans" in facts and "butterfly" in spec.get("blocks", ["topo", "butterfly", "ribbon"]):
         L.append("- Butterfly panels: thin lines = every channel of the grand average, thick line = GFP (standard deviation "
                  "across channels); the figure carries no text label for it (user rule, 2026-09-29)")
@@ -573,6 +574,9 @@ def plot(spec):
         fig.savefig(f"{out}.{ext}", dpi=600 if ext == "png" else None)
     plt.close(fig)
     facts["templates_meta"] = [template_meta(p) for p in paths]
+    if "spans" in facts:  # states figure: the ribbon is drawn here, not read from the analysis
+        facts["segmentation"] = (f"back-fit of the templates to the drawn grand average by microstate_plot.py, "
+                                 f"min_segment_ms = {spec.get('min_segment_ms', 30)}; not the analysis's own labels")
     caption(spec, meta, out, paths, facts)
     Path(f"{out}_run.json").write_text(json.dumps(dict(
         spec=spec, templates=[str(p) for p in paths], **facts, inputs=meta["inputs"], ids=meta["ids"],

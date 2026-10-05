@@ -24,6 +24,7 @@ spec defaults or from what a toolbox usually does. `templates_source` unknown �
 
 Ask only: which K (or K range for `by-K`), which conditions (and groups), which blocks.
 
+- Groups are between-subject: a group × condition design gets one `states` figure per group (`groups: [G]`).
 - At most 2 rows (conditions, or conditions × groups with `per_group`) are stacked. More conditions need a `grid`
   (rows × columns of condition keys, e.g. a 2 × 3 design as 2 rows of 3) — propose one; never stack them.
   `per_group` with more than 2 rows is not supported: one figure per group.

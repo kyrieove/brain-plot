@@ -148,6 +148,7 @@ with tempfile.TemporaryDirectory() as d:
     # user rule 2026-09-29: no "GFP" text label on the butterfly panels; the caption says which line it is
     assert not [t for ax in SAVED[-1].axes for t in ax.texts if "GFP" in t.get_text()], "a GFP label was drawn"
     assert "thick line = GFP" in cap
+    assert run["segmentation"].endswith("min_segment_ms = 30; not the analysis's own labels") and "- Ribbon and state colours: back-fit" in cap
     # review 2026-09-26: one boundary definition — dotted lines sit half-way between a run's first sample and the
     # previous run's last sample, like the ribbon; spans say so too
     for ax in [a for a in SAVED[-1].axes if a.get_title() in ("Go", "NoGo")]:
@@ -228,7 +229,7 @@ with tempfile.TemporaryDirectory() as d:
     (root / "ev" / "A" / "G1" / "G1s0_copy-ave.fif").unlink()
     for f in (root / "ev" / "A" / "G2").glob("*"):
         f.unlink()
-    fails(spec(root), "missing a condition file")
+    fails(spec(root), "draw one figure per group (groups: [G])")
 
 with tempfile.TemporaryDirectory() as d:  # no pre-stimulus samples: low GFP cannot be judged
     root = Path(d)

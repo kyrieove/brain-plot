@@ -378,7 +378,7 @@ def split_layout(root, conds):
                 slot[c] = f
     gaps = sorted(f"{g}/{i}" for g, ss in by.items() for i, fs in ss.items() if len(fs) != len(conds))
     if gaps:
-        die(f"subjects missing a condition file: {gaps}")
+        die(f"subjects missing a condition file: {gaps} — every subject needs a file for each listed condition; groups are between-subject: for group × condition draw one figure per group (groups: [G])")
     return {g: [ss[i] for i in sorted(ss)] for g, ss in sorted(by.items())}
 
 
@@ -427,7 +427,7 @@ def select_files(spec):
     all_ids = [uid(f) for g in order for f in found[g]]
     dup = sorted({i for i in all_ids if all_ids.count(i) > 1})
     if dup:
-        die(f"subject IDs appear more than once: {dup}")
+        die(f"subject IDs appear more than once: {dup} — groups are between-subject (each subject in one group); for group × condition draw one figure per group (groups: [G])")
     if [i for i in excl if i not in all_ids]:
         die(f"excluded IDs not found: {[i for i in excl if i not in all_ids]}")
     groups = {g: [f for f in found[g] if uid(f) not in excl] for g in order}

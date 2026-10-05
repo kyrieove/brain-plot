@@ -530,3 +530,4 @@ final rules read as they do.
 - 2026-10-01 — provenance + docs (astra 13, 17, 18, 19, small parts of 20): source run method facts and provenance, microstate nave, inset caption without gray band, mne >= 1.7 + pyvista in check_env, fsaverage not hard-coded, rule scope/exceptions, shared cache-dir pruning. All 20 astra findings handled. `docs/orch/2026-10-01-provenance-docs/card.md`.
 - 2026-10-01 — zcode review (A1 eval case 8 vs description + TFR/source trigger cases, A3 examples path through the install link) and OCR low finding (assert -> ep.die). A2 (session evals not run) open. `docs/orch/2026-10-01-zcode-fixes/card.md`.
 - 2026-10-01 — Codex re-review of cards 4–5 after quota returned: card 4 code OK; card 5 Fix 2 (lambda2=0 SNR text, loose=0 orientation text).
+- 2026-10-05 retro-ribbon-groups: A microstate `states` figure's `_caption.md` and `_run.json` both say the ribbon / state colours are this script's (docs/orch/2026-10-05-retro-ribbon-groups/card.md)
