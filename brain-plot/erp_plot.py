@@ -362,7 +362,7 @@ def find_groups(data_dir):
     return groups or {"all": pat(root)}
 
 
-def split_layout(root, conds):
+def split_layout(root, conds, groups=None):
     """Data stored as <condition>/<group>/<subject>*-ave.fif (one file per subject and condition): returns
     {group: [{condition: file}, …]} with every subject present in every condition, or None for the other layouts."""
     root = Path(root)
@@ -370,7 +370,7 @@ def split_layout(root, conds):
         return None
     by = {}
     for c in conds:
-        for d in sorted(x for x in (root / c).iterdir() if x.is_dir()):
+        for d in sorted(x for x in (root / c).iterdir() if x.is_dir() and (not groups or x.name in groups)):
             for f in sorted(d.glob("*-ave.fif")):
                 slot = by.setdefault(d.name, {}).setdefault(subject_id(f), {})
                 if c in slot:
@@ -414,7 +414,7 @@ def groups_from_metadata(found, col):
 
 
 def select_files(spec):
-    found = split_layout(spec["data"], list(spec["conditions"]))
+    found = split_layout(spec["data"], list(spec["conditions"]), spec.get("groups"))
     if found and spec.get("group_by"):
         die("group_by needs one flat folder of epochs files, not <condition>/<group>/ folders")
     found = found or find_groups(spec["data"])

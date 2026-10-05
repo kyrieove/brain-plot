@@ -522,7 +522,7 @@ def caption(spec, meta, out, paths, facts):
              f"highest {'signed' if spec.get('polarity', 'sensitive') == 'sensitive' else 'absolute'} spatial correlation; "
              f"runs shorter than {spec.get('min_segment_ms', 30)} ms take the better-fitting neighbour; window "
              f"{spec.get('window_ms', [0, 800])} ms" + (f", time-locked to {spec['time_locked_to']}" if spec.get("time_locked_to") else ""))
-    if "segmentation" in facts: L.append("- Ribbon and state colours: " + facts["segmentation"])
+    if "segmentation" in facts: L.append("- State segmentation: " + facts["segmentation"])
     if "spans" in facts and "butterfly" in spec.get("blocks", ["topo", "butterfly", "ribbon"]):
         L.append("- Butterfly panels: thin lines = every channel of the grand average, thick line = GFP (standard deviation "
                  "across channels); the figure carries no text label for it (user rule, 2026-09-29)")
