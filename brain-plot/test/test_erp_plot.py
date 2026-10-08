@@ -25,7 +25,11 @@ def make_subject(path, conds, tmin=-0.2, n_t=301, seed=0, bads=(), flat=()):
     info["bads"] = list(bads)
     rng = np.random.default_rng(seed)
     x = [rng.normal(0, 2e-6, (len(CH), n_t)) for _ in conds]
+    t = np.arange(n_t) / 500.0 + tmin
+    peak = 4e-6 * np.exp(-0.5 * ((t - 0.3) / 0.03) ** 2)
     for a in x:
+        for c in ("Cz", "Pz"):
+            a[CH.index(c)] += peak
         a[[CH.index(c) for c in flat]] = 0.0  # e.g. a reference electrode kept at 0 V
     evs = [mne.EvokedArray(a, info, tmin=tmin, comment=c, nave=30, baseline=(None, 0)) for a, c in zip(x, conds)]
     mne.write_evokeds(path, evs, overwrite=True, verbose="error")
@@ -157,7 +161,7 @@ with tempfile.TemporaryDirectory() as d:
     for g, n in (("G1", 3), ("G2", 1)):
         (root / g).mkdir(parents=True)
         for i in range(n):
-            make_subject(root / g / f"{g}s{i}_x-ave.fif", "ABC", seed=hash((g, i)) % 1000)
+            make_subject(root / g / f"{g}s{i}_x-ave.fif", "ABC", seed=(ord(g[1]) - ord('0')) * 10 + i)
 
     # 1. groups overlaid, 3 conditions, short display range, single-subject group (no SEM)
     ep.plot(spec(root, xlim_ms=[-100, 400], error="sem"))

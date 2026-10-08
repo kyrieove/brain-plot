@@ -14,6 +14,7 @@ __pycache__/
 examples/demo_data/
 examples/demo_templates/
 examples/brain-plot/
+examples/brain_plot_*/
 .orchestrate/
 research/gn-extension-preview/
 research/preview_gn_extensions.py
