@@ -154,6 +154,10 @@ with tempfile.TemporaryDirectory() as d:
     assert json.loads(Path(f"{o2}_run.json").read_text(encoding="utf8"))["order_by_display"] == [2, 0, 1]
     del SAVED[n_saved:]  # later checks use the first figure
     fails(spec(root, order=[0, 0, 1], conditions={"A": "Go"}), "permutation")
+    # rule O3 in the split layout: one figure per group is named _grp-<G>, so the groups never archive each other
+    g1, g2 = (msp.plot(spec(root, groups=[g])) for g in ("G1", "G2"))
+    assert (g1.name, g2.name) == ("topo-butterfly-ribbon_K3_A-B_grp-G1_v01", "topo-butterfly-ribbon_K3_A-B_grp-G2_v01"), (g1, g2)
+    del SAVED[n_saved:]
     assert run["segmentation"].endswith("min_segment_ms = 30; not the analysis's own labels") and "- State segmentation: back-fit" in cap
     # review 2026-09-26: one boundary definition — dotted lines sit half-way between a run's first sample and the
     # previous run's last sample, like the ribbon; spans say so too

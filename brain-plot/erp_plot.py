@@ -415,6 +415,7 @@ def groups_from_metadata(found, col):
 
 def select_files(spec):
     found = split_layout(spec["data"], list(spec["conditions"]), spec.get("groups"))
+    split = found is not None
     if found and spec.get("group_by"):
         die("group_by needs one flat folder of epochs files, not <condition>/<group>/ folders")
     found = found or find_groups(spec["data"])
@@ -433,7 +434,13 @@ def select_files(spec):
     groups = {g: [f for f in found[g] if uid(f) not in excl] for g in order}
     if [g for g, fs in groups.items() if not fs]:
         die(f"groups left empty: {[g for g, fs in groups.items() if not fs]}")
-    return groups, list(found)
+    all_groups = list(found)
+    if split and spec.get("groups"):
+        # split layout read only the requested groups: rule O3 names the subset against every group folder on disk
+        root = Path(spec["data"])
+        all_groups = sorted({d.name for c in spec["conditions"]
+                             for d in (root / c).iterdir() if d.is_dir() and any(d.glob("*-ave.fif"))})
+    return groups, all_groups
 
 
 def available_conditions(spec, unit):
