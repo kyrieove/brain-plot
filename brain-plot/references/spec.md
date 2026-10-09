@@ -118,6 +118,7 @@ Required: `data` (any loader layout, including `<condition>/<group>/<subject>*-a
 | `polarity` | `"sensitive"` | `"insensitive"` if the analysis ignored map polarity (pycrostates' default): identity across K uses \|r\|, and maps are shown with a consistent sign (rule MS5). |
 | `per_group` | false | One row per condition × group instead of per condition (at most 2 rows without a grid). |
 | `grid` | none | Rows × columns of condition keys, e.g. `[["Hmet","Hlit","Hrep"],["Lmet","Llit","Lrep"]]`; required for more than 2 conditions (rule MS9). |
+| `order` | none | Template indices in display order (a permutation of `range(k)`), used instead of the per-figure latency order (rule MS4). Use it to give several group figures one shared numbering and colour per template. |
 | `hatch` | false | true: hatch samples whose GFP is below the pre-stimulus 95th percentile (rule MS3); needs pre-stimulus samples. |
 | `templates_source` | none | Caption only: which analysis made the templates. |
 | `identity_threshold` | 0.9 | by-K: signed r at which two templates count as the same map. |

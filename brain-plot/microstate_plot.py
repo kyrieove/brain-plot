@@ -23,7 +23,7 @@ import erp_plot as ep
 
 REQUIRED = {"data", "conditions", "templates", "k"}
 OPTIONAL = {"templates_source", "hatch", "figure", "blocks", "groups", "exclude", "per_group", "grid", "window_ms", "min_segment_ms", "polarity", "width_mm",
-            "height_mm", "identity_threshold", "cmap", "reference", "time_locked_to", "flat_channels"}
+            "height_mm", "identity_threshold", "cmap", "reference", "time_locked_to", "flat_channels", "order"}
 BLOCKS = {"topo": "topo", "butterfly": "butterfly", "gfp": "GFP", "ribbon": "ribbon"}  # block → file-name part
 STATE_COLOURS = ["#00468B", "#ED0000", "#42B540", "#0099B4", "#925E9F", "#FDAF91", "#AD002A", "#7A8A8A", "#1B1919",
                  "#D4A017"]  # rule MS5: the reference palette, by display number
@@ -65,6 +65,9 @@ def check(spec):
     lo, hi = spec.get("window_ms", [0, 800])
     if not lo < hi:
         ep.die("window_ms needs start < end")
+    o = spec.get("order")
+    if o is not None and (not isinstance(o, list) or sorted(o) != list(range(spec["k"] if isinstance(spec["k"], int) else -1))):
+        ep.die("order: a list of template indices that is a permutation of range(k) (figure 'states' only)")
     g = spec.get("grid")
     if g is not None and (spec.get("per_group") or not isinstance(g, list) or not all(isinstance(r, list) and r for r in g)
                           or sorted(sum(g, [])) != sorted(spec["conditions"])):
@@ -293,7 +296,7 @@ def plot_states(spec, data, info, meta, ms, sphere):
     lows = {c: low_gfp(x, ms, w) if spec.get("hatch") else np.zeros(w.sum(), bool)  # rule MS3: opt-in
             for c, (x, _) in cells.items()}
     spans = longest_runs(labels, ms[w], k)
-    order = display_order(spans, k)
+    order = spec["order"] if "order" in spec else display_order(spans, k)  # "order": shared numbering across figures
     pos = {s: i for i, s in enumerate(order)}
     col = {s: STATE_COLOURS[pos[s] % len(STATE_COLOURS)] for s in range(k)}
     t = ms[w]

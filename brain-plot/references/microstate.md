@@ -44,7 +44,7 @@ Ask only: which K (or K range for `by-K`), which conditions (and groups), which 
 
 ## QA after every render (open each PNG)
 
-1. Maps are framed and numbered in time order; ribbon labels and map labels agree.
+1. Maps are framed and numbered in time order (MS4; give spec `order` when several figures must share one numbering, e.g. per-group figures); ribbon labels and map labels agree.
 2. With `hatch`: hatching only where GFP is at baseline level.
 3. No electrode marks on the maps; no n in panel titles.
 4. `layout_issues` in `_run.json` is empty, or every entry is reported and fixed where the spec can fix it.

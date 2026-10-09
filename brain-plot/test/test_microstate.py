@@ -148,6 +148,12 @@ with tempfile.TemporaryDirectory() as d:
     # user rule 2026-09-29: no "GFP" text label on the butterfly panels; the caption says which line it is
     assert not [t for ax in SAVED[-1].axes for t in ax.texts if "GFP" in t.get_text()], "a GFP label was drawn"
     assert "thick line = GFP" in cap
+    # spec "order" replaces the latency order; a non-permutation is refused
+    n_saved = len(SAVED)
+    o2 = msp.plot(spec(root, order=[2, 0, 1], conditions={"A": "Go"}))
+    assert json.loads(Path(f"{o2}_run.json").read_text(encoding="utf8"))["order_by_display"] == [2, 0, 1]
+    del SAVED[n_saved:]  # later checks use the first figure
+    fails(spec(root, order=[0, 0, 1], conditions={"A": "Go"}), "permutation")
     assert run["segmentation"].endswith("min_segment_ms = 30; not the analysis's own labels") and "- State segmentation: back-fit" in cap
     # review 2026-09-26: one boundary definition — dotted lines sit half-way between a run's first sample and the
     # previous run's last sample, like the ribbon; spans say so too
@@ -230,7 +236,7 @@ with tempfile.TemporaryDirectory() as d:
     for f in (root / "ev" / "A" / "G2").glob("*"):
         f.unlink()
     fails(spec(root), "draw one figure per group (groups: [G])")
-    msp.plot(spec(root, groups=["G1"]))  # the remedy the message names works: G2's gap no longer blocks G1
+    msp.plot(spec(root, conditions={"A": "Go"}))  # the remedy the message names works: G2's gap no longer blocks G1
 
 with tempfile.TemporaryDirectory() as d:  # no pre-stimulus samples: low GFP cannot be judged
     root = Path(d)
