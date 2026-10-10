@@ -249,11 +249,26 @@ def first_info(run, run_dir):
     return picked_info(ev.info, run["ch_names"], rows[0]["file"])
 
 
+def hemi_by_name(name):
+    """Hemisphere group from the last character of a channel name, as MNE
+    `make_1020_channel_selections(midline="12z")` reads it: ending in 1, 2 or z (lower-cased) is "Midline", another
+    odd digit "Left", another even digit "Right"; None when the character is neither (the caller then uses the
+    position rule)."""
+    ch = name[-1].lower()
+    if ch in "12z":
+        return "Midline"
+    if ch.isdigit():
+        return "Left" if int(ch) % 2 else "Right"
+    return None
+
+
 def channel_rows(info, ch_names, mode, sphere):
     """Raster row order for one figure: `order` holds the channel indices (into `ch_names`) top to bottom; `rows` adds
     the tick label of every other channel, its channel index (None on a blank separator row) and the group name.
-    mode "file" keeps the result-file order with no groups; "lmr" groups left / midline / right (|x| ≤ 0.1 × max|x| is
-    midline) and sorts each group anterior → posterior; a blank row separates the groups."""
+    mode "file" keeps the result-file order with no groups; "lmr" groups left / midline / right by the channel name
+    (MNE `make_1020_channel_selections(midline="12z")`: names ending in 1, 2 or z are Midline, other odd digits Left,
+    other even digits Right; a name ending in neither falls back to |x| ≤ 0.1 × max|x| as midline) and sorts each
+    group anterior → posterior; a blank row separates the groups."""
     if mode == "file":
         rows = [(ch_names[i] if i % 2 == 0 else None, i, None) for i in range(len(ch_names))]
         return list(range(len(ch_names))), rows
@@ -261,9 +276,13 @@ def channel_rows(info, ch_names, mode, sphere):
     pos = _find_topomap_coords(info, picks=np.arange(len(info.ch_names)), sphere=sphere)
     x, y = pos[:, 0], pos[:, 1]
     tol = 0.1 * float(np.abs(x).max())
-    groups = [("Left", [i for i in range(len(ch_names)) if x[i] < -tol]),
-              ("Midline", [i for i in range(len(ch_names)) if abs(x[i]) <= tol]),
-              ("Right", [i for i in range(len(ch_names)) if x[i] > tol])]
+    by_name = {"Left": [], "Midline": [], "Right": []}
+    for i in range(len(ch_names)):
+        g = hemi_by_name(ch_names[i])
+        if g is None:
+            g = "Left" if x[i] < -tol else ("Right" if x[i] > tol else "Midline")
+        by_name[g].append(i)
+    groups = [(name, by_name[name]) for name in ("Left", "Midline", "Right")]
     order, rows = [], []
     for name, idx in groups:
         if not idx:
@@ -587,7 +606,8 @@ def plot_columns(spec, run, tests, rows, info, sphere, color, display, topo_part
     left_m, right_m, top_m = 30.0, 14.0, 12.0
     cw = (W - left_m - right_m - (n - 1) * 8.0) / n
     groups = group_rows(rows)
-    sub_h = [1.2 * len(gr) for _, gr in groups]
+    h = 1.2 * max(len(gr) for _, gr in groups)
+    sub_h = [h] * len(groups)
     raster_block = sum(sub_h) + 2.5 * (len(groups) - 1)
 
     rlims = [raster_limits(t, color, display) for t in tests]

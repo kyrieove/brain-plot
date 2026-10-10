@@ -148,6 +148,12 @@ def run_tests():
         assert [lab for lab, i, _ in rows if i is not None] == ["C3", "Fz", None, "Pz", None, "C4"], "every other label"
         print("cluster channel rows: Left [C3], Midline [Fz, Cz, Pz, Oz], Right [C4]")
 
+        # (i) the name rule itself, as MNE make_1020_channel_selections(midline="12z") reads it
+        assert [cluster_plot.hemi_by_name(n) for n in ("FC1", "C2", "Fz")] == ["Midline"] * 3
+        assert [cluster_plot.hemi_by_name(n) for n in ("C3", "TP9")] == ["Left"] * 2
+        assert [cluster_plot.hemi_by_name(n) for n in ("C4", "TP10")] == ["Right"] * 2
+        print("cluster channel rows: name rule Midline 1/2/z, Left odd digit, Right even digit")
+
         # (ii) channel_order "file" renders in file order with no groups
         cluster_plot.plot({**spec, "channel_order": "file"})
         print("cluster channel_order file renders")

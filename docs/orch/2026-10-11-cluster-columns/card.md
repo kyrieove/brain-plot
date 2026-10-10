@@ -83,6 +83,31 @@ Keep `left_m = 30.0` (needed for the long topomap row labels; Parameters line "l
 Then run the Check in the foreground until it passes, and re-render GN with the same spec as step 5 (tests 01 + 03,
 `"layout": "columns"`); no `WARNING: layout` line allowed. Do not touch `plot_side`.
 
+## Fix 2
+User review of GN v03 (columns layout chosen as the better one): the Midline sub-panel is far too small (8 channels
+vs 28 / 28). The reference figure has three EQUAL regions (LH / MH / RH), and the MNE tutorial
+`tutorials/stats-sensor-space/20_erp_stats.py` does the same: `make_1020_channel_selections(info, midline="12z")`
+(names ending in 1, 2 or z → Midline; other odd digit → Left; other even digit → Right) and
+`plt.subplots(nrows=3)` (three equal-height axes). On the GN montage this gives Left 21 / Midline 22 / Right 21.
+Change only this, in `brain-plot/cluster_plot.py`:
+1. `channel_rows(..., mode="lmr")`: assign each channel by its NAME with the MNE rule above (last character,
+   lower-cased: in "12z" → Midline; odd digit → Left; even digit → Right). A name whose last character is neither a
+   digit nor z falls back to the current position rule (x < -tol Left, |x| ≤ tol Midline, x > tol Right) so no channel
+   is dropped. Keep the anterior → posterior sort by y, the blank separator rows and every-other-channel labels.
+   Update the docstring (cite the MNE rule). This applies to both layouts (`side` uses the same rows).
+2. `plot_columns()`: equal sub-panel heights. Replace `sub_h = [1.2 * len(gr) ...]` with one height for every
+   group: `h = 1.2 * sum(len(gr) for _, gr in groups) / len(groups)`; `sub_h = [h] * len(groups)` (total raster
+   height unchanged).
+3. Test `brain-plot/test/test_cluster.py` (i): keep the existing assertion (the synthetic montage has no 1/2 names, so
+   it is unchanged) and add a pure-name check of the new rule through `channel_rows` or a small helper it uses:
+   `FC1`, `C2`, `Fz` → Midline; `C3`, `TP9` → Left; `C4`, `TP10` → Right.
+4. Docs: `brain-plot/references/cluster.md` lines on `lmr` / "each sized to its own row count" and
+   `brain-plot/references/spec.md` `channel_order` row: say groups follow MNE `make_1020_channel_selections(midline="12z")`
+   and the columns layout draws the three sub-panels at equal height.
+Run the Check in the foreground until it passes. Do not touch the reader, `diff_uv`, bins or colour limits.
+
+(Fix 3 moved to `docs/orch/2026-10-11-cluster-columns-v2/card.md`: max 2 fixes per card.)
+
 ## Check
 ```
 python brain-plot/test/test_cluster.py
@@ -98,10 +123,11 @@ python brain-plot/test/test_cluster.py
 - "No rm, no git push, no git checkout . / restore . / reset --hard."
 
 ## Acceptance (draft)
-- verdict: accepted after Fix 1 (Claude visual QA of GN v03; Oz 702–800 ms = 7.765 µV, plain numpy, 95 subjects)
+- verdict: TODO (accepted / review pending / rejected)
 - files: brain-plot/cluster_plot.py, brain-plot/references/cluster.md, brain-plot/references/spec.md, brain-plot/test/test_cluster.py
-- check: `python brain-plot/test/test_cluster.py` → exit 0 (run by run-card)
+- check: `python brain-plot/test/test_cluster.py` → exit 1 (run by run-card)
 - tokens:
   - round 1: exec deepseek-v4.1-flash: fresh 92k, cached 4698k, out 112k  (codex-cluster-columns.jsonl) · review gpt-6-luna: fresh 54k, cached 279k, out 2k  (codex-review-cluster-columns.jsonl)
   - Fix 1: exec deepseek-v4.1-flash: fresh 9k, cached 363k, out 3k  (codex-cluster-columns.jsonl)
-- review findings: 0 real / 2 false positive (30-mm margin was a justified Parameters change, now recorded; reply.md is the runner file) / 3 missed (spacing defects found in visual QA → Fix 1) (medium, gpt-6-luna)
+  - Fix 2: exec deepseek-v4.1-flash: fresh 29k, cached 1048k, out 10k  (codex-cluster-columns.jsonl)
+- review findings: TODO N real / M false positive / K missed (medium, gpt-6-luna)

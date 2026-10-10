@@ -22,7 +22,7 @@ definition and the counts.
 | Round | Decide |
 |---|---|
 | 1 | Which tests become figures (`tests`: the test folder names, in order) and their titles (`labels`: `{folder: title}`, default the test's own `name`). |
-| 2 | What the colour shows (`color`: `"stat"` (default) for the test statistic, `"uv"` for the µV difference), how significance appears (`display`: `"masked"` (default) colours only significant samples, `"contour"` outlines them), the topomaps (`topo`: `"bins"` (default) or `"clusters"`; `topo_bin_ms`, default 100), the raster row order (`channel_order`: `"lmr"` (default) groups left / midline / right, `"file"` keeps the result-file order), the canvas width (`width_mm`, default 180) and the layout (`layout`: `"side"` (default) one figure per test, `"columns"` one figure for all tests — `columns` needs `channel_order: "lmr"`, at most 3 tests and, under `color: "stat"`, one statistic across the tests). |
+| 2 | What the colour shows (`color`: `"stat"` (default) for the test statistic, `"uv"` for the µV difference), how significance appears (`display`: `"masked"` (default) colours only significant samples, `"contour"` outlines them), the topomaps (`topo`: `"bins"` (default) or `"clusters"`; `topo_bin_ms`, default 100), the raster row order (`channel_order`: `"lmr"` (default) groups left / midline / right by the channel name as MNE `make_1020_channel_selections(midline="12z")` reads it — names ending in 1, 2 or z are Midline, other odd digits Left, other even digits Right; `"file"` keeps the result-file order), the canvas width (`width_mm`, default 180) and the layout (`layout`: `"side"` (default) one figure per test, `"columns"` one figure for all tests — `columns` needs `channel_order: "lmr"`, at most 3 tests and, under `color: "stat"`, one statistic across the tests). |
 
 Never ask (settled by house conventions; leave out or use the default):
 - **Style** — the raster row order (default left / midline / right from `channel_order.csv`), colormaps (`RdBu_r` for
@@ -55,7 +55,8 @@ Fix the cause, never work around it; tell the user when the fix changes the figu
 
 1. **No overlaps**: titles, panel letters, channel labels and map time ranges must be cleanly separated.
 2. **Channel labels legible**: every other channel is a y tick label in display order; the rows are grouped left /
-   midline / right (or in file order with `channel_order: "file"`), row 0 at the top.
+   midline / right by the channel name (MNE `make_1020_channel_selections(midline="12z")`; or in file order with
+   `channel_order: "file"`), row 0 at the top.
 3. **Maps ≥ 15 mm, every other channel labelled, group names readable**: the map grid sits beside the raster with
    maps at least 15 mm across.
 4. **Colour bar per side**: one bar beside the raster and one beside the map grid, the statistic (t/F) or µV named.
@@ -63,9 +64,9 @@ Fix the cause, never work around it; tell the user when the fix changes the figu
 6. **Run record**: `layout_issues` in `_run.json` must be empty.
 
 `layout: "columns"` also:
-7. **Three sub-panels per column**: each test column stacks Left, Midline and Right, each sized to its own row count;
-   only the bottom sub-panel carries the x tick labels and "Time (ms)"; the group names sit once, left of the first
-   column.
+7. **Three sub-panels per column**: each test column stacks Left, Midline and Right at EQUAL height (the three groups
+   share the raster block's height, whatever their row counts); only the bottom sub-panel carries the x tick labels
+   and "Time (ms)"; the group names sit once, left of the first column.
 8. **One colour bar per block**: a single shared raster bar right of the last column and a single shared map bar
    spanning the map block; a test with no maps shows "no significant cluster" in its row.
 9. **Map labels readable**: the row label (test title) sits left of each row's first map, every map carries its time

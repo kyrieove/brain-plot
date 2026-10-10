@@ -93,8 +93,8 @@ Required: `data` (the run folder), `tests` (non-empty list of test folder names,
 | `display` | `"masked"` | `"masked"`: only significant samples coloured; `"contour"`: full map, significant samples outlined. |
 | `topo` | `"bins"` | `"bins"`: µV maps averaged in `topo_bin_ms` bins; `"clusters"`: one map per significant cluster window. |
 | `topo_bin_ms` | 100 | Bin width in ms (`topo: "bins"`). |
-| `channel_order` | `"lmr"` | Raster row order: `"lmr"` groups left / midline / right (anterior first, blank row and group name between groups); `"file"` keeps the result-file order. |
-| `layout` | `"side"` | `"side"`: one figure per test (raster left, map grid right). `"columns"`: ONE figure for all tests — a column per test (three stacked Left / Midline / Right raster sub-panels, one shared raster colour bar) with a row of topomaps per test below (one shared map colour bar). `"columns"` needs `channel_order: "lmr"`, at most 3 tests and, under `color: "stat"`, one statistic across the tests; the name gets `_columns_t<NN>[-t<NN>…]`. |
+| `channel_order` | `"lmr"` | Raster row order: `"lmr"` groups left / midline / right by the channel name as MNE `make_1020_channel_selections(midline="12z")` reads it (names ending in 1, 2 or z are Midline, other odd digits Left, other even digits Right; anterior first, blank row and group name between groups); `"file"` keeps the result-file order. |
+| `layout` | `"side"` | `"side"`: one figure per test (raster left, map grid right). `"columns"`: ONE figure for all tests — a column per test (three stacked Left / Midline / Right raster sub-panels at equal height, one shared raster colour bar) with a row of topomaps per test below (one shared map colour bar). `"columns"` needs `channel_order: "lmr"`, at most 3 tests and, under `color: "stat"`, one statistic across the tests; the name gets `_columns_t<NN>[-t<NN>…]`. |
 | `width_mm` | 180 | Figure width in mm. |
 | `height_mm` | auto | Figure height in mm. |
 | `time_locked_to` | none | Event at 0 ms; also appended to the file name as `_lock-<event>`. |
