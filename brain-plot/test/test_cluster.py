@@ -199,6 +199,42 @@ def run_tests():
         assert "layout" not in json.loads(Path(f"{outs_s[0]}_run.json").read_text(encoding="utf8"))
         print("cluster side layout unchanged: one figure per test, no columns part")
 
+        # (n) layout waves writes one figure per test with a clean layout and the waves record
+        outs_w = cluster_plot.plot({**spec, "layout": "waves"})
+        assert len(outs_w) == 2, f"waves layout writes one figure per test, got {outs_w}"
+        for out in outs_w:
+            for ext in (".png", ".svg", "_run.json", "_caption.md"):
+                assert Path(f"{out}{ext}").exists(), f"missing {out}{ext}"
+            rec_w = json.loads(Path(f"{out}_run.json").read_text(encoding="utf8"))
+            assert rec_w["layout_issues"] == [], f"waves layout issues in {out.name}: {rec_w['layout_issues']}"
+            assert rec_w.get("layout") == "waves", rec_w.get("layout")
+        ow = next(o for o in outs_w if "_t01_" in o.name)
+        assert "cluster_waves_t01_" in ow.name, ow.name
+        print("cluster waves render: one figure per test, clean layout, layout waves recorded")
+
+        # (o) cluster_waves mean_a equals a plain-numpy mean over the cluster channels and subjects
+        read_w = cluster_plot.read_run(spec)
+        tw = {t["slug"]: t for t in read_w["tests"]}[T01]
+        tt, waves, _ = cluster_plot.cluster_waves(read_w, tw, run)
+        c0 = tw["clusters"][0]
+        man, root = cluster_plot.read_manifest(run)
+        by_cond = {}
+        for r in man:
+            by_cond.setdefault(r["participant_id"], {})[r["condition"]] = r["file"]
+        subj = []
+        for pid in sorted(by_cond):
+            ev = mne.read_evokeds(root / by_cond[pid]["NoGO"], verbose="error")[0]
+            ci_ = [ev.ch_names.index(ch) for ch in c0["channels"]]
+            subj.append(ev.data[ci_].mean(0) * 1e6)
+        expect = np.array(subj).mean(0)
+        assert len(tt) == expect.shape[0], "cluster_waves time axis length"
+        assert np.max(np.abs(waves[c0["cluster_id"]][0] - expect)) < 1e-9, "cluster_waves mean_a differs from numpy"
+        print("cluster waves: mean_a matches a plain-numpy mean over cluster channels and subjects")
+
+        # (p) an F test under waves stops: no single difference wave
+        assert_stops({**spec, "tests": [T02], "layout": "waves"}, "has no single difference wave")
+        print("cluster waves stops: an interaction test has no single difference wave")
+
         # (e) stops
         assert_stops({**spec, "tests": [T02], "color": "uv"}, "no single difference wave")
         assert_stops({**spec, "bogus": 1}, "unsupported spec keys")

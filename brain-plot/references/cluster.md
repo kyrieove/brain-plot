@@ -1,11 +1,15 @@
 # Cluster-permutation result figures (`cluster_plot.py`)
 
-Read after `SKILL.md` when the request is a figure of saved cluster-permutation results. Two layouts (`layout`):
+Read after `SKILL.md` when the request is a figure of saved cluster-permutation results. Three layouts (`layout`):
 `"side"` (default) draws one figure per test — the channel × time raster on the left, the µV-difference topomaps in a
 2-column grid on the right; `"columns"` draws ONE figure for all tests (the user's reference, 2026-10-11) — one column
 per test whose three stacked sub-panels are the Left / Midline / Right raster rows, with one shared raster colour bar,
 and below it one row of topomaps per test with one shared map colour bar. Topomap row labels drop "(N = …)" and break
-at ": " onto two lines. Spec keys: `spec.md`.
+at ": " onto two lines. `"waves"` draws ONE figure per test, one row per significant cluster: a µV-difference topomap
+(the cluster's channels marked white) beside the two compared conditions' grand-average waveforms over the cluster's
+channels (each with a 95 % CI band, the cluster window shaded gray, colours from `difference_definition`), needs
+every test to have a single difference wave, and takes `polarity` (`"negative_up"` default, `"positive_up"`). Spec
+keys: `spec.md`.
 Draws only: the module never computes a test, threshold or p-value; the only computed number is the µV mean
 difference. Developer reference: `docs/rules.md`.
 
@@ -23,7 +27,7 @@ definition and the counts.
 | Round | Decide |
 |---|---|
 | 1 | Which tests become figures (`tests`: the test folder names, in order) and their titles (`labels`: `{folder: title}`, default the test's own `name`). |
-| 2 | What the colour shows (`color`: `"stat"` (default) for the test statistic, `"uv"` for the µV difference), how significance appears (`display`: `"masked"` (default) colours only significant samples, `"contour"` outlines them), the topomaps (`topo`: `"bins"` (default) or `"clusters"`; `topo_bin_ms`, default 100), the raster row order (`channel_order`: `"lmr"` (default) groups left / midline / right by the channel name as MNE `make_1020_channel_selections(midline="12z")` reads it — names ending in 1, 2 or z are Midline, other odd digits Left, other even digits Right; `"file"` keeps the result-file order), the canvas width (`width_mm`, default 180) and the layout (`layout`: `"side"` (default) one figure per test, `"columns"` one figure for all tests — `columns` needs `channel_order: "lmr"`, at most 3 tests and, under `color: "stat"`, one statistic across the tests). Recommend `layout: "columns"` first — the user's approved house style (2026-10-11: tests as columns, equal L/M/R sub-panels by MNE `midline="12z"`, 8 topomaps of 100 ms per row, centred short row labels) — and fall back to `"side"` when there are more than 3 tests or `channel_order: "file"`. The code default stays `"side"`. |
+| 2 | What the colour shows (`color`: `"stat"` (default) for the test statistic, `"uv"` for the µV difference), how significance appears (`display`: `"masked"` (default) colours only significant samples, `"contour"` outlines them), the topomaps (`topo`: `"bins"` (default) or `"clusters"`; `topo_bin_ms`, default 100), the raster row order (`channel_order`: `"lmr"` (default) groups left / midline / right by the channel name as MNE `make_1020_channel_selections(midline="12z")` reads it — names ending in 1, 2 or z are Midline, other odd digits Left, other even digits Right; `"file"` keeps the result-file order), the canvas width (`width_mm`, default 180) and the layout (`layout`: `"side"` (default) one figure per test, `"columns"` one figure for all tests — `columns` needs `channel_order: "lmr"`, at most 3 tests and, under `color: "stat"`, one statistic across the tests). Recommend `layout: "columns"` first — the user's approved house style (2026-10-11: tests as columns, equal L/M/R sub-panels by MNE `midline="12z"`, 8 topomaps of 100 ms per row, centred short row labels) — and fall back to `"side"` when there are more than 3 tests or `channel_order: "file"`. The code default stays `"side"`. Offer `layout: "waves"` (the user's reference, 2026-10-11) when the user wants to "show the two compared conditions per cluster": one figure per test, one row per significant cluster with the µV-difference topomap and the two conditions' waveforms over the cluster's channels (95 % CI bands, cluster window shaded); it needs every test to have a single difference wave (kinds `condition_pooled` / `condition_group`, so not an F interaction) and at least one significant cluster per test; output `cluster/cluster_waves_t<NN>[_lock-<event>]_vNN`. |
 
 Never ask (settled by house conventions; leave out or use the default):
 - **Style** — the raster row order (default left / midline / right from `channel_order.csv`), colormaps (`RdBu_r` for
@@ -37,12 +41,17 @@ Never ask (settled by house conventions; leave out or use the default):
 ## When the script stops
 
 Fix the cause, never work around it; tell the user when the fix changes the figure:
-- **`layout must be 'side' or 'columns'`** — fix the value.
+- **`layout must be 'side', 'columns' or 'waves'`** — fix the value.
+- **`polarity must be 'positive_up' or 'negative_up'`** — fix the value.
 - **`layout "columns" splits the raster by hemisphere; set channel_order to "lmr"`** — the columns layout splits the
   raster rows into Left / Midline / Right, so it needs `channel_order: "lmr"` (drop `"file"`).
 - **`layout "columns" draws one column per test; it holds at most 3 tests`** — draw fewer tests per figure.
 - **`layout "columns" shares one colour scale; tests mix t and F`** — under `color: "stat"` give the columns tests one
   statistic, or split them across figures.
+- **`layout "waves" draws condition waveforms; test <slug> (kind <kind>) has no single difference wave`** — the waves
+  layout draws the two conditions of a difference wave; drop the test or use `layout: "side"`.
+- **`layout "waves": test <slug> has no significant cluster; drop it from tests`** — the waves layout draws one row per
+  cluster; drop a test without a cluster.
 - **`test <slug> (kind ...) has no single difference wave`** — `color: "uv"` was asked for a test with no single
   difference (e.g. an interaction); use `color: "stat"`.
 - **`unsupported spec keys`** — remove or rename the key (see `spec.md`).
