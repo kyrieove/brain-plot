@@ -34,3 +34,5 @@ them. The skill never computes a test or decides significance itself.
 ## Paused (user, 2026-09-27)
 New modules are on hold; round 2 questions (cluster/raster) stay unanswered. Scope for now: ERP and microstate only.
 First priority: split the oversized `references/rules.md` (round-1 item 5, text part).
+
+Resumed 2026-10-10 for cluster/raster: round 2 answered in `docs/plan-cluster.md`.
