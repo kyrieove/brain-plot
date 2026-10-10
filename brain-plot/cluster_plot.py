@@ -680,8 +680,8 @@ def plot_columns(spec, run, tests, rows, info, sphere, color, display, topo_part
                      ha="left", va="center", fontsize=5)
             continue
         vt, tlo, thi, tcmap = tlims[0], tlims[1], tlims[2], tlims[3]
-        fig.text((left_m - 2.0) / W, (H - (y_top + map_mm / 2.0)) / H, row_label(t["label"]),
-                 ha="right", va="center", fontsize=6)
+        fig.text((left_m - 2.0) / 2.0 / W, (H - (y_top + map_mm / 2.0)) / H, row_label(t["label"]),
+                 ha="center", va="center", multialignment="center", fontsize=6)
         for k, (vec, marked, lab) in enumerate(t["maps"]):
             im = draw_map(fig, [left_m + k * (map_mm + 2.0), H - y_top - map_mm, map_mm, map_mm], vec, marked, lab,
                           tcmap, tlo, thi, info, sphere, W, H)
