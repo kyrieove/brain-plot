@@ -28,7 +28,7 @@ Three modules (ERP, microstate, time-frequency), tests pass, everything committe
 - New `layout: "waves"` (card `docs/orch/2026-10-11-cluster-waves`, committed): per test one figure, per significant
   cluster a µV topomap (window mean, cluster channels white) + NoGO/GO waveforms over the cluster channels with 95% CI
   (t, df = n − 1), window shaded gray, negative up; legend under the figure. GN: `cluster_waves_t01_v02.png`, `_t03_v02.png`.
-- Open for the user: GN test 01 cluster 5 (63 ch × 52–800 ms) draws a flat line (average reference → mean over ~all
+- **Waves figure PAUSED by the user (2026-10-11: "暂时不做这个第二种图").** When resumed — open question: GN test 01 cluster 5 (63 ch × 52–800 ms) draws a flat line (average reference → mean over ~all
   channels ≈ 0). Options: keep, drop that row (caption note), or plot its peak channel instead.
 - Acceptance check for every cluster card: Oz 702–800 ms, GN test 01 µV difference = 7.765 µV (plain numpy; script
   pattern: manifest → per-subject NoGO − GO at Oz, mean of 701.5–800.5 ms).
