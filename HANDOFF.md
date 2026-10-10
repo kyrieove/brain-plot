@@ -17,29 +17,22 @@ Three modules (ERP, microstate, time-frequency), tests pass, everything committe
   2026-09-30 — two data sets in one parent overwrote each other) → `ERP/`, `topo/`, `ERP_topo/`, `TFR/`,
   `microstate/`, `specs/`, `.cache/`; names say what the figure is; re-renders get `_vNN+1`, old versions move to `_history/`.
 
-## Next (start here) — 2026-10-11, cluster module
-**cluster_plot.py (saved ERP cluster-permutation results) is working; one card is ready to dispatch.**
-- Done and committed: plan `docs/plan-cluster.md` (its "channel order = montage order" line is superseded: user wants
-  left / midline / right rows, see below); figure survey `research/cluster-figures/survey.md` (15 figures, images
-  git-ignored in `research/cluster-figures/figures/`); module `brain-plot/cluster_plot.py`, test
-  `brain-plot/test/test_cluster.py`, docs `brain-plot/references/cluster.md` + `spec.md` section + SKILL.md row.
-  Cards: `docs/orch/2026-10-10-cluster-v1`, `-v1-v2`, `docs/orch/2026-10-11-cluster-layout` (all accepted).
-- Current layout ("side", commit 25423ed): one figure per test; raster (t/F, only significant samples coloured)
-  left, rows grouped Left / Midline / Right (anterior→posterior, every other channel labelled); µV topomaps in
-  100-ms bins in a 2-column grid right (~19 mm), white dots = channels in a significant cluster in that bin.
-  GN renders: `gn_manuscript-ERP_topomap_cluster_inferencerain_plot_01_cluster_based_permutation_0000_0800ms\cluster\cluster_stat-masked_t01_topo-bins100ms_v01.png` (+ `_t03_`).
-- **Next step: dispatch `docs/orch/2026-10-11-cluster-columns/card.md` to wb** (user asked for this second layout,
-  from a reference figure: tests as columns, each raster split into Left/Midline/Right sub-panels, topomap rows
-  below with all bins side by side, shared colour bars):
-  `node ~/.claude/skills/orchestrate/runner/run-card.mjs --card C:/dev/brain-plot/docs/orch/2026-10-11-cluster-columns/card.md --name cluster-columns --executor wb --risk medium --repo C:/dev/brain-plot`
-  Then open both GN renders (side t01 + columns t01-t03) in the plot-preview pane; the user picks the default layout.
-- Acceptance check for every cluster card: Oz 702–800 ms, GN test 01 µV difference = 7.765 µV (plain numpy).
-- Known pitfalls: wb never runs the Check itself (runner prompt says the runner does) → each fix round finds only
-  the next failure; make cards precise. Luna reviews flag `AGENTS.md` (pre-existing uncommitted user change),
-  `reply.md` (runner file) and Claude's own concurrent edits as out of scope → false positives. Another session
-  (`besa-check-prep`, `ms-reorg`) writes into `gn_manuscript` concurrently; the runner lists it as "concurrent".
-  Topomap info comes from the first evoked file; GN topomaps show white dots almost everywhere for test 01 (its
-  cluster covers 63 channels × 52–800 ms) — kept on purpose (faithful to the result file).
+## Next (start here) — 2026-10-11 evening, cluster module
+**cluster_plot.py has two layouts; the user prefers `"layout": "columns"`.**
+- Committed today: columns layout (`docs/orch/2026-10-11-cluster-columns`, Fix 1 spacing, Fix 2 MNE grouping),
+  `-columns-v2` (equal sub-panels sized by the largest group), `-columns-v3` (topomap row labels without "(N = …)",
+  wrapped at ": " and 12 chars; left margin 30 → 20 mm, maps 15.3 → 16.5 mm on GN).
+- L/M/R raster groups now follow MNE `make_1020_channel_selections(midline="12z")` (names ending 1/2/z = Midline;
+  user's reference figure has three equal LH/MH/RH regions; GN = 21/22/21). Applies to `side` too.
+- Latest GN render: `gn_manuscript-ERP_topomap_cluster_inferencerain_plot_01_cluster_based_permutation_0000_0800ms\cluster\cluster_stat-masked_columns_t01-t03_topo-bins100ms_v05.png` (tests 01 + 03).
+- Open questions for the user: (1) make `columns` the spec default (it needs `channel_order: "lmr"` and ≤ 3 tests,
+  so `side` stays the fallback); (2) bigger maps via 4 bins × 200 ms per row (~30 mm each) — changes time resolution;
+  (3) group names Left/Midline/Right vs LH/MH/RH.
+- Acceptance check for every cluster card: Oz 702–800 ms, GN test 01 µV difference = 7.765 µV (plain numpy; script
+  pattern: manifest → per-subject NoGO − GO at Oz, mean of 701.5–800.5 ms).
+- Runner pitfalls seen today: always end the run-card Bash command with `# agent-live/codex-<name>.jsonl` or the
+  token-weather progress bar does not show; max 2 fixes per card (`--fix 3` refused) → new `<task>-vN/` card; card lint
+  needs the "Reuse existing functions" line in Don't. wb never runs the Check, and Luna flags `reply.md` (runner file).
 - Not done: reader for the TFCE npz (`10-ERP_stats`), cluster-channel waveforms, README image.
 
 ## Earlier next steps (2026-10-01)

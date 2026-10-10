@@ -4,7 +4,8 @@ Read after `SKILL.md` when the request is a figure of saved cluster-permutation 
 `"side"` (default) draws one figure per test — the channel × time raster on the left, the µV-difference topomaps in a
 2-column grid on the right; `"columns"` draws ONE figure for all tests (the user's reference, 2026-10-11) — one column
 per test whose three stacked sub-panels are the Left / Midline / Right raster rows, with one shared raster colour bar,
-and below it one row of topomaps per test with one shared map colour bar. Spec keys: `spec.md`.
+and below it one row of topomaps per test with one shared map colour bar. Topomap row labels drop "(N = …)" and break
+at ": " onto two lines. Spec keys: `spec.md`.
 Draws only: the module never computes a test, threshold or p-value; the only computed number is the µV mean
 difference. Developer reference: `docs/rules.md`.
 

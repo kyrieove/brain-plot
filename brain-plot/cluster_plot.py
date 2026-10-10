@@ -13,6 +13,7 @@ import hashlib
 import json
 import re
 import sys
+import textwrap
 from pathlib import Path
 
 import matplotlib
@@ -452,6 +453,13 @@ def draw_map(fig, rect_mm, vec, marked, lab, cmap, lo, hi, info, sphere, W, H):
     return im
 
 
+def row_label(label):
+    """Topomap row label of the columns layout: drops "(N = …)" and wraps the ": "-split parts at 12 characters (N is
+    in the raster column title)."""
+    label = re.sub(r"\s*\(N\s*=\s*\d+\)", "", label)
+    return "\n".join(line for part in label.split(": ", 1) for line in textwrap.wrap(part, 12))
+
+
 def group_rows(rows):
     """The raster rows split into [(group name, rows)] at the blank separator rows (left / midline / right)."""
     groups = []
@@ -603,7 +611,7 @@ def plot_columns(spec, run, tests, rows, info, sphere, color, display, topo_part
     times = run["times_ms"]
     W = float(spec.get("width_mm", 180))
     n = len(tests)
-    left_m, right_m, top_m = 30.0, 14.0, 12.0
+    left_m, right_m, top_m = 20.0, 14.0, 12.0
     cw = (W - left_m - right_m - (n - 1) * 8.0) / n
     groups = group_rows(rows)
     h = 1.2 * max(len(gr) for _, gr in groups)
@@ -672,7 +680,7 @@ def plot_columns(spec, run, tests, rows, info, sphere, color, display, topo_part
                      ha="left", va="center", fontsize=5)
             continue
         vt, tlo, thi, tcmap = tlims[0], tlims[1], tlims[2], tlims[3]
-        fig.text((left_m - 2.0) / W, (H - (y_top + map_mm / 2.0)) / H, t["label"],
+        fig.text((left_m - 2.0) / W, (H - (y_top + map_mm / 2.0)) / H, row_label(t["label"]),
                  ha="right", va="center", fontsize=6)
         for k, (vec, marked, lab) in enumerate(t["maps"]):
             im = draw_map(fig, [left_m + k * (map_mm + 2.0), H - y_top - map_mm, map_mm, map_mm], vec, marked, lab,
