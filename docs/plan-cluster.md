@@ -46,6 +46,8 @@ with the difference definition (e.g. "NoGO minus GO").
   significant cluster window instead. A test with no single difference (the F interaction) gets F topomaps.
 - Caption facts from the metadata: test, statistic, tail, forming threshold, n_permutations, cluster p, n.
 
-## Next
-Card for the executor: `docs/orch/<date>-cluster-v1/card.md` (reader, internal form, raster + topomap, interview
-file `references/cluster.md`, test on a synthetic fixture + one real render of test 01).
+## Status (2026-10-10)
+v1 done: `brain-plot/cluster_plot.py`, `test/test_cluster.py`, `references/cluster.md` (cards
+`docs/orch/2026-10-10-cluster-v1*`). First real render: GN tests 01 + 03, `brain_plot_01_cluster_based_permutation_0000_0800ms/cluster/…_v02`.
+Topomap channel markers stay on every significant channel even when a cluster covers almost the whole head (Claude,
+user deferred: faithful to the result file). Open: other readers (TFCE npz), cluster-channel waveforms.

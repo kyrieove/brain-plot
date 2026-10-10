@@ -77,6 +77,29 @@ Required: `data` (folder of `*-epo.fif` files), `conditions` (`{key: label}`), `
 Outputs go to `TFR/` under the output root: `TFR-<measure>_<channels>_<group>[_<windows>]_vNN.png/.svg`, `_run.json`, `_caption.md`.
 
 
+## Cluster spec (`python cluster_plot.py plot <spec.json>`)
+
+Reads a saved MNE spatio-temporal cluster run: a folder with `time_axis.csv`, `channel_order.csv`, `run_metadata.json`,
+`input_manifest.csv` and one sub-folder per test, each with `observed_statistic.npy`, `significant_cluster_union_mask.npy`,
+`test_metadata.json` and `cluster_summary_significant.csv`. Never computes a test; the only computed number is the µV
+mean difference.
+
+Required: `data` (the run folder), `tests` (non-empty list of test folder names, each once).
+
+| Key | Default | Meaning |
+|---|---|---|
+| `labels` | test's `name` | `{test folder: column title}`. |
+| `color` | `"stat"` | `"stat"`: the test statistic (t/F) in the raster; `"uv"`: the µV mean difference. |
+| `display` | `"masked"` | `"masked"`: only significant samples coloured; `"contour"`: full map, significant samples outlined. |
+| `topo` | `"bins"` | `"bins"`: µV maps averaged in `topo_bin_ms` bins; `"clusters"`: one map per significant cluster window. |
+| `topo_bin_ms` | 100 | Bin width in ms (`topo: "bins"`). |
+| `width_mm` | 180 | Figure width in mm. |
+| `height_mm` | auto | Figure height in mm. |
+| `time_locked_to` | none | Event at 0 ms; also appended to the file name as `_lock-<event>`. |
+| `claim` | none | Caption only: what the figure is meant to show. |
+
+Outputs go to `cluster/` under the output root: `cluster_<color>-<display>_t<tests>_topo-<bins<step>ms|clusters>[_lock-<event>]_vNN.png/.svg`, `_run.json`, `_caption.md`.
+
 ## Source reconstruction spec (`python source_plot.py plot <spec.json>`)
 
 Required: `data` (folder of `*-epo.fif` files), `conditions` (`{key: label}`).

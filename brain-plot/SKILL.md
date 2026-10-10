@@ -1,6 +1,6 @@
 ---
 name: brain-plot
-description: Paper-ready ERP figures (waveforms + scalp topographies) from per-subject MNE Epochs/Evoked .fif files, in one fixed house style. First interviews the user in rounds (claim, key comparison, groups, components and windows, layout), gets explicit confirmation of a written spec, then draws with erp_plot.py and checks the render. Also draws microstate figures (templates, butterfly, GFP, segmentation ribbon; across-K template rows) from saved templates, time-frequency figures (power, ITC), and source reconstruction maps (dSPM on fsaverage). Draws only — not for ERP statistics, EEG preprocessing, or microstate clustering. Use for ERP 波形图、地形图、ERP+地形图组合图、论文 ERP 配图、微状态图、microstate figure、时频图、ITC 图、time-frequency plot、源定位图、source plot、brain plot.
+description: Paper-ready ERP figures (waveforms + scalp topographies) from per-subject MNE Epochs/Evoked .fif files, in one fixed house style. First interviews the user in rounds (claim, key comparison, groups, components and windows, layout), gets explicit confirmation of a written spec, then draws with erp_plot.py and checks the render. Also draws microstate figures (templates, butterfly, GFP, segmentation ribbon; across-K template rows) from saved templates, time-frequency figures (power, ITC), saved cluster-permutation results (raster + µV topomaps), and source reconstruction maps (dSPM on fsaverage). Draws only — not for ERP statistics, EEG preprocessing, or microstate clustering. Use for ERP 波形图、地形图、ERP+地形图组合图、论文 ERP 配图、微状态图、microstate figure、时频图、ITC 图、time-frequency plot、cluster-permutation result figure、cluster 图、源定位图、source plot、brain plot.
 ---
 
 # brain-plot
@@ -12,6 +12,7 @@ Route first, then read that module's file (next to this one, in `references/`):
 | ERP waveforms / topomaps / combo / overview | `erp_plot.py` | `references/erp.md` |
 | Microstate figures from saved templates | `microstate_plot.py` | `references/microstate.md` |
 | Time-frequency figures (power, ITC) | `tfr_plot.py` | `references/tfr.md` |
+| Saved cluster-permutation results (raster + topomaps) | `cluster_plot.py` | `references/cluster.md` |
 | Source maps (dSPM on fsaverage) | `source_plot.py` | `references/source.md` |
 
 Spec keys: `references/spec.md`. Worked specs: `examples/specs/` in the repository root, one level above this skill's real folder (the installed
