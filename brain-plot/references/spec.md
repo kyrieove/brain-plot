@@ -93,12 +93,13 @@ Required: `data` (the run folder), `tests` (non-empty list of test folder names,
 | `display` | `"masked"` | `"masked"`: only significant samples coloured; `"contour"`: full map, significant samples outlined. |
 | `topo` | `"bins"` | `"bins"`: µV maps averaged in `topo_bin_ms` bins; `"clusters"`: one map per significant cluster window. |
 | `topo_bin_ms` | 100 | Bin width in ms (`topo: "bins"`). |
+| `channel_order` | `"lmr"` | Raster row order: `"lmr"` groups left / midline / right (anterior first, blank row and group name between groups); `"file"` keeps the result-file order. |
 | `width_mm` | 180 | Figure width in mm. |
 | `height_mm` | auto | Figure height in mm. |
 | `time_locked_to` | none | Event at 0 ms; also appended to the file name as `_lock-<event>`. |
 | `claim` | none | Caption only: what the figure is meant to show. |
 
-Outputs go to `cluster/` under the output root: `cluster_<color>-<display>_t<tests>_topo-<bins<step>ms|clusters>[_lock-<event>]_vNN.png/.svg`, `_run.json`, `_caption.md`.
+Outputs go to `cluster/` under the output root, one figure per test: `cluster_<color>-<display>_t<NN>_topo-<bins<step>ms|clusters>[_lock-<event>]_vNN.png/.svg`, each with its own `_run.json` and `_caption.md` (`NN` = the test's leading number).
 
 ## Source reconstruction spec (`python source_plot.py plot <spec.json>`)
 

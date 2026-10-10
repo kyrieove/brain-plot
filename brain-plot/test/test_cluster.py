@@ -99,7 +99,7 @@ def run_tests():
         # (a) the µV difference and the subject counts
         read = cluster_plot.read_run(spec)
         by_slug = {t["slug"]: t for t in read["tests"]}
-        uv, n01, _ = cluster_plot.diff_uv(read, by_slug[T01], run)
+        uv, n01, info = cluster_plot.diff_uv(read, by_slug[T01], run)
         i400 = int(np.argmin(np.abs(read["times_ms"] - 400)))
         assert abs(uv[i400, read["ch_names"].index("Cz")] - 2.0) < 0.1, "Cz difference at 400 ms was not ~2 µV"
         assert abs(uv[i400, read["ch_names"].index("Oz")]) < 0.2, "Oz should carry no difference"
@@ -117,20 +117,40 @@ def run_tests():
         assert abs(uv_f[i400, read_f["ch_names"].index("Cz")] - 2.0) < 0.1, "reversed B channels broke the Cz difference"
         print("cluster reversed-GO-channel difference still 2 µV at Cz")
 
-        # (b) default spec writes every output and a clean layout
-        out = cluster_plot.plot(spec)
-        for ext in (".png", ".svg", "_run.json", "_caption.md"):
-            assert Path(f"{out}{ext}").exists(), f"missing {out}{ext}"
-        rec = json.loads(Path(f"{out}_run.json").read_text(encoding="utf8"))
-        assert rec["layout_issues"] == [], f"layout issues: {rec['layout_issues']}"
-        assert rec["tests"][T01]["n_subjects"] == 6 and rec["tests"][T03]["n_subjects"] == 3
-        assert "_t01-t03_" in out.name and "_topo-bins100ms" in out.name, out.name
-        print("cluster default render: png/svg/_run.json/_caption.md, clean layout")
+        # (b) default spec writes one figure per test and a clean layout
+        outs = cluster_plot.plot(spec)
+        assert len(outs) == 2, f"expected one figure per test, got {outs}"
+        o01 = next(o for o in outs if "_t01_" in o.name)
+        o03 = next(o for o in outs if "_t03_" in o.name)
+        for out in (o01, o03):
+            for ext in (".png", ".svg", "_run.json", "_caption.md"):
+                assert Path(f"{out}{ext}").exists(), f"missing {out}{ext}"
+            rec = json.loads(Path(f"{out}_run.json").read_text(encoding="utf8"))
+            assert rec["layout_issues"] == [], f"layout issues in {out.name}: {rec['layout_issues']}"
+        assert json.loads(Path(f"{o01}_run.json").read_text(encoding="utf8"))["tests"][T01]["n_subjects"] == 6
+        assert json.loads(Path(f"{o03}_run.json").read_text(encoding="utf8"))["tests"][T03]["n_subjects"] == 3
+        assert "_topo-bins100ms" in o01.name and "_topo-bins100ms" in o03.name, (o01.name, o03.name)
+        print("cluster default render: one figure per test, png/svg/_run.json/_caption.md, clean layout")
 
         # (h) the default render's topomap bins are half-open with honest labels
-        svg = Path(f"{out}.svg").read_text(encoding="utf8")
+        svg = Path(f"{o01}.svg").read_text(encoding="utf8")
         assert "2–100 ms" in svg and "2–102 ms" not in svg, "topomap bins are not the half-open 2–100 ms"
         print("cluster bins: half-open 2–100 ms label, no overlapping 2–102 ms")
+
+        # (i) channel_rows groups the synthetic montage left / midline / right, anterior first
+        order, rows = cluster_plot.channel_rows(info, CH, "lmr", cluster_plot.ep.common_sphere(info))
+        grouped = {}
+        for lab, i, g in rows:
+            if i is not None:
+                grouped.setdefault(g, []).append(CH[i])
+        assert grouped == {"Left": ["C3"], "Midline": ["Fz", "Cz", "Pz", "Oz"], "Right": ["C4"]}, grouped
+        assert order == [4, 0, 1, 2, 3, 5], order
+        assert [lab for lab, i, _ in rows if i is not None] == ["C3", "Fz", None, "Pz", None, "C4"], "every other label"
+        print("cluster channel rows: Left [C3], Midline [Fz, Cz, Pz, Oz], Right [C4]")
+
+        # (ii) channel_order "file" renders in file order with no groups
+        cluster_plot.plot({**spec, "channel_order": "file"})
+        print("cluster channel_order file renders")
 
         # (c) contour and cluster-window topomaps render
         for extra in ({"display": "contour"}, {"topo": "clusters"}):
@@ -151,10 +171,11 @@ def run_tests():
 
         assert_stops({**spec, "tests": [T02], "color": "uv"}, "no single difference wave")
         assert_stops({**spec, "bogus": 1}, "unsupported spec keys")
+        assert_stops({**spec, "channel_order": "bogus"}, "channel_order")
         assert_stops({**spec, "tests": ["99_missing"]}, "not found")
         np.save(run / T01 / "significant_cluster_union_mask.npy", np.zeros((10, len(CH)), dtype=bool))
         assert_stops(spec, "must both be")
-        print("cluster stops: uv on interaction, unknown key/folder, wrong mask shape")
+        print("cluster stops: uv on interaction, unknown key/folder, bad channel_order, wrong mask shape")
 
         # (g) a time_axis.csv without time_index stops
         ta = run / "time_axis.csv"

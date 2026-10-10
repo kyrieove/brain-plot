@@ -2,10 +2,11 @@
 
     python cluster_plot.py plot <spec.json>
 
-Reads a saved MNE spatio-temporal cluster run and draws one figure: one column per test, a channel × time raster of
-the test statistic (only significant samples coloured by default) with a row of µV-difference topomaps underneath.
-Draws only — it never computes a test, threshold or p-value; the only computed number is the µV mean difference.
-Outputs go to brain_plot_<data folder>/cluster/ next to the data folder, versioned (rules O1–O3).
+Reads a saved MNE spatio-temporal cluster run and draws one figure per test: a channel × time raster of the test
+statistic (only significant samples coloured by default) on the left, the µV-difference topomaps in a 2-column grid
+on the right. Raster rows are grouped left / midline / right (or kept in file order). Draws only — it never computes a
+test, threshold or p-value; the only computed number is the µV mean difference. Outputs go to
+brain_plot_<data folder>/cluster/ next to the data folder, versioned (rules O1–O3).
 """
 import csv
 import hashlib
@@ -23,7 +24,8 @@ import numpy as np
 import erp_plot as ep
 
 REQUIRED = {"data", "tests"}
-OPTIONAL = {"labels", "color", "display", "topo", "topo_bin_ms", "width_mm", "height_mm", "time_locked_to", "claim"}
+OPTIONAL = {"labels", "color", "display", "topo", "topo_bin_ms", "channel_order", "width_mm", "height_mm",
+            "time_locked_to", "claim"}
 
 
 def check_spec(spec):
@@ -51,6 +53,9 @@ def check_spec(spec):
         ep.die(f"topo must be 'bins' or 'clusters' (got {spec['topo']!r}); 'bins' draws fixed time bins")
     if "topo_bin_ms" in spec and not (isinstance(spec["topo_bin_ms"], (int, float)) and spec["topo_bin_ms"] > 0):
         ep.die(f"topo_bin_ms must be a positive number of ms (got {spec['topo_bin_ms']!r})")
+    if spec.get("channel_order", "lmr") not in ("lmr", "file"):
+        ep.die(f"channel_order must be 'lmr' or 'file' (got {spec['channel_order']!r}); 'lmr' orders the raster rows "
+               "left / midline / right, 'file' keeps the result-file order")
     for key in ("width_mm", "height_mm"):
         if key in spec and not (isinstance(spec[key], (int, float)) and spec[key] > 0):
             ep.die(f"{key} must be a positive number of mm (got {spec[key]!r})")
@@ -235,10 +240,38 @@ def first_info(run, run_dir):
     return picked_info(ev.info, run["ch_names"], rows[0]["file"])
 
 
-def write_run_json(out, spec, records, layout_issues, size_mm):
+def channel_rows(info, ch_names, mode, sphere):
+    """Raster row order for one figure: `order` holds the channel indices (into `ch_names`) top to bottom; `rows` adds
+    the tick label of every other channel, its channel index (None on a blank separator row) and the group name.
+    mode "file" keeps the result-file order with no groups; "lmr" groups left / midline / right (|x| ≤ 0.1 × max|x| is
+    midline) and sorts each group anterior → posterior; a blank row separates the groups."""
+    if mode == "file":
+        rows = [(ch_names[i] if i % 2 == 0 else None, i, None) for i in range(len(ch_names))]
+        return list(range(len(ch_names))), rows
+    from mne.channels.layout import _find_topomap_coords
+    pos = _find_topomap_coords(info, picks=np.arange(len(info.ch_names)), sphere=sphere)
+    x, y = pos[:, 0], pos[:, 1]
+    tol = 0.1 * float(np.abs(x).max())
+    groups = [("Left", [i for i in range(len(ch_names)) if x[i] < -tol]),
+              ("Midline", [i for i in range(len(ch_names)) if abs(x[i]) <= tol]),
+              ("Right", [i for i in range(len(ch_names)) if x[i] > tol])]
+    order, rows = [], []
+    for name, idx in groups:
+        if not idx:
+            continue
+        if order:
+            rows.append((None, None, None))
+        idx.sort(key=lambda i: -y[i])
+        for k, i in enumerate(idx):
+            order.append(i)
+            rows.append((ch_names[i] if k % 2 == 0 else None, i, name))
+    return order, rows
+
+
+def write_run_json(out, spec, tests, layout_issues, size_mm):
     data = dict(
         spec=spec,
-        tests=records,
+        tests=tests,
         layout_issues=layout_issues,
         code_md5=hashlib.md5(Path(__file__).read_bytes()).hexdigest(),
         versions=dict(mne=mne.__version__, matplotlib=matplotlib.__version__, numpy=np.__version__),
@@ -248,7 +281,7 @@ def write_run_json(out, spec, records, layout_issues, size_mm):
     Path(f"{out}_run.json").write_text(json.dumps(data, indent=1, ensure_ascii=False, allow_nan=False), encoding="utf8")
 
 
-def write_caption(out, spec, run, tests):
+def write_caption(out, spec, run, test):
     display = spec.get("display", "masked")
     mode = ("only samples in significant clusters are coloured" if display == "masked"
             else "full map, significant samples outlined")
@@ -262,18 +295,17 @@ def write_caption(out, spec, run, tests):
         f"- **Topomaps**: {topo_txt}",
         "- **Channel marker**: white dots: channels in a significant cluster within the map's time range",
     ]
-    for t in tests:
-        m = t["meta"]
-        if t["clusters"]:
-            cl = "; ".join(f"{c['cluster_id']} (p={c['p_cluster']:g}, {c['time_start_ms']:g}–{c['time_end_ms']:g} ms)"
-                           for c in t["clusters"])
-        else:
-            cl = "no significant cluster"
-        lines.append(f"- **{t['label']}**: statistic {m['statistic']} ({m['tail']}), cluster-forming threshold "
-                     f"{m['cluster_forming_threshold']:g}, {m['n_permutations']} permutations, cluster-level alpha "
-                     f"{m['cluster_level_alpha']:g}; significant clusters: {cl}")
-        if t["has_diff"]:
-            lines.append(f"- **µV maps — {t['label']}**: {run['meta']['difference_definition']} (N = {t['n_subj']})")
+    m = test["meta"]
+    if test["clusters"]:
+        cl = "; ".join(f"{c['cluster_id']} (p={c['p_cluster']:g}, {c['time_start_ms']:g}–{c['time_end_ms']:g} ms)"
+                       for c in test["clusters"])
+    else:
+        cl = "no significant cluster"
+    lines.append(f"- **{test['label']}**: statistic {m['statistic']} ({m['tail']}), cluster-forming threshold "
+                 f"{m['cluster_forming_threshold']:g}, {m['n_permutations']} permutations, cluster-level alpha "
+                 f"{m['cluster_level_alpha']:g}; significant clusters: {cl}")
+    if test["has_diff"]:
+        lines.append(f"- **µV maps — {test['label']}**: {run['meta']['difference_definition']} (N = {test['n_subj']})")
     if spec.get("claim"):
         lines.append(f"- **Claim**: {spec['claim']}")
     lines.append("")
@@ -288,7 +320,7 @@ def plot(spec):
     run_dir = Path(spec["data"])
     color, display, topo_mode = spec.get("color", "stat"), spec.get("display", "masked"), spec.get("topo", "bins")
     step = float(spec.get("topo_bin_ms", 100))
-    n_ch = len(ch_names)
+    mode = spec.get("channel_order", "lmr")
 
     info = None
     for t in tests:
@@ -302,15 +334,14 @@ def plot(spec):
     if info is None:
         info = first_info(run, run_dir)
     sphere = ep.common_sphere(info)
+    order, rows = channel_rows(info, ch_names, mode, sphere)
+    n_rows = len(rows)
 
+    # layout (card 2026-10-11): raster left, 2-column map grid right, one figure per test
     W = float(spec.get("width_mm", 180))
-    left, right, gap = 14.0, 14.0, 16.0
-    n_col = len(tests)
-    cw = (W - left - right - (n_col - 1) * gap) / n_col
-    raster_h = max(60.0, 1.5 * n_ch)
-    n_row = max(1, int((cw + 2) // (11 + 2)))  # ≥ 11 mm maps with 2 mm gaps fill the column
-    map_mm = (cw - (n_row - 1) * 2.0) / n_row
-    step_h = map_mm + 7.0
+    raster_h, top_m, bottom_m = 100.0, 12.0, 14.0
+    dt = float(times[1] - times[0]) if len(times) > 1 else 1.0
+    topo_part = f"bins{step:g}ms" if topo_mode == "bins" else "clusters"
 
     def bins_of_times():
         nbins = int(np.ceil((times[-1] - times[0]) / step))
@@ -337,17 +368,24 @@ def plot(spec):
                             f"{c['time_start_ms']:g}–{c['time_end_ms']:g} ms"))
         return out
 
-    all_maps = {t["slug"]: maps_of(t) for t in tests}
-    n_map_rows = max(1, max(int(np.ceil(max(1, len(all_maps[t["slug"]])) / n_row)) for t in tests))
-    H = float(spec.get("height_mm") or (12 + raster_h + 14 + n_map_rows * step_h + 4))
+    outs = []
+    for t in tests:
+        maps = maps_of(t)
+        has_uv = t["uv"] is not None
+        if maps:
+            n_cols = 1 if len(maps) == 1 else 2
+            n_grid_rows = -(-len(maps) // n_cols)
+            map_mm = min(24.0, (raster_h - n_grid_rows * 6.0) / n_grid_rows)
+            maps_w = n_cols * map_mm + (n_cols - 1) * 3.0
+        else:
+            n_cols, n_grid_rows, map_mm, maps_w = 1, 0, 0.0, 0.0
+        grid_h = n_grid_rows * (map_mm + 6.0)
+        H = float(spec["height_mm"]) if spec.get("height_mm") else top_m + max(raster_h, grid_h) + bottom_m
+        rw = W - 22.0 - 16.0 - maps_w - 14.0
+        raster_top, raster_bottom, maps_top = H - top_m, H - top_m - raster_h, H - top_m
+        maps_left = W - maps_w - 14.0
+        fig = plt.figure(figsize=(W * ep.MM, H * ep.MM))
 
-    raster_top, raster_bottom = H - 12.0, H - 12.0 - raster_h
-    maps_top = raster_bottom - 14.0
-    fig = plt.figure(figsize=(W * ep.MM, H * ep.MM))
-
-    records = {}
-    for i, t in enumerate(tests):
-        x_left = left + i * (cw + gap)
         stat_name = t["meta"]["statistic"]
         values = t["uv"] if color == "uv" else t["stat"]
         mask = t["mask"]
@@ -359,30 +397,42 @@ def plot(spec):
         else:
             cmap, vmin, vmax = "RdBu_r", -v, v
 
-        ax = fig.add_axes([x_left / W, raster_bottom / H, cw / W, raster_h / H])
-        dt = float(times[1] - times[0]) if len(times) > 1 else 1.0
-        extent = [times[0] - dt / 2, times[-1] + dt / 2, n_ch - 0.5, -0.5]
+        arr = np.full((n_rows, len(times)), np.nan)
+        sig = np.zeros((n_rows, len(times)), dtype=bool)
+        for k, (_, i, _) in enumerate(rows):
+            if i is not None:
+                arr[k], sig[k] = values[:, i], mask[:, i]
+        shown = np.ma.masked_invalid(arr)
+        cmap_obj = plt.get_cmap(cmap).copy()
+        cmap_obj.set_bad("white")
+
+        ax = fig.add_axes([22.0 / W, raster_bottom / H, rw / W, raster_h / H])
+        extent = [times[0] - dt / 2, times[-1] + dt / 2, n_rows - 0.5, -0.5]
         if display == "masked":
-            cmap_obj = plt.get_cmap(cmap).copy()
-            cmap_obj.set_bad("white")
-            im = ax.imshow(np.ma.masked_where(~mask.T, values.T), aspect="auto", origin="upper", extent=extent,
+            im = ax.imshow(np.ma.masked_where(~sig, shown), aspect="auto", origin="upper", extent=extent,
                            interpolation="nearest", cmap=cmap_obj, vmin=vmin, vmax=vmax, rasterized=True)
         else:
-            im = ax.imshow(values.T, aspect="auto", origin="upper", extent=extent, interpolation="nearest",
-                           cmap=cmap, vmin=vmin, vmax=vmax, rasterized=True)
-            ax.contour(times, np.arange(n_ch), mask.T.astype(float), levels=[0.5], colors="black", linewidths=0.4)
-        ax.set_yticks(np.arange(n_ch))
-        ax.set_yticklabels(ch_names, fontsize=4)
-        if i == 0:
-            ax.set_ylabel("Channel")
+            im = ax.imshow(shown, aspect="auto", origin="upper", extent=extent, interpolation="nearest",
+                           cmap=cmap_obj, vmin=vmin, vmax=vmax, rasterized=True)
+            ax.contour(times, np.arange(n_rows), sig.astype(float), levels=[0.5], colors="black", linewidths=0.4)
+        ax.set_yticks(np.arange(n_rows))
+        ax.set_yticklabels([lab or "" for lab, _, _ in rows], fontsize=5)
         xt, labs, _ = ep.x_ticks(ax, fig, times[0], times[-1], zero=True)
         ax.set_xticks(xt)
         ax.set_xticklabels(labs)
         ax.set_xlabel("Time (ms)")
         ax.set_title(t["label"], fontsize=7)
-        ep.letter(ax, i)
+        ep.letter(ax, 0)
+        ylo, yhi = ax.get_ylim()
+        groups = {}
+        for k, (_, i, g) in enumerate(rows):
+            if i is not None:
+                groups.setdefault(g, []).append(k)
+        for g, ks in groups.items():
+            ax.text(-15.0 / rw, (float(np.mean(ks)) - ylo) / (yhi - ylo), g, transform=ax.transAxes,
+                    rotation=90, ha="center", va="center", fontsize=6)
 
-        cax = fig.add_axes([(x_left + cw + 3.0) / W, raster_bottom / H, 2.0 / W, raster_h / H])
+        cax = fig.add_axes([(22.0 + rw + 3.0) / W, raster_bottom / H, 2.0 / W, raster_h / H])
         cb = fig.colorbar(im, cax=cax)
         ticks = [0.0, v] if (color == "stat" and stat_name == "F") else [-v, 0.0, v]
         cb.set_ticks(ticks)
@@ -391,8 +441,6 @@ def plot(spec):
         cb.ax.set_title("µV" if color == "uv" else stat_name, fontsize=6, pad=2)
         cb.outline.set_linewidth(0.4)
 
-        maps = all_maps[t["slug"]]
-        has_uv = t["uv"] is not None
         if maps:
             sensor = max(float(np.abs(vec).max()) for vec, _, _ in maps)
             interp = max(ep.interp_peak(vec, info, sphere) for vec, _, _ in maps)
@@ -400,9 +448,9 @@ def plot(spec):
             tcmap, tlo, thi = ("RdBu_r", -vt, vt) if has_uv else ("Reds", 0.0, vt)
             last_im = None
             for k, (vec, marked, lab) in enumerate(maps):
-                r, c = divmod(k, n_row)
-                row_top = maps_top - r * step_h
-                map_x = x_left + c * (map_mm + 2.0)
+                r, c = divmod(k, n_cols)
+                row_top = maps_top - r * (map_mm + 6.0)
+                map_x = maps_left + c * (map_mm + 3.0)
                 tax = fig.add_axes([map_x / W, (row_top - map_mm) / H, map_mm / W, map_mm / H])
                 last_im, _ = mne.viz.plot_topomap(
                     vec, info, axes=tax, show=False, cmap=tcmap, vlim=(tlo, thi),
@@ -411,8 +459,9 @@ def plot(spec):
                     mask=marked, mask_params=dict(marker="o", markerfacecolor="white", markeredgecolor="black",
                                                   markeredgewidth=0.25, markersize=1.2))
                 tax.text(0.5, -0.05, lab, transform=tax.transAxes, ha="center", va="top", fontsize=5)
-            block_bottom = maps_top - n_map_rows * step_h
-            cax_t = fig.add_axes([(x_left + cw + 3.0) / W, block_bottom / H, 2.0 / W, (maps_top - block_bottom) / H])
+                if k == 0:
+                    ep.letter(tax, 1)
+            cax_t = fig.add_axes([(maps_left + maps_w + 3.0) / W, (maps_top - grid_h) / H, 2.0 / W, grid_h / H])
             cb_t = fig.colorbar(last_im, cax=cax_t)
             tticks = [-vt, 0.0, vt] if has_uv else [0.0, vt]
             cb_t.set_ticks(tticks)
@@ -423,26 +472,26 @@ def plot(spec):
             topo_limits = dict(v=vt, vmin=tlo, vmax=thi, cmap=tcmap, sensor_max=sensor, interp_max=interp)
         else:
             topo_limits = None
-            fig.text((x_left + map_mm / 2) / W, (maps_top - map_mm / 2) / H, "no significant cluster",
-                     ha="center", va="center", fontsize=5)
-        records[t["slug"]] = dict(metadata=t["meta"], n_subjects=t["n_subj"],
-                                  color_limits=dict(raster=dict(v=v, vmin=vmin, vmax=vmax, cmap=cmap), topo=topo_limits))
+            fig.text(maps_left / W, (maps_top - map_mm / 2) / H, "no significant cluster",
+                     ha="left", va="center", fontsize=5)
+        record = dict(metadata=t["meta"], n_subjects=t["n_subj"],
+                      color_limits=dict(raster=dict(v=v, vmin=vmin, vmax=vmax, cmap=cmap), topo=topo_limits))
 
-    nums = [re.match(r"\d+", s).group(0) if re.match(r"\d+", s) else s for s in spec["tests"]]
-    topo_part = f"bins{step:g}ms" if topo_mode == "bins" else "clusters"
-    stem = f"cluster_{color}-{display}_{'-'.join('t' + n for n in nums)}_topo-{topo_part}"
-    if spec.get("time_locked_to"):
-        stem += f"_lock-{ep.safe(spec['time_locked_to'])}"
-    out = ep.versioned(ep.out_root(spec) / "cluster", stem)
-    issues = ep.report_layout(fig, out.name)
-    fig.savefig(f"{out}.png", dpi=600)
-    fig.savefig(f"{out}.svg")
-    plt.close(fig)
-    write_run_json(out, spec, records, issues, [W, H])
-    write_caption(out, spec, run, tests)
-    ep.archive(out)
-    print("wrote", f"{out}.png/.svg")
-    return out
+        m = re.match(r"\d+", t["slug"])
+        stem = f"cluster_{color}-{display}_t{m.group(0) if m else t['slug']}_topo-{topo_part}"
+        if spec.get("time_locked_to"):
+            stem += f"_lock-{ep.safe(spec['time_locked_to'])}"
+        out = ep.versioned(ep.out_root(spec) / "cluster", stem)
+        issues = ep.report_layout(fig, out.name)
+        fig.savefig(f"{out}.png", dpi=600)
+        fig.savefig(f"{out}.svg")
+        plt.close(fig)
+        write_run_json(out, spec, {t["slug"]: record}, issues, [W, H])
+        write_caption(out, spec, run, t)
+        ep.archive(out)
+        print("wrote", f"{out}.png/.svg")
+        outs.append(out)
+    return outs
 
 
 if __name__ == "__main__":
