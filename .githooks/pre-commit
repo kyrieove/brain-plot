@@ -1,0 +1,40 @@
+#!/usr/bin/env python
+"""pre-commit: run the module test for staged brain-plot/*_plot.py; block control characters in staged *.md."""
+import os
+import re
+import subprocess
+import sys
+
+CTRL = re.compile(rb"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+
+
+def git(*a):
+    return subprocess.run(["git", *a], capture_output=True, check=True).stdout
+
+
+root = git("rev-parse", "--show-toplevel").decode().strip()
+staged = git("diff", "--cached", "--name-only", "--diff-filter=ACMR", "-z").decode("utf-8").split("\0")
+fail = False
+
+for f in staged:
+    if f.endswith(".md"):
+        for n, line in enumerate(git("show", ":" + f).split(b"\n"), 1):
+            if CTRL.search(line):
+                print(f"pre-commit: control character in {f}:{n}", file=sys.stderr)
+                fail = True
+
+for f in staged:
+    m = re.fullmatch(r"brain-plot/(\w+?)(_plot)?\.py", f)
+    if not (m and f.endswith("_plot.py")):
+        continue
+    mod = m.group(1)
+    test = next((t for t in (f"brain-plot/test/test_{mod}.py", f"brain-plot/test/test_{mod}_plot.py")
+                 if os.path.exists(os.path.join(root, t))), None)
+    if test is None:
+        continue
+    print(f"pre-commit: running {test}")
+    if subprocess.run([sys.executable, test], cwd=root).returncode:
+        print(f"pre-commit: {test} failed", file=sys.stderr)
+        fail = True
+
+sys.exit(1 if fail else 0)

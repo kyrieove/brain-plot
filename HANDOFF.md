@@ -35,6 +35,7 @@ Three modules (ERP, microstate, time-frequency), tests pass, everything committe
 - Runner pitfalls seen today: always end the run-card Bash command with `# agent-live/codex-<name>.jsonl` or the
   token-weather progress bar does not show; max 2 fixes per card (`--fix 3` refused) → new `<task>-vN/` card; card lint
   needs the "Reuse existing functions" line in Don't. wb never runs the Check, and Luna flags `reply.md` (runner file).
+  A pre-commit hook is enabled (`.githooks/pre-commit`, `core.hooksPath`): runs the module test for staged `*_plot.py` and blocks control characters in staged `*.md`.
 - Not done: reader for the TFCE npz (`10-ERP_stats`), cluster-channel waveforms, README image.
 
 ## Earlier next steps (2026-10-01)
@@ -57,7 +58,7 @@ goal-only cards cost ~20 M agy tokens each (measured).
 **`source` module (2026-10-01): merged into `main` and pushed (user).** Claude planned and reviewed; agy implemented
 (plans `docs/AGY_PLAN_source-*.md`), codex did literature, the independent check and plans 2c + 3 after agy's quota
 ran out (`docs/PLAYBOOK-source.md` is superseded). Reasons for every change: `docs/review-log.md`, last entry.
-Figures (59 subjects, sub27 excluded): `…rain_plot_preprocessed_epochs_verb\source\source-windows_dSPM_P200-N400_lock-verbonset_v02.png`
+Figures (59 subjects, sub27 excluded): `…brain_plot_preprocessed_epochs_verb\source\source-windows_dSPM_P200-N400_lock-verbonset_v02.png`
 (main; P200 152–272, N400 402–528 ms from the localizer, `specs\source_localizer_output.txt`) and
 `source-timeline_dSPM_lock-verbonset_v06.png` (one colour scale per column); specs `specs\source_*.json`.
 User decisions: P200 kept although weak (+0.5 µV); no late window (`specs\sn_check.txt`: centro-parietal negativity

@@ -63,6 +63,8 @@ Fix the cause, never work around it; tell the user when the fix changes the figu
 
 ## QA after every `plot` render (open each PNG)
 
+Visual QA: first look at the changed region with `python brain-plot/test/qa_crop.py <png> x0 y0 x1 y1` (0-1 fractions); view the whole figure only for the final acceptance.
+
 1. **No overlaps**: titles, panel letters, channel labels and map time ranges must be cleanly separated.
 2. **Channel labels legible**: every other channel is a y tick label in display order; the rows are grouped left /
    midline / right by the channel name (MNE `make_1020_channel_selections(midline="12z")`; or in file order with
