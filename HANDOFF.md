@@ -24,7 +24,7 @@ Three modules (ERP, microstate, time-frequency), tests pass, everything committe
   wrapped at ": " and 12 chars; left margin 30 → 20 mm, maps 15.3 → 16.5 mm on GN).
 - L/M/R raster groups now follow MNE `make_1020_channel_selections(midline="12z")` (names ending 1/2/z = Midline;
   user's reference figure has three equal LH/MH/RH regions; GN = 21/22/21). Applies to `side` too.
-- Latest GN render: `gn_manuscript-ERP_topomap_cluster_inferencerain_plot_01_cluster_based_permutation_0000_0800ms\cluster\cluster_stat-masked_columns_t01-t03_topo-bins100ms_v06.png` (tests 01 + 03) — user-approved house style (8 maps × 100 ms, centred labels; recorded in references/cluster.md round 2).
+- Latest GN render: `gn_manuscript/03-ERP_topomap/03_cluster_inference/brain_plot_01_cluster_based_permutation_0000_0800ms/cluster/cluster_stat-masked_columns_t01-t03_topo-bins100ms_v06.png` (tests 01 + 03) — user-approved house style (8 maps × 100 ms, centred labels; recorded in references/cluster.md round 2).
 - Next: new figure type from the MNE spatio-temporal cluster example — per significant cluster a topomap (window mean, cluster sensors white) + condition waveforms over the cluster sensors with the window shaded. Waiting for the user: lines = (a) NoGO/GO pooled or (b) by group. Caveat: test 01 cluster 1 covers 63 ch × 52–800 ms.
 - Acceptance check for every cluster card: Oz 702–800 ms, GN test 01 µV difference = 7.765 µV (plain numpy; script
   pattern: manifest → per-subject NoGO − GO at Oz, mean of 701.5–800.5 ms).
