@@ -11,10 +11,17 @@ Round 1 (`docs/plan-modules.md`) stands: draw saved results only, never compute 
    01_cluster_based_permutation_0000_0800ms\`, six tests).
 4. **v1 scope: raster + topomap row only.** Cluster-channel waveforms, MVPA masks etc. wait for the user.
 
-## Literature (answer to "what do papers use?")
-`docs/research-figure-conventions.md` §1 counts t/F colour 6/8, µV 1/8, TFCE 1/8; full map + contour/mask 6/8,
-significant-only 2/8. Its counts are not reliable (spot-check 2026-09-27: one paper not found, one only a preprint,
-the MNE tutorial is not a raster), so they are no ground for a default. Hence both modes, asked in the interview.
+## Literature
+`research/cluster-figures/survey.md` (15 verified figures, 2026-10-10) supersedes the counts of
+`docs/research-figure-conventions.md`. User decision 2026-10-10: **follow the mainstream of that survey**:
+- raster colour = the statistic (t / F): all 6 rasters in the survey use t or F, none µV. µV goes on the topomaps.
+  `color: "uv"` for the raster stays available as an option (round-2 item 1), not the default.
+- significance = only significant samples coloured, the rest blank (5 of 6 rasters; contour 1).
+- channel order = the montage order of the result file (4 of 5 rasters that show one; region 1; none L/mid/R).
+  This replaces the round-1 left / midline / right grouping.
+- topomaps = µV difference in fixed time bins (6 of 13 figures with maps; cluster window 4, component window 3);
+  cluster-window maps stay as the alternative.
+- significant channels on topomaps = white dots (3; black 2, red 1, star 1).
 
 ## Internal form (what every reader returns)
 `stat (n_times, n_ch)`, `mask (n_times, n_ch) bool`, `times_ms (n_times,)`, `ch_names`, `stat_name` ("t"/"F"),
@@ -30,12 +37,13 @@ with the difference definition (e.g. "NoGO minus GO").
 - µV difference for a test: mean over the subjects the test used (`kind`: pooled / one group; the interaction
   test has F and no single difference → `color: "uv"` stops for it unless the user names one).
 
-## Figure (round 1 item 4 + defaults)
-- Channel × time raster, one column per test, channels grouped left / midline / right, anterior → posterior inside
-  each group; `display: "masked"` (only significant samples coloured, round 1) or `"contour"` (full map + mask
-  outline). Diverging colormap, symmetric limits for t / µV, sequential from 0 for F.
-- Topomap row under each column: one map per significant cluster window (onset–offset from the summary),
-  significant channels marked with black dots; fixed bins (`topo_bins_ms`) as the alternative.
+## Figure (defaults from the survey; each is a spec key the interview can change)
+- Channel × time raster, one column per test, channels in result-file order; `color: "stat"` (default) or `"uv"`;
+  `display: "masked"` (default: non-significant samples blank) or `"contour"` (full map + mask outline).
+  Diverging colormap with symmetric limits for t / µV, sequential from 0 for F; colour bar per column.
+- Topomap row under each column: µV difference averaged in fixed bins (`topo_bins_ms`, default step chosen in the
+  interview), channels significant anywhere in the bin marked with white dots; `topo: "clusters"` = one map per
+  significant cluster window instead. A test with no single difference (the F interaction) gets F topomaps.
 - Caption facts from the metadata: test, statistic, tail, forming threshold, n_permutations, cluster p, n.
 
 ## Next
