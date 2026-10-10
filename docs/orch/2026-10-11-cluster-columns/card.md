@@ -15,7 +15,7 @@ renders).
 - `layout`: `"side"` | `"columns"`; anything else stops. `columns` needs `channel_order: "lmr"` (stop otherwise:
   `layout "columns" splits the raster by hemisphere; set channel_order to "lmr"`), 1–3 tests (stop above 3), and all
   tests with the same `statistic` when `color: "stat"` (stop: `layout "columns" shares one colour scale; tests mix t and F`).
-- Canvas: `width_mm` default 180. Margins: left 24 mm (group names + channel labels), right 14 mm (colour bars),
+- Canvas: `width_mm` default 180. Margins: left 30 mm (was 24; widened in round 1 for long row labels) (group names + channel labels), right 14 mm (colour bars),
   top 12 mm.
 - Raster columns: gap 8 mm between columns; column width `cw = (W − 24 − 14 − (n − 1) × 8) / n`. Sub-panel height =
   1.2 mm × number of rows in that group (every other channel labelled, fontsize 5, as `side`), 2.5 mm gap between
@@ -69,6 +69,20 @@ read-only: `brain-plot/erp_plot.py`, `C:\Users\ASUS\Dropbox\metaphor_production\
    `docs/orch/2026-10-10-cluster-v1-v2/card.md` step 5 plus `"layout": "columns"`, written to the system temp dir);
    no `WARNING: layout` line allowed — if one appears, adjust only the Parameters numbers and say so.
 
+
+## Fix 1
+Visual QA of `cluster_stat-masked_columns_t01-t03_topo-bins100ms_v02.png` found three spacing defects in
+`plot_columns()` (`brain-plot/cluster_plot.py`). Change only these numbers, nothing else:
+1. Panel letter `d` sits on row c's bin labels ("2–100 ms"): the topomap row pitch `map_mm + 7.0` is too tight for
+   the bin label below a map plus the letter above the next row. Use `map_mm + 11.0` everywhere the pitch appears
+   (row `y_top`, `map_bar_h`, and the `H` formula `n * (map_mm + 7.0)`).
+2. Empty band between the rasters and the topomaps is too tall: `raster_block + 10.0 + 16.0` (in `topo_top` and in
+   the `H` formula) → `raster_block + 10.0 + 6.0`.
+3. Group names Left / Midline / Right sit far from the channel labels: `(left_m - 19.0) / W` → `(left_m - 12.0) / W`.
+Keep `left_m = 30.0` (needed for the long topomap row labels; Parameters line "left 24 mm" now reads 30 mm).
+Then run the Check in the foreground until it passes, and re-render GN with the same spec as step 5 (tests 01 + 03,
+`"layout": "columns"`); no `WARNING: layout` line allowed. Do not touch `plot_side`.
+
 ## Check
 ```
 python brain-plot/test/test_cluster.py
@@ -82,3 +96,12 @@ python brain-plot/test/test_cluster.py
 - "Run scripts in the foreground and wait; before replying, stop any background task still running."
 - "Reuse existing functions; don't copy existing logic."
 - "No rm, no git push, no git checkout . / restore . / reset --hard."
+
+## Acceptance (draft)
+- verdict: accepted after Fix 1 (Claude visual QA of GN v03; Oz 702–800 ms = 7.765 µV, plain numpy, 95 subjects)
+- files: brain-plot/cluster_plot.py, brain-plot/references/cluster.md, brain-plot/references/spec.md, brain-plot/test/test_cluster.py
+- check: `python brain-plot/test/test_cluster.py` → exit 0 (run by run-card)
+- tokens:
+  - round 1: exec deepseek-v4.1-flash: fresh 92k, cached 4698k, out 112k  (codex-cluster-columns.jsonl) · review gpt-6-luna: fresh 54k, cached 279k, out 2k  (codex-review-cluster-columns.jsonl)
+  - Fix 1: exec deepseek-v4.1-flash: fresh 9k, cached 363k, out 3k  (codex-cluster-columns.jsonl)
+- review findings: 0 real / 2 false positive (30-mm margin was a justified Parameters change, now recorded; reply.md is the runner file) / 3 missed (spacing defects found in visual QA → Fix 1) (medium, gpt-6-luna)

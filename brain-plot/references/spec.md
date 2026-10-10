@@ -94,12 +94,13 @@ Required: `data` (the run folder), `tests` (non-empty list of test folder names,
 | `topo` | `"bins"` | `"bins"`: µV maps averaged in `topo_bin_ms` bins; `"clusters"`: one map per significant cluster window. |
 | `topo_bin_ms` | 100 | Bin width in ms (`topo: "bins"`). |
 | `channel_order` | `"lmr"` | Raster row order: `"lmr"` groups left / midline / right (anterior first, blank row and group name between groups); `"file"` keeps the result-file order. |
+| `layout` | `"side"` | `"side"`: one figure per test (raster left, map grid right). `"columns"`: ONE figure for all tests — a column per test (three stacked Left / Midline / Right raster sub-panels, one shared raster colour bar) with a row of topomaps per test below (one shared map colour bar). `"columns"` needs `channel_order: "lmr"`, at most 3 tests and, under `color: "stat"`, one statistic across the tests; the name gets `_columns_t<NN>[-t<NN>…]`. |
 | `width_mm` | 180 | Figure width in mm. |
 | `height_mm` | auto | Figure height in mm. |
 | `time_locked_to` | none | Event at 0 ms; also appended to the file name as `_lock-<event>`. |
 | `claim` | none | Caption only: what the figure is meant to show. |
 
-Outputs go to `cluster/` under the output root, one figure per test: `cluster_<color>-<display>_t<NN>_topo-<bins<step>ms|clusters>[_lock-<event>]_vNN.png/.svg`, each with its own `_run.json` and `_caption.md` (`NN` = the test's leading number).
+Outputs go to `cluster/` under the output root: with `layout: "side"` one figure per test, `cluster_<color>-<display>_t<NN>_topo-<bins<step>ms|clusters>[_lock-<event>]_vNN.png/.svg`, each with its own `_run.json` and `_caption.md`; with `layout: "columns"` one figure, `cluster_<color>-<display>_columns_t<NN>[-t<NN>…]_topo-<bins<step>ms|clusters>[_lock-<event>]_vNN.png/.svg`, whose `_run.json` holds every test's record (`NN` = the test's leading number).
 
 ## Source reconstruction spec (`python source_plot.py plot <spec.json>`)
 

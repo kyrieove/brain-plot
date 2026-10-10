@@ -161,7 +161,6 @@ def run_tests():
         cluster_plot.plot({**spec, "tests": [T02]})
         print("cluster F test topomaps render")
 
-        # (e) stops
         def assert_stops(s, match):
             try:
                 cluster_plot.plot(s)
@@ -169,6 +168,32 @@ def run_tests():
             except SystemExit as e:
                 assert match in str(e), f"expected {match!r} in {e}"
 
+        # (j) layout columns writes ONE figure for all tests, cleanly, with both tests recorded
+        outs_c = cluster_plot.plot({**spec, "layout": "columns"})
+        assert len(outs_c) == 1, f"columns layout writes one figure, got {outs_c}"
+        oc = outs_c[0]
+        assert "_columns_t01-t03_" in oc.name, oc.name
+        rec_c = json.loads(Path(f"{oc}_run.json").read_text(encoding="utf8"))
+        assert rec_c["layout_issues"] == [], f"columns layout issues: {rec_c['layout_issues']}"
+        assert set(rec_c["tests"]) == {T01, T03}, sorted(rec_c["tests"])
+        assert rec_c.get("layout") == "columns", rec_c.get("layout")
+        cap_c = Path(f"{oc}_caption.md").read_text(encoding="utf8")
+        assert "Condition main effect (all)" in cap_c and "Within-TD condition effect" in cap_c, "columns caption misses a test"
+        print("cluster columns render: one figure, t01-t03, clean layout, both tests recorded")
+
+        # (k) layout columns with a t and an F test under colour stat stops: one shared colour scale
+        assert_stops({**spec, "tests": [T01, T02], "layout": "columns"}, "mix t and F")
+
+        # (l) layout columns needs the hemisphere row order
+        assert_stops({**spec, "layout": "columns", "channel_order": "file"}, "channel_order to")
+
+        # (m) the side layout is unchanged: one figure per test, no columns part in the name or the record
+        outs_s = cluster_plot.plot(spec)
+        assert len(outs_s) == 2 and all("_columns" not in o.name for o in outs_s), outs_s
+        assert "layout" not in json.loads(Path(f"{outs_s[0]}_run.json").read_text(encoding="utf8"))
+        print("cluster side layout unchanged: one figure per test, no columns part")
+
+        # (e) stops
         assert_stops({**spec, "tests": [T02], "color": "uv"}, "no single difference wave")
         assert_stops({**spec, "bogus": 1}, "unsupported spec keys")
         assert_stops({**spec, "channel_order": "bogus"}, "channel_order")
