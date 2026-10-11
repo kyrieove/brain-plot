@@ -426,6 +426,18 @@ def bins_of_times(times, step):
     return masks
 
 
+def stem_ids(slugs):
+    """Leading-digit id per slug for output file names: short enough to stay inside the Windows MAX_PATH limit, but
+    unique — falls back to the full `ep.safe` names when a slug has no leading digits or two ids collide."""
+    ids = []
+    for s in slugs:
+        m = re.match(r"\d+", s)
+        ids.append(m.group(0) if m else None)
+    if any(i is None for i in ids) or len(set(ids)) != len(ids):
+        return [ep.safe(s) for s in slugs]
+    return ids
+
+
 MARK_FRAC = 0.5  # a bin marks a channel when it is significant in at least this fraction of the bin's samples
 
 
@@ -599,7 +611,8 @@ def plot_side(spec, run, tests, rows, info, sphere, color, display, topo_part):
     raster_h, top_m, bottom_m = 100.0, 12.0, 14.0
     n_rows = len(rows)
     outs = []
-    for t in tests:
+    ids = stem_ids([x["slug"] for x in tests])
+    for ti, t in enumerate(tests):
         maps = t["maps"]
         has_uv = t["uv"] is not None
         if maps:
@@ -667,7 +680,7 @@ def plot_side(spec, run, tests, rows, info, sphere, color, display, topo_part):
         record = dict(metadata=t["meta"], n_subjects=t["n_subj"],
                       color_limits=dict(raster=dict(v=v, vmin=vmin, vmax=vmax, cmap=cmap), topo=topo_rec))
 
-        stem = f"cluster_{color}-{display}_t{ep.safe(t['slug'])}_topo-{topo_part}"
+        stem = f"cluster_{color}-{display}_t{ids[ti]}_topo-{topo_part}"
         if spec.get("time_locked_to"):
             stem += f"_lock-{ep.safe(spec['time_locked_to'])}"
         out = ep.versioned(ep.out_root(spec) / "cluster", stem)
@@ -785,7 +798,8 @@ def plot_columns(spec, run, tests, rows, info, sphere, color, display, topo_part
     records = {t["slug"]: dict(metadata=t["meta"], n_subjects=t["n_subj"],
                                color_limits=dict(raster=dict(v=rv, vmin=rvmin, vmax=rvmax, cmap=rcmap),
                                                  topo=topo_rec)) for t in tests}
-    stem = f"cluster_{color}-{display}_columns_t{'-t'.join(ep.safe(t['slug']) for t in tests)}_topo-{topo_part}"
+    ids = stem_ids([t["slug"] for t in tests])
+    stem = f"cluster_{color}-{display}_columns_t{'-t'.join(ids)}_topo-{topo_part}"
     if spec.get("time_locked_to"):
         stem += f"_lock-{ep.safe(spec['time_locked_to'])}"
     out = ep.versioned(ep.out_root(spec) / "cluster", stem)
@@ -815,7 +829,8 @@ def plot_waves(spec, run, tests, info, sphere):
     wave_w = W - right_m - wave_x
     negative_up = spec.get("polarity", "negative_up") == "negative_up"
     outs = []
-    for t in tests:
+    ids = stem_ids([x["slug"] for x in tests])
+    for ti, t in enumerate(tests):
         a, b, _, _ = pairs_of(run, t, run_dir)
         tt, waves, _ = cluster_waves(run, t, run_dir)
         maps = maps_of(t, times, ch_names, "clusters", [], True)
@@ -872,7 +887,7 @@ def plot_waves(spec, run, tests, info, sphere):
                       clusters=[dict(cluster_id=c["cluster_id"], channels=c["channels"],
                                      time_start_ms=c["time_start_ms"], time_end_ms=c["time_end_ms"])
                                 for c in t["clusters"]])
-        stem = f"cluster_waves_t{ep.safe(t['slug'])}"
+        stem = f"cluster_waves_t{ids[ti]}"
         if spec.get("time_locked_to"):
             stem += f"_lock-{ep.safe(spec['time_locked_to'])}"
         out = ep.versioned(ep.out_root(spec) / "cluster", stem)

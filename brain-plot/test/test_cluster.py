@@ -178,7 +178,7 @@ def run_tests():
         outs_c = cluster_plot.plot({**spec, "layout": "columns"})
         assert len(outs_c) == 1, f"columns layout writes one figure, got {outs_c}"
         oc = outs_c[0]
-        assert "_columns_t01_" in oc.name and "-t03_" in oc.name, oc.name
+        assert "_columns_t01-t03_" in oc.name, oc.name
         rec_c = json.loads(Path(f"{oc}_run.json").read_text(encoding="utf8"))
         assert rec_c["layout_issues"] == [], f"columns layout issues: {rec_c['layout_issues']}"
         assert set(rec_c["tests"]) == {T01, T03}, sorted(rec_c["tests"])
@@ -270,6 +270,13 @@ def run_tests():
         assert cluster_plot.cluster_notes(one) == ["Cluster 1: 100–200 ms, p < 0.001"]
         assert cluster_plot.cluster_notes(dict(clusters=[])) == ["no significant cluster"]
         print("cluster notes: first 5 listed, '+ 2 more (see caption)', p < 0.001, no-cluster line")
+
+        # (s) the short-name rule: leading digits per test, falling back to the full slug on a clash or a missing id
+        assert cluster_plot.stem_ids(["01_condition_main_effect_all",
+                                      "03_within_td_condition_effect"]) == ["01", "03"]
+        assert cluster_plot.stem_ids(["01_a", "01_b"]) == ["01_a", "01_b"]
+        assert cluster_plot.stem_ids(["alpha", "02_b"]) == ["alpha", "02_b"]
+        print("cluster stem ids: leading digits, full-slug fallback on a clash or a missing id")
 
     print("OK")
 
