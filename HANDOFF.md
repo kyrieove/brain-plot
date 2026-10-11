@@ -17,24 +17,17 @@ Three modules (ERP, microstate, time-frequency), tests pass, everything committe
   2026-09-30 — two data sets in one parent overwrote each other) → `ERP/`, `topo/`, `ERP_topo/`, `TFR/`,
   `microstate/`, `specs/`, `.cache/`; names say what the figure is; re-renders get `_vNN+1`, old versions move to `_history/`.
 
-## Next (start here) — 2026-10-11 night: waves v2 approved; user said "改" to the /rv review, NOT yet applied
+## Next (start here) — 2026-10-11 night: waves v2 approved; the /rv fixes are applied (commit 8fc3ba6)
+**Applied (wb card `docs/orch/2026-10-11-cluster-waves-v2-rv/`, review luna PASS, 0 real findings):** uv colour no longer
+stops on `layout: "waves"`; `peak_window_ms` must lie inside the result time axis and hold a sample; a repeated channel in
+`waves_channels` stops; the caption says "user-given window lo–hi ms" when the spec sets `peak_window_ms`; `waves_parts` and
+the legend handles simplified. Each fix has a `(t)` assert in `test/test_cluster.py`. Not done: the waves figures were not
+re-rendered on GN after the fixes (synthetic run only). Deferred P3 (not fixed): `cluster_waves` needs `chans` for every
+cluster of the test.
+
 State: `layout: "waves"` v2 is the user-approved house style (commits 9c90894, de23bf7, 94b9588; spec `docs/plan-waves-v2.md`,
 card `docs/orch/2026-10-11-cluster-waves-v2`, render `cluster_waves_t01_v05.png`, GN spec `docs/cluster-waves-candidates/spec_gn_waves.json`).
 columns v08 is also approved. Both figure types are in `brain-plot/references/cluster.md`.
-**Do now (one small wb card, `/wb`, risk medium, new dir `docs/orch/2026-10-11-cluster-waves-v2-rv/`; sol review text is in
-the old scratchpad, summarised here):**
-1. [P1] `read_run` (cluster_plot.py ~175-179) dies on `color: "uv"` for a test without a difference wave (F interaction) before
-   waves can skip it -> skip that check when `spec.layout == "waves"`.
-2. [P1] `peak_map` (~505): `peak_window_ms` outside the result time axis gives an empty mean (NaN) or a partly covered window that
-   is still labelled/recorded as asked -> in `plot()` (waves branch) die unless the window lies inside `times_ms[0]..times_ms[-1]`
-   and contains samples.
-3. [P1] `waves_channels` with a duplicate channel silently weights the mean and CI -> `check_spec` and the per-cluster lists die on
-   duplicates (names the channel).
-4. [P2] `write_caption(waves=True)` (~392) always says "peak ± 25 ms" -> when `peak_window_ms` is set say "user-given window <lo>–<hi> ms".
-5. Simplify: `waves_parts` -> `[(min(6, n - i), 1 if n - i == 1 else 2) for i in range(0, n, 6)]`; in `plot_waves` drop `handles = None`
-   and the first-iteration test, take `handles = axes[0].get_legend_handles_labels()[0]` after the loop.
-Add a test line for each of 1-4 in `brain-plot/test/test_cluster.py`; Check `python brain-plot/test/test_cluster.py`.
-Deferred P3: `cluster_waves` needs `chans` for every cluster of the test.
 Pitfalls: this session's Bash had a stale PATH (bare `python` = LibreOffice): put `C:\Users\ASUS\miniconda3\envs\mne` first (also for `git commit`: the
 pre-commit hook runs `python`). `run-card --commit` refuses when a read-only path changed: commit by hand. The runner's P1 on `reply.md` is a false
 positive. The Bash heredoc with an apostrophe in a long card failed to parse once: write cards with the Write tool.
