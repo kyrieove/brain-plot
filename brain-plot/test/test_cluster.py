@@ -261,16 +261,6 @@ def run_tests():
         assert maps5[0][1].tolist() == [True, False], maps5[0][1]
         print("cluster bins marker: a channel significant in 3/5 samples is marked, 1/5 is not")
 
-        # (r) cluster_notes lists a cluster, caps at 5, and reads p < 0.001
-        seven = dict(clusters=[dict(cluster_id=i, p_cluster=0.01, time_start_ms=100.0 * i, time_end_ms=100.0 * i + 50,
-                                       channels=[]) for i in range(1, 8)])
-        notes7 = cluster_plot.cluster_notes(seven)
-        assert len(notes7) == 6 and notes7[5] == "+ 2 more (see caption)", notes7
-        one = dict(clusters=[dict(cluster_id=1, p_cluster=0.0004, time_start_ms=100, time_end_ms=200, channels=[])])
-        assert cluster_plot.cluster_notes(one) == ["Cluster 1: 100–200 ms, p < 0.001"]
-        assert cluster_plot.cluster_notes(dict(clusters=[])) == ["no significant cluster"]
-        print("cluster notes: first 5 listed, '+ 2 more (see caption)', p < 0.001, no-cluster line")
-
         # (s) the short-name rule: leading digits per test, falling back to the full slug on a clash or a missing id
         assert cluster_plot.stem_ids(["01_condition_main_effect_all",
                                       "03_within_td_condition_effect"]) == ["01", "03"]

@@ -84,5 +84,8 @@ Visual QA: first look at the changed region with `python brain-plot/test/qa_crop
    spanning the map block; a test with no maps shows "no significant cluster" in its row.
 9. **Map labels readable**: the row label (test title) sits left of each row's first map, every map carries its time
    label, and the panel letters run across the columns and then down the rows.
-10. **Cluster notes and outline**: each column lists its significant clusters (cluster id, time window, p) under its
-    raster (at most 5 lines, then `+ N more (see caption)`); the masked raster outlines each significant region in black.
+10. **Outline, dots, fixed windows (house style, decided 2026-10-11)**: the masked raster outlines each significant
+    region in black; no cluster notes under the raster and no "N found, M significant" line. Maps are 8 x 100 ms
+    fixed bins (not cluster windows: clusters can overlap, and TFCE papers also use fixed bins); a channel gets a dot
+    when significant in >= half of a bin's samples. The caption must say the cluster is inferred as a whole
+    (Sassenhagen & Draschkow 2019): outline, dots and windows are descriptive only.

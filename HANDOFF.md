@@ -17,22 +17,9 @@ Three modules (ERP, microstate, time-frequency), tests pass, everything committe
   2026-09-30 — two data sets in one parent overwrote each other) → `ERP/`, `topo/`, `ERP_topo/`, `TFR/`,
   `microstate/`, `specs/`, `.cache/`; names say what the figure is; re-renders get `_vNN+1`, old versions move to `_history/`.
 
-## Next (start here) — 2026-10-11 night, columns v08 (user decisions, NOT yet implemented)
-User reviewed v06 vs v07 (`docs/cluster-before-after/compare.html`) and said: v07 is better; **do NOT add the cluster
-notes under the raster** ("新版也不用放置cluster") and add no "N found, M significant" line, no near-significant marks;
-"everything else is fine — make it the house style (规范)".
-Do, in this order (one small card, wb executor, risk medium):
-1. `brain-plot/cluster_plot.py`: remove `cluster_notes()` and the `notes` / `ann_h` / note-text loop in `plot_columns`
-   (topomap row moves back up; H shrinks by 8.2 mm); remove its test block in `test/test_cluster.py`. KEEP: raster
-   outline (`draw_raster`, both displays; also hits `side`), `MARK_FRAC = 0.5` (dot when significant in >= half of a bin's
-   samples), fixed 100 ms bins, short output names (`stem_ids`, leading digits).
-2. `brain-plot/references/cluster.md`: delete the "cluster notes" part of column rule 10; record the house style:
-   columns, outlined masked raster, 8 maps x 100 ms fixed windows (not cluster windows — decided 2026-10-11, GN test 01
-   has overlapping clusters, TFCE papers also use fixed bins), dots at >= half-bin. Caption must say the cluster is
-   inferred as a whole (Sassenhagen & Draschkow 2019): outline / dots / windows are descriptive.
-3. Re-render GN t01+t03 as v08: `python brain-plot/cluster_plot.py plot docs/cluster-before-after/spec_gn.json`
-   (output goes next to the Dropbox data folder, v07 moves to `_history`). Open it, show it with show_plots.
-4. Update memory `cluster-figure-house-style` (add the v08 decisions) and this file; commit.
+## Next (start here) — 2026-10-11 night, columns v08 DONE
+v08 implemented (cluster notes removed, house style recorded in `references/cluster.md` rule 10) and GN t01+t03 re-rendered
+as `..._v08.png`. Waves layout still paused. Nothing else pending for the cluster module.
 Already committed today: survey-besa.md (27 rows), survey-mne.md (20 rows), `check_survey.py <file> <min rows>`,
 v5 card (0e33ec5), short output names (baa4153). Before/after + principle pages: `docs/cluster-before-after/`
 (`compare.html`, `cluster-principle.html`; GN has 24 clusters found, 5 significant — only significant ones are drawn).
