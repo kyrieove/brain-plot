@@ -216,8 +216,9 @@ Nothing is waiting on the user. Optional:
 
 ## Use
 - Any session: `/brain-plot <data_dir>` (skill linked at `~/.claude/skills/brain-plot` → `C:\dev\brain-plot\brain-plot`).
-- Python: `C:\Users\ASUS\miniconda3\envs\mnedev\python.exe` (conda env `mnedev`, MNE dev — pycrostates 0.6.1 was added
-  with `--no-deps` on 2026-09-26; MNE untouched).
+- Python: `C:\Users\ASUS\miniconda3\envs\mne\python.exe` (conda env `mne`, Python 3.12, MNE dev main, since 2026-10-11;
+  replaces `mnedev` (Python 3.10), which cannot install MNE ≥ 1.13 / the TFCE fix). pyvistaqt pinned 0.12.0: 0.13.1
+  renders black 3D screenshots after the first Brain (test_source hemisphere check).
 - Tests: `python brain-plot/test/test_erp_plot.py` and `python brain-plot/test/test_microstate.py` → both `OK`.
 - Commit + push after every tested change set (user rule); commit messages end with the Co-Authored-By line.
 - `CLAUDE.md` (binding): all user-facing text in Chinese (files for agents stay English); every new figure goes to the

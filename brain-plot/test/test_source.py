@@ -5,6 +5,8 @@ import tempfile
 from pathlib import Path
 
 import mne
+
+MONTAGE = "colin27_1020" if "colin27_1020" in mne.channels.get_builtin_montages() else "standard_1020"  # MNE ≥ 1.14 drops the old name
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -101,7 +103,7 @@ def main():
 
     ch_names = ["Fp1", "Fp2", "F7", "F3", "Fz", "F4", "F8", "FC5", "FC1", "FC2", "FC6", "T7", "C3", "Cz", "C4", "T8", "CP5", "CP1", "CP2", "CP6", "P7", "P3", "Pz", "P4", "P8", "O1", "Oz", "O2"]
     info = mne.create_info(ch_names, 100.0, "eeg")
-    info.set_montage("standard_1020")
+    info.set_montage(MONTAGE)
 
     bem = mne.read_bem_solution(Path(SUBJECTS_DIR) / "fsaverage" / "bem" / "fsaverage-5120-5120-5120-bem-sol.fif", verbose="error")
     fwd = mne.make_forward_solution(info, trans="fsaverage", src=src, bem=bem, eeg=True, meg=False, mindist=5.0, n_jobs=2, verbose="error")

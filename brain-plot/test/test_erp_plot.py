@@ -308,7 +308,7 @@ with tempfile.TemporaryDirectory() as d:
         root_loc = Path(td_loc) / "data"
         (root_loc / "G1").mkdir(parents=True)
         info_loc = mne.create_info(["Cz", "Pz"], 500.0, "eeg")
-        info_loc.set_montage("standard_1020")
+        info_loc.set_montage(MONTAGE)
         t_loc = np.linspace(-0.2, 0.8, 501)
         sig_loc = 5e-6 * np.exp(-0.5 * ((t_loc - 0.3) / 0.03) ** 2)
         ev_loc = mne.EvokedArray(np.stack([sig_loc, sig_loc]), info_loc, tmin=-0.2, comment="A", nave=10)
@@ -339,7 +339,7 @@ with tempfile.TemporaryDirectory() as d:
 
         # (3) polarity is the direction of a local deflection, independent of absolute voltage.
         rel_info = mne.create_info(["Cz", "Pz"], 500.0, "eeg")
-        rel_info.set_montage("standard_1020")
+        rel_info.set_montage(MONTAGE)
         rel_sig = -5e-6 + 1e-6 * np.exp(-0.5 * ((t_loc - 0.3) / 0.03) ** 2)
         rel_ev = mne.EvokedArray(np.stack([rel_sig, rel_sig]), rel_info, tmin=-0.2, comment="A", nave=10)
         mne.write_evokeds(root_loc / "G1" / "sub1-ave.fif", [rel_ev], overwrite=True, verbose="error")

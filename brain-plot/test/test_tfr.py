@@ -10,6 +10,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 import mne
+
+MONTAGE = "colin27_1020" if "colin27_1020" in mne.channels.get_builtin_montages() else "standard_1020"  # MNE ≥ 1.14 drops the old name
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -20,7 +22,7 @@ mne.set_log_level("error")
 
 
 def make_synthetic_dataset(root):
-    montage = mne.channels.make_standard_montage("standard_1020")
+    montage = mne.channels.make_standard_montage(MONTAGE)
     ch_names = ["Fz", "FCz", "Cz", "Pz", "Oz"]
     sfreq = 250.0
     info = mne.create_info(ch_names, sfreq, "eeg")

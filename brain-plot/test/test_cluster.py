@@ -6,6 +6,8 @@ import tempfile
 from pathlib import Path
 
 import mne
+
+MONTAGE = "colin27_1020" if "colin27_1020" in mne.channels.get_builtin_montages() else "standard_1020"  # MNE ≥ 1.14 drops the old name
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -31,7 +33,7 @@ def make_synthetic_run(root):
     sfreq = 500.0
     t = np.arange(-0.2, 1.0, 1 / sfreq)
     info = mne.create_info(CH, sfreq, "eeg")
-    info.set_montage(mne.channels.make_standard_montage("standard_1020"))
+    info.set_montage(mne.channels.make_standard_montage(MONTAGE))
     signal = np.zeros((len(CH), len(t)))
     win = (t >= 0.3) & (t <= 0.5)
     signal[CH.index("Cz"), win] = 2e-6
