@@ -48,4 +48,4 @@ python brain-plot/test/test_cluster.py
 - check: `python brain-plot/test/test_cluster.py` → exit 0 (run by run-card)
 - tokens:
   - round 1: exec deepseek-v4.1-flash: fresh 36k, cached 1705k, out 13k  (codex-cluster-columns-v5.jsonl) · review gpt-6-luna: fresh 51k, cached 206k, out 2k  (codex-review-cluster-columns-v5.jsonl)
-- review findings: TODO N real / M false positive / K missed (medium, gpt-6-luna)
+- review findings: 0 real / 1 false positive / 0 missed (medium, gpt-6-luna) — the finding was reply.md, the runner record file
