@@ -146,14 +146,20 @@ def legible_over_lines(t):
         box is not None and tuple(box.get_facecolor()) == (1.0, 1.0, 1.0, 1.0))
 
 
+def renderer(fig):
+    """The figure's renderer; matplotlib ≥ 3.11 detaches a closed pyplot figure from its Agg canvas."""
+    if not hasattr(fig.canvas, "get_renderer"):
+        FigureCanvasAgg(fig)
+    return fig.canvas.get_renderer()
+
+
 def layout_issues(fig):
     """QA item 1 in code: texts that overlap, leave the canvas, or sit on a data line (curves of ≥ 3 points: waveforms,
     GFP, butterfly traces, head outlines), and legends on a data line. Text boxes are shrunk a little (glyph boxes
     include line spacing), and a text drawn with a white halo or a white box (deliberate fallbacks, e.g. MASK) is not
     tested against lines.
     Returns short descriptions; empty when the layout is clean."""
-    if not hasattr(fig.canvas, "get_renderer"):  # matplotlib ≥ 3.11 detaches a closed pyplot figure from its canvas
-        FigureCanvasAgg(fig)
+    renderer(fig)
     fig.canvas.draw()
     R = fig.canvas.get_renderer()
     W, H = fig.bbox.width, fig.bbox.height
@@ -1886,11 +1892,15 @@ def caption(spec, comp, meta, groups, conds, out, ms, v, sphere, kind, level=Non
         L.append(f"- Claim: {spec['claim']}")
     if spec.get("key_comparison"):
         L.append(f"- Key comparison: {spec['key_comparison']}")
-    L.append("- Groups: " + ", ".join(f"{g} (n = {len(meta['ids'][g])})" for g in groups))
+    by_groups = spec.get("overlay", "groups") == "groups"  # panels = conditions, lines = groups; else the reverse
+    gs = groups if level is None or by_groups else [level]  # a grid figure is one facet level: summarise only that
+    L.append("- Groups: " + ", ".join(f"{g} (n = {len(meta['ids'][g])})" for g in gs))
     if spec.get("exclude"):
         L.append("- Excluded: " + excluded(spec))
     for i, c in enumerate(conds):
-        per = np.array([s[i] for g in groups for s in meta["nave"][g]])
+        if level is not None and by_groups and c != level:
+            continue
+        per = np.array([s[i] for g in gs for s in meta["nave"][g]])
         L.append(f"- {spec['conditions'][c]}: trials per subject mean {per.mean():.1f} (range {per.min()}–{per.max()})")
     L.append(f"- Trial selection: {spec.get('query') or 'as stored in the files (no further selection)'}")
     L.append("- " + (f"Time-locked to: {spec['time_locked_to']}; baseline" if spec.get("time_locked_to") else "Baseline")
@@ -1927,7 +1937,6 @@ def caption(spec, comp, meta, groups, conds, out, ms, v, sphere, kind, level=Non
     if spec.get("stats_note"):
         L.append(f"- Statistics (from the author): {spec['stats_note']}")
     L += ["", "## Panels", ""]
-    by_groups = spec.get("overlay", "groups") == "groups"  # panels = conditions, lines = groups; else the reverse
     panels = [(c, spec["conditions"][c]) for c in conds] if by_groups else [(g, g) for g in groups]
     if level is not None:
         panels = [p for p in panels if p[0] == level]

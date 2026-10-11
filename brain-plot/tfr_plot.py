@@ -207,8 +207,6 @@ def load_and_compute(spec):
             if ref_contract is None:
                 ref_contract, ref_id = k, f.name
             ep.check_contract(f.name, k, ref_contract, ref_id)
-            if not np.isfinite(data).all():
-                ep.die(f"{f.name}: non-finite values in the time-frequency data")
 
             for i, c in enumerate(spec["conditions"]):
                 x = data[i]
@@ -217,6 +215,10 @@ def load_and_compute(spec):
                                              mode=b_mode, copy=True, verbose="error")
                     if b_mode == "logratio":
                         x = x * 10.0
+                bad = ~np.isfinite(x).all(axis=(1, 2))  # after the baseline: a zero-power reference gives NaN under logratio
+                if bad.any():
+                    ep.die(f"{f.name}, condition {c!r}: non-finite values after baseline correction in channel(s) "
+                           f"{[k['ch_names'][j] for j in np.flatnonzero(bad)]}")
                 grand_avg[g, c] = grand_avg.get((g, c), 0) + x
             trial_counts[g][s_id] = {c: int(n) for c, n in zip(spec["conditions"], nave)}
             if measure == "itc" and min(trial_counts[g][s_id].values()) < 2:

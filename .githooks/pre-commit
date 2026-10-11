@@ -4,6 +4,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 
 CTRL = re.compile(rb"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 
@@ -23,6 +24,9 @@ for f in staged:
                 print(f"pre-commit: control character in {f}:{n}", file=sys.stderr)
                 fail = True
 
+snap = tempfile.TemporaryDirectory()  # tests run on the staged snapshot, not the working tree
+git("checkout-index", "-a", "--prefix=" + snap.name + os.sep)
+
 for f in staged:
     m = re.fullmatch(r"brain-plot/(\w+?)(_plot)?\.py", f)
     if not (m and f.endswith("_plot.py")):
@@ -33,8 +37,9 @@ for f in staged:
     if test is None:
         continue
     print(f"pre-commit: running {test}")
-    if subprocess.run([sys.executable, test], cwd=root).returncode:
+    if subprocess.run([sys.executable, test], cwd=snap.name).returncode:
         print(f"pre-commit: {test} failed", file=sys.stderr)
         fail = True
 
+snap.cleanup()
 sys.exit(1 if fail else 0)

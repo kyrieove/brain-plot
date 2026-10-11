@@ -160,7 +160,6 @@ def threshold_cmap():
 class BrainRenderer:
     def __init__(self, subjects_dir, src):
         self.subjects_dir = str(subjects_dir)
-        self.src = src
         self.vertno = {
             "lh": src[0]["vertno"],
             "rh": src[1]["vertno"],

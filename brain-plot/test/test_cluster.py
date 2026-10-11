@@ -138,13 +138,13 @@ def run_tests():
         print("cluster bins: half-open 2–100 ms label, no overlapping 2–102 ms")
 
         # (i) channel_rows groups the synthetic montage left / midline / right, anterior first
-        order, rows = cluster_plot.channel_rows(info, CH, "lmr", cluster_plot.ep.common_sphere(info))
+        rows = cluster_plot.channel_rows(info, CH, "lmr", cluster_plot.ep.common_sphere(info))
         grouped = {}
         for lab, i, g in rows:
             if i is not None:
                 grouped.setdefault(g, []).append(CH[i])
         assert grouped == {"Left": ["C3"], "Midline": ["Fz", "Cz", "Pz", "Oz"], "Right": ["C4"]}, grouped
-        assert order == [4, 0, 1, 2, 3, 5], order
+        assert [i for _, i, _ in rows if i is not None] == [4, 0, 1, 2, 3, 5]
         assert [lab for lab, i, _ in rows if i is not None] == ["C3", "Fz", None, "Pz", None, "C4"], "every other label"
         print("cluster channel rows: Left [C3], Midline [Fz, Cz, Pz, Oz], Right [C4]")
 
@@ -178,7 +178,7 @@ def run_tests():
         outs_c = cluster_plot.plot({**spec, "layout": "columns"})
         assert len(outs_c) == 1, f"columns layout writes one figure, got {outs_c}"
         oc = outs_c[0]
-        assert "_columns_t01-t03_" in oc.name, oc.name
+        assert "_columns_t01_" in oc.name and "-t03_" in oc.name, oc.name
         rec_c = json.loads(Path(f"{oc}_run.json").read_text(encoding="utf8"))
         assert rec_c["layout_issues"] == [], f"columns layout issues: {rec_c['layout_issues']}"
         assert set(rec_c["tests"]) == {T01, T03}, sorted(rec_c["tests"])

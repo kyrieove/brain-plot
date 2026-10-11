@@ -14,7 +14,6 @@ import sys
 import tempfile
 from pathlib import Path
 
-import matplotlib.backends.backend_agg
 import matplotlib.figure
 import mne
 import numpy as np
@@ -61,21 +60,13 @@ def make_data(root):
                 evs.append(mne.EvokedArray(x * 1e-6, info, tmin=-0.2, comment=f"c{c + 1}", nave=int(rng.integers(15, 40)),
                                            baseline=(None, 0)))
             mne.write_evokeds(root / f"G{g + 1}" / f"G{g + 1}s{s:02d}_x-ave.fif", evs, overwrite=True)
-    return info
-
-
-def renderer(fig):
-    """The figure's renderer; matplotlib ≥ 3.11 detaches a closed pyplot figure from its Agg canvas."""
-    if not hasattr(fig.canvas, "get_renderer"):
-        matplotlib.backends.backend_agg.FigureCanvasAgg(fig)
-    return fig.canvas.get_renderer()
 
 
 def inset_clear(fig):
     """Rule L12, measured again on the saved figure with code of its own (not the script's audit): every map, colour bar
     and window text lies inside a waveform panel and touches neither the gray band, nor a curve (mean ± SEM), nor an
     axis line, nor any text of that panel, nor another part of the block. Returns the number of parts checked."""
-    R = renderer(fig)
+    R = ep.renderer(fig)
     waves = [a for a in fig.axes if a.get_legend_handles_labels()[0]]
     heads = [a for a in fig.axes if a not in waves]
     assert waves and heads, "no waveform panels or no maps"
@@ -160,7 +151,7 @@ def stops(label, fn, spec, text):
 
 with tempfile.TemporaryDirectory() as d:
     root = Path(d) / "data"
-    info = make_data(root)
+    make_data(root)
     out = root.parent / f"brain_plot_{root.name}"
     n400 = dict(name="N400", channels=["Cz", "CPz", "Pz"], tmin_ms=350, tmax_ms=500)
     p1 = dict(name="P1", channels=["O1", "Oz", "O2"], tmin_ms=80, tmax_ms=120)
@@ -248,14 +239,13 @@ with tempfile.TemporaryDirectory() as d:
         cap = max(out.rglob("ERP-topo-inset_*_caption.md"), key=lambda f: f.stat().st_mtime_ns).read_text("utf8")
         if n_panels == 6 and per == 2:  # letters follow the grid's reading order: a b c / d e f
             assert "- (a) Cond 1 —" in cap and "- (c) Cond 3 —" in cap and "- (d) Cond 4 —" in cap and "inside the panel" in cap, cap
-        mm = lambda a: a.get_window_extent(renderer(SAVED[-1])).width * 25.4 / SAVED[-1].dpi
-        mh = lambda a: a.get_window_extent(renderer(SAVED[-1])).height * 25.4 / SAVED[-1].dpi
+        mm = lambda a: a.get_window_extent(ep.renderer(SAVED[-1])).width * 25.4 / SAVED[-1].dpi
+        mh = lambda a: a.get_window_extent(ep.renderer(SAVED[-1])).height * 25.4 / SAVED[-1].dpi
         bars = [a for a in SAVED[-1].axes if not a.get_legend_handles_labels()[0] and min(mm(a), mh(a)) < 3]
         assert len(bars) == 1 and abs(min(mm(bars[0]), mh(bars[0])) - 2.0) < 0.05, "one shared colour bar, 2 mm thick"
     # adaptive spacing (user 2026-09-29): 3 panels in a row, narrower and narrower canvases. Where the switch to the tighter
     # spacing happens depends on the font's text widths (Arial vs DejaVu), so: every width gives either a figure that
     # passes all checks or the stop, and some width in the range must have needed the tighter spacing
-    tiers = set()
     for w in (160, 165, 170, 175):
         row = dict(inset, groups=["G1", "G2", "G3"], overlay="conditions", conditions=c("c1", "c2"), width_mm=w)
         try:
@@ -265,7 +255,6 @@ with tempfile.TemporaryDirectory() as d:
             continue
         run = json.loads(max(out.rglob("ERP-topo-inset_*_run.json"), key=lambda f: f.stat().st_mtime_ns).read_text("utf8"))
         assert run["inset_audit"]["clashes"] == [] and inset_clear(SAVED[-1]) == 3 * 2, w
-        tiers.add(run["inset_layout"]["spacing_tier"])
     stops("inset grid missing a panel", ep.plot, dict(inset, conditions=c("c1", "c2", "c3"), grid=[["c1", "c2"], ["c1", "c3"]]),
           "grid must be rows of equal length holding each panel key once")
     stops("inset grid with another panel key", ep.plot, dict(inset, conditions=c("c1", "c2"), grid=[["c1", "cX"]]),

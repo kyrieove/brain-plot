@@ -199,16 +199,6 @@ def low_gfp(x, ms, w):
 
 
 # ---------- drawing ----------
-def text_mm(s, size_pt):
-    """Width in mm of (the widest line of) a text at size_pt, measured with the figure style."""
-    fig = plt.figure()
-    t = fig.text(0, 0, s, fontsize=size_pt, linespacing=1.15)
-    fig.canvas.draw()
-    w = t.get_window_extent().width / fig.dpi * 25.4
-    plt.close(fig)
-    return w
-
-
 def spans_text(values):
     """Consecutive integers as ranges: [60, 61, 62, 70, 71] → '60–62 or 70–71' (the map column can switch between 1
     and 3 columns as the height changes, so the heights that work need not be one range)."""
@@ -354,7 +344,7 @@ def plot_states(spec, data, info, meta, ms, sphere):
     subs = {st: "\n".join(f"{short[c]} {round(spans[c][st][0])}–{round(spans[c][st][1])}".strip() if st in spans[c]
                           else f"{short[c]} —".strip() for c in cells) for st in order}
     maps, x_right, y_grid, cell_w, widths, row_h, ph = layout(W, H)
-    if n_sub and maps and text_mm(max(subs.values(), key=len), 5.5) > maps[0][2] + 4.5:
+    if n_sub and maps and ep.text_widths_mm([max(subs.values(), key=len)], 5.5)[0] > maps[0][2] + 4.5:
         n_sub, extra = 0, 3.5 + 1.0  # rule MS7a: the ranges do not fit under maps this small (they are in the caption)
         maps, x_right, y_grid, cell_w, widths, row_h, ph = layout(W, H)
     def shapes_ok(g):

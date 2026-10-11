@@ -310,15 +310,15 @@ def hemi_by_name(name):
 
 
 def channel_rows(info, ch_names, mode, sphere):
-    """Raster row order for one figure: `order` holds the channel indices (into `ch_names`) top to bottom; `rows` adds
-    the tick label of every other channel, its channel index (None on a blank separator row) and the group name.
+    """Raster rows for one figure, top to bottom: (tick label of every other channel, channel index into `ch_names`
+    (None on a blank separator row), group name).
     mode "file" keeps the result-file order with no groups; "lmr" groups left / midline / right by the channel name
     (MNE `make_1020_channel_selections(midline="12z")`: names ending in 1, 2 or z are Midline, other odd digits Left,
     other even digits Right; a name ending in neither falls back to |x| ≤ 0.1 × max|x| as midline) and sorts each
     group anterior → posterior; a blank row separates the groups."""
     if mode == "file":
         rows = [(ch_names[i] if i % 2 == 0 else None, i, None) for i in range(len(ch_names))]
-        return list(range(len(ch_names))), rows
+        return rows
     from mne.channels.layout import _find_topomap_coords
     pos = _find_topomap_coords(info, picks=np.arange(len(info.ch_names)), sphere=sphere)
     x, y = pos[:, 0], pos[:, 1]
@@ -330,17 +330,16 @@ def channel_rows(info, ch_names, mode, sphere):
             g = "Left" if x[i] < -tol else ("Right" if x[i] > tol else "Midline")
         by_name[g].append(i)
     groups = [(name, by_name[name]) for name in ("Left", "Midline", "Right")]
-    order, rows = [], []
+    rows = []
     for name, idx in groups:
         if not idx:
             continue
-        if order:
+        if rows:
             rows.append((None, None, None))
         idx.sort(key=lambda i: -y[i])
         for k, i in enumerate(idx):
-            order.append(i)
             rows.append((ch_names[i] if k % 2 == 0 else None, i, name))
-    return order, rows
+    return rows
 
 
 def write_run_json(out, spec, tests, layout_issues, size_mm, layout=None):
@@ -358,22 +357,23 @@ def write_run_json(out, spec, tests, layout_issues, size_mm, layout=None):
     Path(f"{out}_run.json").write_text(json.dumps(data, indent=1, ensure_ascii=False, allow_nan=False), encoding="utf8")
 
 
-def write_caption(out, spec, run, tests):
+def write_caption(out, spec, run, tests, waves=False):
     """Caption facts for one figure: the figure-level lines once, then the statistic (and µV-map) line of every test in
-    order (the `side` layout passes a single test)."""
+    order (the `side` layout passes a single test). `waves`: the waves layout has no raster and its maps are the cluster
+    windows."""
     display = spec.get("display", "masked")
     mode = ("only samples in significant clusters are coloured" if display == "masked"
             else "full map, significant samples outlined")
     topo_mode = spec.get("topo", "bins")
     topo_txt = (f"{spec.get('topo_bin_ms', 100):g} ms bins" if topo_mode == "bins"
                 else "one map per significant cluster window")
-    lines = [
-        f"# Caption for {out.name}",
-        "",
-        f"- **Display**: {mode}",
-        f"- **Topomaps**: {topo_txt}",
-        "- **Channel marker**: white dots: channels in a significant cluster within the map's time range",
-    ]
+    lines = [f"# Caption for {out.name}", ""]
+    if waves:
+        lines += ["- **Topomaps**: one µV map per significant cluster, mean over the cluster window",
+                  "- **Channel marker**: white dots: the channels of that cluster"]
+    else:
+        lines += [f"- **Display**: {mode}", f"- **Topomaps**: {topo_txt}",
+                  "- **Channel marker**: white dots: channels in a significant cluster within the map's time range"]
     for test in tests:
         m = test["meta"]
         if test["clusters"]:
@@ -554,7 +554,7 @@ def plot(spec):
     sphere = ep.common_sphere(info)
     if layout == "waves":
         return plot_waves(spec, run, tests, info, sphere)
-    order, rows = channel_rows(info, ch_names, mode, sphere)
+    rows = channel_rows(info, ch_names, mode, sphere)
 
     bins = bins_of_times(times, step)
     has_uv_all = all(t["uv"] is not None for t in tests)
@@ -643,8 +643,7 @@ def plot_side(spec, run, tests, rows, info, sphere, color, display, topo_part):
         record = dict(metadata=t["meta"], n_subjects=t["n_subj"],
                       color_limits=dict(raster=dict(v=v, vmin=vmin, vmax=vmax, cmap=cmap), topo=topo_rec))
 
-        m = re.match(r"\d+", t["slug"])
-        stem = f"cluster_{color}-{display}_t{m.group(0) if m else t['slug']}_topo-{topo_part}"
+        stem = f"cluster_{color}-{display}_t{ep.safe(t['slug'])}_topo-{topo_part}"
         if spec.get("time_locked_to"):
             stem += f"_lock-{ep.safe(spec['time_locked_to'])}"
         out = ep.versioned(ep.out_root(spec) / "cluster", stem)
@@ -755,8 +754,7 @@ def plot_columns(spec, run, tests, rows, info, sphere, color, display, topo_part
     records = {t["slug"]: dict(metadata=t["meta"], n_subjects=t["n_subj"],
                                color_limits=dict(raster=dict(v=rv, vmin=rvmin, vmax=rvmax, cmap=rcmap),
                                                  topo=topo_rec)) for t in tests}
-    nums = [m.group(0) if (m := re.match(r"\d+", t["slug"])) else t["slug"] for t in tests]
-    stem = f"cluster_{color}-{display}_columns_t{'-t'.join(nums)}_topo-{topo_part}"
+    stem = f"cluster_{color}-{display}_columns_t{'-t'.join(ep.safe(t['slug']) for t in tests)}_topo-{topo_part}"
     if spec.get("time_locked_to"):
         stem += f"_lock-{ep.safe(spec['time_locked_to'])}"
     out = ep.versioned(ep.out_root(spec) / "cluster", stem)
@@ -843,8 +841,7 @@ def plot_waves(spec, run, tests, info, sphere):
                       clusters=[dict(cluster_id=c["cluster_id"], channels=c["channels"],
                                      time_start_ms=c["time_start_ms"], time_end_ms=c["time_end_ms"])
                                 for c in t["clusters"]])
-        m = re.match(r"\d+", t["slug"])
-        stem = f"cluster_waves_t{m.group(0) if m else t['slug']}"
+        stem = f"cluster_waves_t{ep.safe(t['slug'])}"
         if spec.get("time_locked_to"):
             stem += f"_lock-{ep.safe(spec['time_locked_to'])}"
         out = ep.versioned(ep.out_root(spec) / "cluster", stem)
@@ -853,7 +850,7 @@ def plot_waves(spec, run, tests, info, sphere):
         fig.savefig(f"{out}.svg")
         plt.close(fig)
         write_run_json(out, spec, {t["slug"]: record}, issues, [W, H], layout="waves")
-        write_caption(out, spec, run, [t])
+        write_caption(out, spec, run, [t], waves=True)
         with open(f"{out}_caption.md", "a", encoding="utf8") as fh:
             fh.write("Waveforms: mean over each cluster's channels; bands = 95% CI across subjects (t, df = n − 1); "
                      "gray = cluster window\n")

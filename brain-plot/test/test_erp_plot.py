@@ -7,7 +7,6 @@ import tempfile
 from pathlib import Path
 
 import matplotlib.figure
-from matplotlib.backends.backend_agg import FigureCanvasAgg
 import mne
 import numpy as np
 
@@ -43,27 +42,20 @@ def spec(root, **kw):
     return s
 
 
-def renderer(fig):
-    """The figure's renderer; matplotlib ≥ 3.11 detaches a closed pyplot figure from its Agg canvas."""
-    if not hasattr(fig.canvas, "get_renderer"):
-        FigureCanvasAgg(fig)
-    return fig.canvas.get_renderer()
-
-
 SAVED = []  # every figure saved, to measure its layout afterwards
 _savefig = matplotlib.figure.Figure.savefig
 matplotlib.figure.Figure.savefig = lambda self, *a, **k: (SAVED.append(self), _savefig(self, *a, **k))[1]
 
 
 def texts_of(fig):
-    R = renderer(fig)
+    R = ep.renderer(fig)
     ts = list(fig.texts) + [t for a in fig.axes for t in a.texts + [a.title] + a.get_xticklabels() + a.get_yticklabels()]
     return [(t.get_text(), t.get_window_extent(R)) for t in ts if t.get_visible() and t.get_text().strip()]
 
 
 def inside_canvas(fig):
     """Every text and every axes lies within the fixed canvas (rule T6)."""
-    R, W, H = renderer(fig), fig.bbox.width, fig.bbox.height
+    R, W, H = ep.renderer(fig), fig.bbox.width, fig.bbox.height
     boxes = texts_of(fig) + [("axes", a.get_tightbbox(R)) for a in fig.axes]
     out = [(n, b) for n, b in boxes if b.x0 < -0.5 or b.y0 < -0.5 or b.x1 > W + 0.5 or b.y1 > H + 0.5]
     assert not out, f"outside the canvas: {out[:3]}"
