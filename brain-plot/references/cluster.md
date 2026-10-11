@@ -10,7 +10,8 @@ at ": " onto two lines. `"waves"` draws ONE figure per drawable test, one block 
 samples; black rings: the channels the waveforms average) beside the two compared conditions' grand-average
 waveforms over the user-chosen channels `waves_channels` (each with a 95 % CI band, the cluster window shaded gray,
 colours from `difference_definition`); 1 block sits in one column, 2–6 in two (three clusters = 2 + 1), more than 6 split
-into `_part1`, `_part2` of 6. It needs `waves_channels` and takes `polarity` (`"negative_up"` default, `"positive_up"`),
+into `_part1`, `_part2` of 6; one small µV colour bar right of every topomap (shared scale across the figure). It needs
+`waves_channels` and takes `polarity` (`"negative_up"` default, `"positive_up"`),
 `peak_window_ms` and `waves_xlim`; tests with no single difference wave (the F interaction) or no significant cluster
 are skipped with one terminal line and a `waves_skipped` record — the batch never stops for them. Spec keys: `spec.md`.
 Draws only: the module never computes a test, threshold or p-value; the only computed number is the µV mean

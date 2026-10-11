@@ -103,3 +103,10 @@ User decision 2026-10-11 (after seeing the 3-block single-column render): a sing
 3. `test/test_cluster.py` → update the `waves_parts` asserts to the list above.
 4. Docs: `references/cluster.md`, `references/spec.md` and `docs/plan-waves-v2.md` item 7 → replace "1–3 one column, 4–6 two columns" by "1 block one column, 2–6 blocks two columns (three clusters = 2 + 1), more than 6 split into parts of 6". (`docs/plan-waves-v2.md` may change for this step only.)
 Check: same as the card.
+
+## Fix 2
+User decision 2026-10-11: no single colour bar on the right of the figure; every topomap gets its own small colour bar directly to its right. The colour SCALE stays shared by all maps of the test (`topo_limits` over all blocks, unchanged), so the per-map bars are identical; only the placement changes.
+1. `cluster_plot.py` → `plot_waves`: delete the one shared `colorbar(...)` call and the 14 mm right margin for it (right margin becomes 6 mm everywhere; column width and ERP right edge follow: `(W − 6 − 6 − 8) / 2` for 2 columns, ERP ends at `W − 6` for 1 column). After each `draw_map`, call the existing `colorbar(fig, [x, y, w, h], im, [-vt, 0.0, vt], "µV", W, H)` with `x = map_x + map_mm + 1.5`, `w = 1.6`, `h = 0.6 * map_mm`, `y` (bottom, mm from the figure bottom) `= H − y_top − 0.8 * map_mm` so the bar is vertically centred on the map; `im` is the image `draw_map` returns for that block.
+2. `cluster_plot.py` → `plot_waves`: make room for the bar and its tick labels: the ERP panel starts 19 mm right of the map in the 1-column layout (was 12) and 17 mm right of the map in the 2-column layout (was 10). Keep every other size.
+3. `references/cluster.md`, `references/spec.md`, `docs/plan-waves-v2.md` item 8: say "one small µV colour bar right of every topomap (shared scale across the figure)" instead of one colour bar for the figure.
+Check: same as the card (`layout_issues` must stay empty, so no text may overlap).

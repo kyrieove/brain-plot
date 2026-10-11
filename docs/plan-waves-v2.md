@@ -26,7 +26,7 @@ selected by the test itself, so the figure is not a second test. The caption say
 7. **Layout (adaptive on the cluster count n)**: 1 block one column, ERP full width; 2–6 blocks two columns (three
    clusters = 2 + 1); more than 6 split into parts of 6 blocks (`_part1`, `_part2`).
 8. **Axes**: y range shared by all blocks of a figure; x axis defaults to the whole evoked epoch (spec can restrict to the
-   tested window). One µV colour bar per figure.
+   tested window). One small µV colour bar right of every topomap (shared scale across the figure).
 9. **Caption**: says the ERP channels were chosen by the user, the cluster is inferred as a whole (Sassenhagen &
    Draschkow 2019) and the figure is descriptive.
 

@@ -897,7 +897,7 @@ def plot_waves(spec, run, tests, info, sphere, chans, skipped):
     ch_names = run["ch_names"]
     run_dir = Path(spec["data"])
     W = float(spec.get("width_mm", 180))
-    left_m, right_m, top_m, bottom_m, gap = 6.0, 14.0, 8.0, 18.0, 14.0
+    left_m, right_m, top_m, bottom_m, gap = 6.0, 6.0, 8.0, 18.0, 14.0
     peak_window = spec.get("peak_window_ms")
     negative_up = spec.get("polarity", "negative_up") == "negative_up"
     outs = []
@@ -922,9 +922,9 @@ def plot_waves(spec, run, tests, info, sphere, chans, skipped):
         offset = 0
         for pi, (k, ncols) in enumerate(parts):
             if ncols == 1:
-                map_mm, gap_x, pitch, col_w, cols_x = 26.0, 12.0, 26.0 + gap, W - right_m - left_m, [left_m]
+                map_mm, gap_x, pitch, col_w, cols_x = 26.0, 19.0, 26.0 + gap, W - right_m - left_m, [left_m]
             else:
-                map_mm, gap_x, pitch = 20.0, 10.0, 20.0 + gap
+                map_mm, gap_x, pitch = 20.0, 17.0, 20.0 + gap
                 col_w = (W - left_m - right_m - 8.0) / 2
                 cols_x = [left_m, left_m + col_w + 8.0]
             nrows = -(-k // ncols)
@@ -941,7 +941,7 @@ def plot_waves(spec, run, tests, info, sphere, chans, skipped):
             for ax in axes:
                 ax.set_xlim(xlo, xhi)
             xt, labs, _ = ep.x_ticks(axes[0], fig, xlo, xhi, zero=True)
-            handles, last_im = None, None
+            handles = None
             for j, ax in enumerate(axes):
                 y_top, map_x = geo[j]
                 c = t["clusters"][offset + j]
@@ -968,17 +968,17 @@ def plot_waves(spec, run, tests, info, sphere, chans, skipped):
                 vec, marked, lab, _, _ = maps[offset + j]
                 ring = _find_topomap_coords(info, picks=[info.ch_names.index(n) for n in tchans[cid]],
                                             sphere=sphere)
-                last_im = draw_map(fig, [map_x, H - y_top - map_mm, map_mm, map_mm], vec, marked, lab,
-                                   tcmap, tlo, thi, info, sphere, W, H, ring=ring)
-                ep.letter(last_im.axes, j)
+                im = draw_map(fig, [map_x, H - y_top - map_mm, map_mm, map_mm], vec, marked, lab,
+                              tcmap, tlo, thi, info, sphere, W, H, ring=ring)
+                ep.letter(im.axes, j)
+                colorbar(fig, [map_x + map_mm + 1.5, H - y_top - 0.8 * map_mm, 1.6, 0.6 * map_mm], im,
+                         [-vt, 0.0, vt], "µV", W, H)
                 ptxt = f"p = {c['p_cluster']:.3f}" if c["p_cluster"] >= 0.001 else "p < 0.001"
                 fig.text(map_x / W, (H - (y_top - 2.0)) / H,
                          f"Cluster {cid}: {c['time_start_ms']:g}–{c['time_end_ms']:g} ms, {ptxt}, "
                          f"{len(c['channels'])} channels", ha="left", va="bottom", fontsize=6)
             fig.legend(handles, [a, b], ncol=2, frameon=False, fontsize=5, loc="upper center",
                        bbox_to_anchor=((W - right_m + left_m) / 2 / W, (bottom_m - 8.0) / H))
-            bar_h = (nrows - 1) * pitch + map_mm
-            colorbar(fig, [W - right_m + 3.0, H - top_m - bar_h, 2.0, bar_h], last_im, [-vt, 0.0, vt], "µV", W, H)
 
             record = dict(metadata=t["meta"], n_subjects=t["n_subj"],
                           topo=dict(v=vt, vmin=tlo, vmax=thi, cmap=tcmap, sensor_max=sensor, interp_max=interp),

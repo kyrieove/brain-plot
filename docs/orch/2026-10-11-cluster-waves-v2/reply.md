@@ -1,10 +1,11 @@
 STATUS: done
 
 Files changed:
-- `brain-plot/cluster_plot.py` — `waves_parts` 改为 1 块单列、2–6 块双列、每部分最多 6 块（奇数块落在左列）；同步 `plot_waves` 的说明文字。`plot_waves` 的两列奇数块摆放、整幅色条、`ceil(k/2)` 行高原代码已满足 Fix 1 第 2 步，无需改动。
-- `brain-plot/test/test_cluster.py` — `waves_parts` 断言更新为 1→(1,1)、2→(2,2)、3→(3,2)、4→(4,2)、6→(6,2)、7→(6,2),(1,1)、13→(6,2),(6,2),(1,1)。
-- `brain-plot/references/cluster.md`、`brain-plot/references/spec.md`、`docs/plan-waves-v2.md` — 把 “1–3 单列、4–6 双列” 改为 “1 块单列、2–6 块双列（三簇 = 2 + 1）、多于 6 拆成每部分 6 块”。
+- `brain-plot/cluster_plot.py` — in `plot_waves`: right margin `14.0 → 6.0`; 1-column ERP gap `12 → 19` mm and 2-column gap `10 → 17` mm; deleted the single shared `colorbar(...)` call; after each `draw_map` added `colorbar(fig, [map_x + map_mm + 1.5, H - y_top - 0.8 * map_mm, 1.6, 0.6 * map_mm], im, [-vt, 0.0, vt], "µV", W, H)`; dropped the now-unused `last_im`.
+- `brain-plot/references/cluster.md` — waves paragraph now says "one small µV colour bar right of every topomap (shared scale across the figure)".
+- `brain-plot/references/spec.md` — the `layout` row's `"waves"` text carries the same phrase.
+- `docs/plan-waves-v2.md` — item 8 replaced "One µV colour bar per figure." with the new phrase.
 
-无法完成/未做：无。未运行 Check，未提交。
+Syntax-only check: `compile()` on `brain-plot/cluster_plot.py` passed (no bytecode written).
 
-语法检查：`python -m py_compile brain-plot/cluster_plot.py brain-plot/test/test_cluster.py` → exit 0；改动仅两个 `.py` 文件（其余为 `.md`）。
+Could not do: nothing. The Check was not run (left to the runner) and nothing was committed.
