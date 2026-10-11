@@ -245,6 +245,25 @@ def run_tests():
         assert_stops({**spec, "layout": "waves", "waves_channels": ["Cz", "Nope"]}, "unknown channel(s)")
         print("cluster waves stops: interaction only, missing/unknown waves_channels")
 
+        # (t) waves review fixes: uv colour needs no difference wave, window inside the time axis, no repeated channel
+        outs_uv = cluster_plot.plot({**spec, "tests": [T01, T02, T03], "layout": "waves",
+                                     "waves_channels": wave_ch, "color": "uv"})
+        assert len(outs_uv) == 2, outs_uv
+        assert_stops({**spec, "layout": "waves", "waves_channels": wave_ch, "peak_window_ms": [700, 900]},
+                     "outside the result time axis")
+        assert_stops({**spec, "layout": "waves", "waves_channels": wave_ch, "peak_window_ms": [900, 1000]},
+                     "outside the result time axis")
+        assert_stops({**spec, "layout": "waves", "waves_channels": wave_ch, "peak_window_ms": [301, 301.5]},
+                     "no time sample")
+        assert_stops({**spec, "layout": "waves", "waves_channels": ["Cz", "Cz"]}, "more than once")
+        assert_stops({**spec, "layout": "waves",
+                      "waves_channels": {f"{T01}/1": ["Cz", "Cz"], f"{T03}/1": ["Pz"]}}, "more than once")
+        outs_pw = cluster_plot.plot({**spec, "layout": "waves", "waves_channels": wave_ch,
+                                     "peak_window_ms": [300, 320]})
+        cap_pw = Path(f"{outs_pw[0]}_caption.md").read_text(encoding="utf8")
+        assert "user-given window 300–320 ms" in cap_pw and "± 25 ms" not in cap_pw, cap_pw
+        print("cluster waves review fixes: uv colour ok, window outside / no sample stops, repeated channel stops, caption window")
+
         # (p) cluster_peak, recommend_channels and waves_parts agree with the spec
         peak_ms, lo_ms, hi_ms = cluster_plot.cluster_peak(tw, c0, read_w["times_ms"], read_w["ch_names"])
         assert c0["time_start_ms"] <= peak_ms <= c0["time_end_ms"], (peak_ms, c0)

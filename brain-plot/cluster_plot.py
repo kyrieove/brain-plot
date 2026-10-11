@@ -74,6 +74,11 @@ def check_spec(spec):
         if not (as_list or as_map):
             ep.die('waves_channels must be a non-empty list of channel names (used for every cluster), or a '
                    '{"<test slug>/<cluster id>": [names]} mapping of non-empty name lists; fix the value')
+        for names in ([wc] if as_list else list(wc.values())):
+            dup = [n for n in dict.fromkeys(names) if names.count(n) > 1]
+            if dup:
+                ep.die(f"waves_channels lists {', '.join(dup)} more than once in one list; name each channel once, "
+                       "a repeat weights the mean and the CI")
     if "peak_window_ms" in spec:
         pw = spec["peak_window_ms"]
         if not (isinstance(pw, (list, tuple)) and len(pw) == 2 and all(isinstance(x, (int, float)) for x in pw)
@@ -172,7 +177,7 @@ def read_run(spec):
         group, has_diff = group_for(tmeta.get("kind"), slug, meta["groups"])
         tests.append(dict(slug=slug, label=labels.get(slug, tmeta.get("name", slug)), meta=tmeta, stat=stat,
                           mask=mask, clusters=clusters, group=group, has_diff=has_diff))
-    if spec.get("color", "stat") == "uv":
+    if spec.get("color", "stat") == "uv" and spec.get("layout") != "waves":
         for t in tests:
             if not t["has_diff"]:
                 kind = t["meta"].get("kind")
@@ -389,8 +394,11 @@ def write_caption(out, spec, run, tests, waves=False):
                 else "one map per significant cluster window")
     lines = [f"# Caption for {out.name}", ""]
     if waves:
-        lines += ["- **Topomaps**: µV difference over the peak window of each cluster (peak time of the summed |t| "
-                  "over the channels of the cluster ± 25 ms, clipped to the cluster window)",
+        win = spec.get("peak_window_ms")
+        map_txt = (f"µV difference over the user-given window {win[0]:g}–{win[1]:g} ms" if win else
+                   "µV difference over the peak window of each cluster (peak time of the summed |t| over the channels "
+                   "of the cluster ± 25 ms, clipped to the cluster window)")
+        lines += [f"- **Topomaps**: {map_txt}",
                   "- **Channel marker**: white dots: channels significant in at least half of the samples of the map "
                   "window; black rings: the channels the waveforms average"]
     else:
@@ -450,12 +458,7 @@ MARK_FRAC = 0.5  # a bin marks a channel when it is significant in at least this
 def waves_parts(n):
     """The waves layout's parts per figure: [(blocks, columns), …]. One block: one column; two to six: two columns;
     more: figures of 6 two-column blocks, the last one smaller with its own column count."""
-    parts = []
-    while n > 6:
-        parts.append((6, 2))
-        n -= 6
-    parts.append((n, 1 if n == 1 else 2))
-    return parts
+    return [(min(6, n - i), 1 if n - i == 1 else 2) for i in range(0, n, 6)]
 
 
 def maps_of(t, times, ch_names, topo_mode, bins, uv):
@@ -621,6 +624,14 @@ def plot(spec):
 
     chans_by_test, skipped = {}, []
     if layout == "waves":
+        if "peak_window_ms" in spec:
+            lo, hi = float(spec["peak_window_ms"][0]), float(spec["peak_window_ms"][1])
+            if lo < times[0] - 1e-3 or hi > times[-1] + 1e-3:
+                ep.die(f'layout "waves": peak_window_ms [{lo:g}, {hi:g}] lies outside the result time axis '
+                       f'{times[0]:g}–{times[-1]:g} ms; give a window inside it')
+            if not ep.sample_mask(times, lo, hi).any():
+                ep.die(f'layout "waves": peak_window_ms [{lo:g}, {hi:g}] holds no time sample; give a window '
+                       'that contains at least one sample')
         want = spec.get("waves_channels")
         drawable, missing = [], []
         for t in tests:
@@ -941,7 +952,6 @@ def plot_waves(spec, run, tests, info, sphere, chans, skipped):
             for ax in axes:
                 ax.set_xlim(xlo, xhi)
             xt, labs, _ = ep.x_ticks(axes[0], fig, xlo, xhi, zero=True)
-            handles = None
             for j, ax in enumerate(axes):
                 y_top, map_x = geo[j]
                 c = t["clusters"][offset + j]
@@ -963,8 +973,6 @@ def plot_waves(spec, run, tests, info, sphere, chans, skipped):
                 ax.set_xticklabels(labs if bottom else [])
                 if bottom:
                     ax.set_xlabel("Time (ms)")
-                if handles is None:
-                    handles = ax.get_legend_handles_labels()[0]
                 vec, marked, lab, _, _ = maps[offset + j]
                 ring = _find_topomap_coords(info, picks=[info.ch_names.index(n) for n in tchans[cid]],
                                             sphere=sphere)
@@ -977,6 +985,7 @@ def plot_waves(spec, run, tests, info, sphere, chans, skipped):
                 fig.text(map_x / W, (H - (y_top - 2.0)) / H,
                          f"Cluster {cid}: {c['time_start_ms']:g}–{c['time_end_ms']:g} ms, {ptxt}, "
                          f"{len(c['channels'])} channels", ha="left", va="bottom", fontsize=6)
+            handles = axes[0].get_legend_handles_labels()[0]
             fig.legend(handles, [a, b], ncol=2, frameon=False, fontsize=5, loc="upper center",
                        bbox_to_anchor=((W - right_m + left_m) / 2 / W, (bottom_m - 8.0) / H))
 
