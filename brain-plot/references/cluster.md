@@ -5,11 +5,14 @@ Read after `SKILL.md` when the request is a figure of saved cluster-permutation 
 2-column grid on the right; `"columns"` draws ONE figure for all tests (the user's reference, 2026-10-11) — one column
 per test whose three stacked sub-panels are the Left / Midline / Right raster rows, with one shared raster colour bar,
 and below it one row of topomaps per test with one shared map colour bar. Topomap row labels drop "(N = …)" and break
-at ": " onto two lines. `"waves"` draws ONE figure per test, one row per significant cluster: a µV-difference topomap
-(the cluster's channels marked white) beside the two compared conditions' grand-average waveforms over the cluster's
-channels (each with a 95 % CI band, the cluster window shaded gray, colours from `difference_definition`), needs
-every test to have a single difference wave, and takes `polarity` (`"negative_up"` default, `"positive_up"`). Spec
-keys: `spec.md`.
+at ": " onto two lines. `"waves"` draws ONE figure per drawable test, one block per significant cluster: a
+µV-difference topomap at the cluster peak window (white dots: channels significant in at least half of the window's
+samples; black rings: the channels the waveforms average) beside the two compared conditions' grand-average
+waveforms over the user-chosen channels `waves_channels` (each with a 95 % CI band, the cluster window shaded gray,
+colours from `difference_definition`); 1 block sits in one column, 2–6 in two (three clusters = 2 + 1), more than 6 split
+into `_part1`, `_part2` of 6. It needs `waves_channels` and takes `polarity` (`"negative_up"` default, `"positive_up"`),
+`peak_window_ms` and `waves_xlim`; tests with no single difference wave (the F interaction) or no significant cluster
+are skipped with one terminal line and a `waves_skipped` record — the batch never stops for them. Spec keys: `spec.md`.
 Draws only: the module never computes a test, threshold or p-value; the only computed number is the µV mean
 difference. Developer reference: `docs/rules.md`.
 
@@ -27,7 +30,7 @@ definition and the counts.
 | Round | Decide |
 |---|---|
 | 1 | Which tests become figures (`tests`: the test folder names, in order) and their titles (`labels`: `{folder: title}`, default the test's own `name`). |
-| 2 | What the colour shows (`color`: `"stat"` (default) for the test statistic, `"uv"` for the µV difference), how significance appears (`display`: `"masked"` (default) colours only significant samples, `"contour"` outlines them), the topomaps (`topo`: `"bins"` (default) or `"clusters"`; `topo_bin_ms`, default 100), the raster row order (`channel_order`: `"lmr"` (default) groups left / midline / right by the channel name as MNE `make_1020_channel_selections(midline="12z")` reads it — names ending in 1, 2 or z are Midline, other odd digits Left, other even digits Right; `"file"` keeps the result-file order), the canvas width (`width_mm`, default 180) and the layout (`layout`: `"side"` (default) one figure per test, `"columns"` one figure for all tests — `columns` needs `channel_order: "lmr"`, at most 3 tests and, under `color: "stat"`, one statistic across the tests). Recommend `layout: "columns"` first — the user's approved house style (2026-10-11: tests as columns, equal L/M/R sub-panels by MNE `midline="12z"`, 8 topomaps of 100 ms per row, centred short row labels) — and fall back to `"side"` when there are more than 3 tests or `channel_order: "file"`. The code default stays `"side"`. Offer `layout: "waves"` (the user's reference, 2026-10-11) when the user wants to "show the two compared conditions per cluster": one figure per test, one row per significant cluster with the µV-difference topomap and the two conditions' waveforms over the cluster's channels (95 % CI bands, cluster window shaded); it needs every test to have a single difference wave (kinds `condition_pooled` / `condition_group`, so not an F interaction) and at least one significant cluster per test; output `cluster/cluster_waves_t<NN>[_lock-<event>]_vNN`. |
+| 2 | What the colour shows (`color`: `"stat"` (default) for the test statistic, `"uv"` for the µV difference), how significance appears (`display`: `"masked"` (default) colours only significant samples, `"contour"` outlines them), the topomaps (`topo`: `"bins"` (default) or `"clusters"`; `topo_bin_ms`, default 100), the raster row order (`channel_order`: `"lmr"` (default) groups left / midline / right by the channel name as MNE `make_1020_channel_selections(midline="12z")` reads it — names ending in 1, 2 or z are Midline, other odd digits Left, other even digits Right; `"file"` keeps the result-file order), the canvas width (`width_mm`, default 180) and the layout (`layout`: `"side"` (default) one figure per test, `"columns"` one figure for all tests — `columns` needs `channel_order: "lmr"`, at most 3 tests and, under `color: "stat"`, one statistic across the tests). Recommend `layout: "columns"` first — the user's approved house style (2026-10-11: tests as columns, equal L/M/R sub-panels by MNE `midline="12z"`, 8 topomaps of 100 ms per row, centred short row labels) — and fall back to `"side"` when there are more than 3 tests or `channel_order: "file"`. The code default stays `"side"`. Offer `layout: "waves"` (the user's reference, 2026-10-11) when the user wants to "show the two compared conditions per cluster": one figure per drawable test, one block per significant cluster with the µV-difference topomap at the cluster peak window and the two conditions' waveforms (95 % CI bands, cluster window shaded) over the channels the waveforms average (`waves_channels`: the interview proposes the six channels with the largest summed |t| in the cluster window and the user confirms, or the user gives one list for all clusters, or names `peak_window_ms` / the x range `waves_xlim`); it works on the kinds with a single difference wave (`condition_pooled` / `condition_group`, so not an F interaction) and at least one significant cluster per test, and skips the rest (one terminal line, `waves_skipped` in `_run.json`); more than 6 clusters split into parts; output `cluster/cluster_waves_t<NN>[_partN][_lock-<event>]_vNN`. |
 
 Never ask (settled by house conventions; leave out or use the default):
 - **Style** — the raster row order (default left / midline / right from `channel_order.csv`), colormaps (`RdBu_r` for
@@ -48,10 +51,13 @@ Fix the cause, never work around it; tell the user when the fix changes the figu
 - **`layout "columns" draws one column per test; it holds at most 3 tests`** — draw fewer tests per figure.
 - **`layout "columns" shares one colour scale; tests mix t and F`** — under `color: "stat"` give the columns tests one
   statistic, or split them across figures.
-- **`layout "waves" draws condition waveforms; test <slug> (kind <kind>) has no single difference wave`** — the waves
-  layout draws the two conditions of a difference wave; drop the test or use `layout: "side"`.
-- **`layout "waves": test <slug> has no significant cluster; drop it from tests`** — the waves layout draws one row per
-  cluster; drop a test without a cluster.
+- **`layout "waves": no test left to draw; skipped: <slugs and reasons>`** — every selected test was skipped (no
+  single difference wave or no significant cluster); select at least one t contrast with a significant cluster.
+- **`layout "waves" needs waves_channels for <slug>/<id> (recommended: <names>)`** — the waves layout needs the
+  channels the waveforms average; add `waves_channels` (a list, or a `"<test slug>/<cluster id>"` mapping) with a
+  non-empty name list for every cluster the message lists; it suggests the channels with the largest summed |t|.
+- **`waves_channels: unknown channel(s) <names> for <slug>/<id>`** — a listed channel is not one of the run's
+  channels; fix the name (or the run's `channel_order.csv`).
 - **`test <slug> (kind ...) has no single difference wave`** — `color: "uv"` was asked for a test with no single
   difference (e.g. an interaction); use `color: "stat"`.
 - **`unsupported spec keys`** — remove or rename the key (see `spec.md`).

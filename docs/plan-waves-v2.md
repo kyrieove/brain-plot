@@ -23,8 +23,8 @@ selected by the test itself, so the figure is not a second test. The caption say
    a near-whole-scalp cluster ~0; survey: BESA 8 rows use one or two representative electrodes, MNE 3 rows use 6–8 sensors).
 6. **Block title**: `Cluster 9: 260–800 ms, p < 0.001, 44 channels` (colon and commas, no middle dot). p < 0.001 reads
    `p < 0.001`.
-7. **Layout (adaptive on the cluster count n)**: n 1–3 one column, ERP full width; n 4–6 two columns; n > 6 split into
-   figures of 6 blocks (`_part1`, `_part2`).
+7. **Layout (adaptive on the cluster count n)**: 1 block one column, ERP full width; 2–6 blocks two columns (three
+   clusters = 2 + 1); more than 6 split into parts of 6 blocks (`_part1`, `_part2`).
 8. **Axes**: y range shared by all blocks of a figure; x axis defaults to the whole evoked epoch (spec can restrict to the
    tested window). One µV colour bar per figure.
 9. **Caption**: says the ERP channels were chosen by the user, the cluster is inferred as a whole (Sassenhagen &

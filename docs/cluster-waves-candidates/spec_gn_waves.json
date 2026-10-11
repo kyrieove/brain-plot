@@ -1,0 +1,54 @@
+{
+ "data": "C:/Users/ASUS/Dropbox/metaphor_production/gn_manuscript/03-ERP_topomap/03_cluster_inference/01_cluster_based_permutation_0000_0800ms",
+ "tests": [
+  "01_condition_main_effect_all",
+  "03_within_td_condition_effect"
+ ],
+ "labels": {
+  "01_condition_main_effect_all": "All (N = 95): NoGO \u2212 GO",
+  "03_within_td_condition_effect": "TD (N = 31): NoGO \u2212 GO"
+ },
+ "layout": "waves",
+ "waves_channels": {
+  "01_condition_main_effect_all/5": [
+   "O2",
+   "PO8",
+   "Oz",
+   "P8",
+   "Iz",
+   "C3"
+  ],
+  "01_condition_main_effect_all/8": [
+   "Oz",
+   "Iz",
+   "O1",
+   "O2",
+   "PO7",
+   "PO3"
+  ],
+  "01_condition_main_effect_all/9": [
+   "C3",
+   "FC3",
+   "CP3",
+   "FC5",
+   "F5",
+   "F3"
+  ],
+  "03_within_td_condition_effect/6": [
+   "O2",
+   "PO8",
+   "P8",
+   "Iz",
+   "Oz",
+   "PO4"
+  ],
+  "03_within_td_condition_effect/14": [
+   "C3",
+   "FC3",
+   "F5",
+   "CP3",
+   "Fp1",
+   "F3"
+  ]
+ }
+}

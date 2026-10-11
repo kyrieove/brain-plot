@@ -17,9 +17,13 @@ Three modules (ERP, microstate, time-frequency), tests pass, everything committe
   2026-09-30 — two data sets in one parent overwrote each other) → `ERP/`, `topo/`, `ERP_topo/`, `TFR/`,
   `microstate/`, `specs/`, `.cache/`; names say what the figure is; re-renders get `_vNN+1`, old versions move to `_history/`.
 
-## Next (start here) — 2026-10-11 night, columns v08 DONE
-v08 implemented (cluster notes removed, house style recorded in `references/cluster.md` rule 10) and GN t01+t03 re-rendered
-as `..._v08.png`. Waves layout still paused. Nothing else pending for the cluster module.
+## Next (start here) — 2026-10-11 night, waves v2 DONE (spec `docs/plan-waves-v2.md`)
+`layout: "waves"` rewritten (card `docs/orch/2026-10-11-cluster-waves-v2`): one figure per t-contrast test, one block per
+significant cluster = peak-window topomap + ERP of the two compared sides over user-chosen `waves_channels` (missing ->
+stop with a recommended list: top 6 by summed |t|); 1 block one column, 2-6 two columns (3 clusters = 2 + 1), > 6 parts of 6;
+tests without clusters / F interaction are skipped. GN render: `cluster_waves_t01_v04.png` (spec `docs/cluster-waves-candidates/spec_gn_waves.json`).
+Open: the skill interview must offer the recommended channels (references/cluster.md says so); P3 deferred: `cluster_waves`
+needs `chans` for every cluster of the test. If the shell PATH is stale use the `mne` conda env python explicitly.
 Already committed today: survey-besa.md (27 rows), survey-mne.md (20 rows), `check_survey.py <file> <min rows>`,
 v5 card (0e33ec5), short output names (baa4153). Before/after + principle pages: `docs/cluster-before-after/`
 (`compare.html`, `cluster-principle.html`; GN has 24 clusters found, 5 significant — only significant ones are drawn).

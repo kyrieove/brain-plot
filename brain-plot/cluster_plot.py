@@ -27,7 +27,7 @@ import erp_plot as ep
 
 REQUIRED = {"data", "tests"}
 OPTIONAL = {"labels", "color", "display", "topo", "topo_bin_ms", "channel_order", "width_mm", "height_mm",
-            "time_locked_to", "claim", "layout", "polarity"}
+            "time_locked_to", "claim", "layout", "polarity", "waves_channels", "peak_window_ms", "waves_xlim"}
 
 
 def check_spec(spec):
@@ -65,6 +65,23 @@ def check_spec(spec):
                "waveform panel per significant cluster")
     if spec.get("polarity", "negative_up") not in ("positive_up", "negative_up"):
         ep.die("polarity must be 'positive_up' or 'negative_up'")
+    if "waves_channels" in spec:
+        wc = spec["waves_channels"]
+        as_list = isinstance(wc, list) and wc and all(ep.text(c) for c in wc)
+        as_map = (isinstance(wc, dict) and wc
+                  and all(ep.text(k) and isinstance(v, list) and v and all(ep.text(c) for c in v)
+                          for k, v in wc.items()))
+        if not (as_list or as_map):
+            ep.die('waves_channels must be a non-empty list of channel names (used for every cluster), or a '
+                   '{"<test slug>/<cluster id>": [names]} mapping of non-empty name lists; fix the value')
+    if "peak_window_ms" in spec:
+        pw = spec["peak_window_ms"]
+        if not (isinstance(pw, (list, tuple)) and len(pw) == 2 and all(isinstance(x, (int, float)) for x in pw)
+                and pw[0] < pw[1]):
+            ep.die(f"peak_window_ms must be [lo, hi] with lo < hi in ms (got {pw!r}); give two numbers, lo first")
+    if spec.get("waves_xlim", "epoch") not in ("epoch", "window"):
+        ep.die(f'waves_xlim must be "epoch" or "window" (got {spec["waves_xlim"]!r}); "epoch" draws the whole '
+               'evoked time axis, "window" only the tested range')
     if layout == "columns":
         if spec.get("channel_order", "lmr") != "lmr":
             ep.die('layout "columns" splits the raster by hemisphere; set channel_order to "lmr"')
@@ -253,19 +270,20 @@ def diff_uv(run, test, run_dir):
     return (total / n_subj).T, n_subj, info
 
 
-def cluster_waves(run, test, run_dir):
-    """Per significant cluster of one test: the grand average over subjects of condition A and of condition B (µV,
-    mean over the cluster's channels) on the evoked time axis, each with its 95 % CI. Returns the time axis in ms, a
+def cluster_waves(run, test, run_dir, chans):
+    """Per significant cluster of one test: the grand average over subjects of condition A and of condition B (µV, mean
+    over `chans[cluster id]`) on the evoked time axis, each with its 95 % CI. Returns the time axis in ms, a
     {cluster id: (mean_a, ci_a, mean_b, ci_b)} mapping (the ci values are half-widths) and the subject count."""
     _, _, pairs, root = pairs_of(run, test, run_dir)
     ch_names = run["ch_names"]
+    want = list(dict.fromkeys(ch_names + [ch for c in test["clusters"] for ch in chans[c["cluster_id"]]]))
     ref = None
     acc = {c["cluster_id"]: ([], []) for c in test["clusters"]}
     for file_a, file_b in pairs:
         ev_a = mne.read_evokeds(root / file_a, verbose="error")[0]
         ev_b = mne.read_evokeds(root / file_b, verbose="error")[0]
         for ev, fname in ((ev_a, file_a), (ev_b, file_b)):
-            missing = [c for c in ch_names if c not in ev.ch_names]
+            missing = [c for c in want if c not in ev.ch_names]
             if missing:
                 ep.die(f"{fname}: evoked file is missing channel(s) {missing}; the run's channel_order.csv names "
                        "channels the file does not have")
@@ -275,8 +293,8 @@ def cluster_waves(run, test, run_dir):
                 ep.die(f"{fname}: its evoked time axis differs from the first file's; cluster waveforms need one "
                        "shared time axis")
         for c in test["clusters"]:
-            ia = [ev_a.ch_names.index(ch) for ch in c["channels"]]
-            ib = [ev_b.ch_names.index(ch) for ch in c["channels"]]
+            ia = [ev_a.ch_names.index(ch) for ch in chans[c["cluster_id"]]]
+            ib = [ev_b.ch_names.index(ch) for ch in chans[c["cluster_id"]]]
             acc[c["cluster_id"]][0].append(ev_a.data[ia].mean(0) * 1e6)
             acc[c["cluster_id"]][1].append(ev_b.data[ib].mean(0) * 1e6)
     n = len(pairs)
@@ -342,7 +360,7 @@ def channel_rows(info, ch_names, mode, sphere):
     return rows
 
 
-def write_run_json(out, spec, tests, layout_issues, size_mm, layout=None):
+def write_run_json(out, spec, tests, layout_issues, size_mm, layout=None, extra=None):
     data = dict(
         spec=spec,
         tests=tests,
@@ -354,6 +372,8 @@ def write_run_json(out, spec, tests, layout_issues, size_mm, layout=None):
     )
     if layout is not None:
         data["layout"] = layout
+    if extra:
+        data.update(extra)
     Path(f"{out}_run.json").write_text(json.dumps(data, indent=1, ensure_ascii=False, allow_nan=False), encoding="utf8")
 
 
@@ -369,8 +389,10 @@ def write_caption(out, spec, run, tests, waves=False):
                 else "one map per significant cluster window")
     lines = [f"# Caption for {out.name}", ""]
     if waves:
-        lines += ["- **Topomaps**: one µV map per significant cluster, mean over the cluster window",
-                  "- **Channel marker**: white dots: the channels of that cluster"]
+        lines += ["- **Topomaps**: µV difference over the peak window of each cluster (peak time of the summed |t| "
+                  "over the channels of the cluster ± 25 ms, clipped to the cluster window)",
+                  "- **Channel marker**: white dots: channels significant in at least half of the samples of the map "
+                  "window; black rings: the channels the waveforms average"]
     else:
         marker = ("white dots: channels significant in at least half of the samples of the map's time bin"
                   if topo_mode == "bins"
@@ -425,6 +447,17 @@ def stem_ids(slugs):
 MARK_FRAC = 0.5  # a bin marks a channel when it is significant in at least this fraction of the bin's samples
 
 
+def waves_parts(n):
+    """The waves layout's parts per figure: [(blocks, columns), …]. One block: one column; two to six: two columns;
+    more: figures of 6 two-column blocks, the last one smaller with its own column count."""
+    parts = []
+    while n > 6:
+        parts.append((6, 2))
+        n -= 6
+    parts.append((n, 1 if n == 1 else 2))
+    return parts
+
+
 def maps_of(t, times, ch_names, topo_mode, bins, uv):
     """(vector, marked channels, time label) per topomap of one test: mean over each time bin, or over each significant
     cluster window. `uv` picks the µV difference where it exists, else the statistic. Marked channels: significant in at
@@ -440,6 +473,37 @@ def maps_of(t, times, ch_names, topo_mode, bins, uv):
             out.append((q[m].mean(0), np.array([ch in c["channels"] for ch in ch_names]),
                         f"{c['time_start_ms']:g}–{c['time_end_ms']:g} ms"))
     return out
+
+
+def cluster_peak(t, c, times, ch_names):
+    """Peak time and peak window of one cluster: the sample in the cluster window where the summed |t| over the
+    cluster's channels is largest, and that time ± 25 ms clipped to the cluster window. Returns (peak_ms, lo, hi)."""
+    m = ep.sample_mask(times, c["time_start_ms"], c["time_end_ms"])
+    idx = [ch_names.index(ch) for ch in c["channels"]]
+    score = np.abs(t["stat"][m][:, idx]).sum(1)
+    peak = float(times[m][int(np.argmax(score))])
+    return peak, max(peak - 25.0, float(c["time_start_ms"])), min(peak + 25.0, float(c["time_end_ms"]))
+
+
+def recommend_channels(t, c, times, ch_names, k=6):
+    """The cluster's channels with the largest summed |t| over the cluster window, descending (ties by channel order);
+    at most `k` names."""
+    m = ep.sample_mask(times, c["time_start_ms"], c["time_end_ms"])
+    score = np.abs(t["stat"][m]).sum(0)
+    return sorted(c["channels"], key=lambda ch: (-score[ch_names.index(ch)], ch_names.index(ch)))[:k]
+
+
+def peak_map(t, c, times, ch_names, window=None):
+    """One waves block's topomap: (µV vector, marked channels, label, (lo, hi), peak time). `window` (a [lo, hi] pair,
+    e.g. spec peak_window_ms) replaces the computed peak window; the peak time is then None."""
+    if window is None:
+        peak, lo, hi = cluster_peak(t, c, times, ch_names)
+        label = f"peak {peak:.0f} ms"
+    else:
+        lo, hi = float(window[0]), float(window[1])
+        peak, label = None, f"{lo:g}–{hi:g} ms"
+    m = ep.sample_mask(times, lo, hi)
+    return t["uv"][m].mean(0), t["mask"][m].mean(0) >= MARK_FRAC, label, (lo, hi), peak
 
 
 def raster_limits(t, color, display):
@@ -498,16 +562,16 @@ def colorbar(fig, rect_mm, im, ticks, title, W, H):
 def topo_limits(maps, has_uv, info, sphere):
     """Shared topomap colour scale over `maps` (list of (vector, marked, label)): (vt, vmin, vmax, cmap, sensor peak,
     interpolated peak), µV (RdBu_r) when `has_uv` else the statistic (Reds)."""
-    sensor = max(float(np.abs(vec).max()) for vec, _, _ in maps)
-    interp = max(ep.interp_peak(vec, info, sphere) for vec, _, _ in maps)
+    sensor = max(float(np.abs(m[0]).max()) for m in maps)
+    interp = max(ep.interp_peak(m[0], info, sphere) for m in maps)
     vt = float(np.ceil(max(sensor, interp) * 10) / 10) or 1.0
     cmap, lo, hi = ("RdBu_r", -vt, vt) if has_uv else ("Reds", 0.0, vt)
     return vt, lo, hi, cmap, sensor, interp
 
 
-def draw_map(fig, rect_mm, vec, marked, lab, cmap, lo, hi, info, sphere, W, H):
-    """One topomap in the [x, y, width, height] mm rectangle `rect_mm` with its time label under it; returns the
-    image."""
+def draw_map(fig, rect_mm, vec, marked, lab, cmap, lo, hi, info, sphere, W, H, ring=None):
+    """One topomap in the [x, y, width, height] mm rectangle `rect_mm` with its time label under it; `ring`, an array of
+    (x, y) rows from `_find_topomap_coords`, marks the channels the waveforms average. Returns the image."""
     tax = fig.add_axes([rect_mm[0] / W, rect_mm[1] / H, rect_mm[2] / W, rect_mm[3] / H])
     im, _ = mne.viz.plot_topomap(
         vec, info, axes=tax, show=False, cmap=cmap, vlim=(lo, hi),
@@ -515,6 +579,9 @@ def draw_map(fig, rect_mm, vec, marked, lab, cmap, lo, hi, info, sphere, W, H):
         extrapolate=ep.TOPO["extrapolate"], image_interp=ep.TOPO["image_interp"], sphere=sphere,
         mask=marked, mask_params=dict(marker="o", markerfacecolor="white", markeredgecolor="black",
                                       markeredgewidth=0.25, markersize=1.2))
+    if ring is not None and len(ring):
+        tax.plot(ring[:, 0], ring[:, 1], linestyle="none", marker="o", markerfacecolor="none", markeredgecolor="black",
+                 markeredgewidth=0.5, markersize=2.2, zorder=5)
     tax.text(0.5, -0.05, lab, transform=tax.transAxes, ha="center", va="top", fontsize=5)
     return im
 
@@ -552,13 +619,42 @@ def plot(spec):
     if layout == "columns" and color == "stat" and len({t["meta"]["statistic"] for t in tests}) > 1:
         ep.die('layout "columns" shares one colour scale; tests mix t and F')
 
+    chans_by_test, skipped = {}, []
     if layout == "waves":
+        want = spec.get("waves_channels")
+        drawable, missing = [], []
         for t in tests:
+            kind = t["meta"].get("kind")
             if not t["has_diff"]:
-                ep.die(f'layout "waves" draws condition waveforms; test {t["slug"]} '
-                       f'(kind {t["meta"].get("kind")}) has no single difference wave')
-            if not t["clusters"]:
-                ep.die(f'layout "waves": test {t["slug"]} has no significant cluster; drop it from tests')
+                skipped.append({"test": t["slug"], "reason": f"no single difference wave (kind {kind})"})
+            elif not t["clusters"]:
+                skipped.append({"test": t["slug"], "reason": "no significant cluster"})
+            else:
+                drawable.append(t)
+        for s in skipped:
+            print(f"skipped {s['test']}: {s['reason']}")
+        if not drawable:
+            ep.die('layout "waves": no test left to draw; skipped: '
+                   + "; ".join(f"{s['test']} ({s['reason']})" for s in skipped))
+        for t in drawable:
+            per = {}
+            for c in t["clusters"]:
+                names = want if isinstance(want, list) else (want or {}).get(f"{t['slug']}/{c['cluster_id']}")
+                if names:
+                    per[c["cluster_id"]] = names
+                else:
+                    missing.append((t, c))
+            chans_by_test[t["slug"]] = per
+        if missing:
+            ep.die("\n".join(f'layout "waves" needs waves_channels for {t["slug"]}/{c["cluster_id"]} '
+                             f'(recommended: {", ".join(recommend_channels(t, c, times, ch_names))})'
+                             for t, c in missing))
+        for t in drawable:
+            for cid, names in chans_by_test[t["slug"]].items():
+                unknown = [n for n in names if n not in ch_names]
+                if unknown:
+                    ep.die(f'waves_channels: unknown channel(s) {unknown} for {t["slug"]}/{cid}')
+        tests = drawable
 
     info = None
     for t in tests:
@@ -573,7 +669,7 @@ def plot(spec):
         info = first_info(run, run_dir)
     sphere = ep.common_sphere(info)
     if layout == "waves":
-        return plot_waves(spec, run, tests, info, sphere)
+        return plot_waves(spec, run, tests, info, sphere, chans_by_test, skipped)
     rows = channel_rows(info, ch_names, mode, sphere)
 
     bins = bins_of_times(times, step)
@@ -791,95 +887,124 @@ def plot_columns(spec, run, tests, rows, info, sphere, color, display, topo_part
     return out
 
 
-def plot_waves(spec, run, tests, info, sphere):
-    """The waves layout (card 2026-10-11): ONE figure per test, one row per significant cluster — the µV-difference
-    topomap (white: the cluster's channels) beside the two compared conditions' grand-average waveforms over the
-    cluster's channels, each with its 95 % CI band and the cluster window shaded gray."""
+def plot_waves(spec, run, tests, info, sphere, chans, skipped):
+    """The waves layout (card 2026-10-11-v2): ONE figure per drawable test, one block per significant cluster — a
+    µV-difference topomap at the cluster peak window (white: channels significant in >= half the samples, black rings:
+    the user-chosen waveform channels) beside the two compared conditions' grand-average waveforms over `chans`
+    (95 % CI bands, cluster window shaded gray). 1 block in one column, 2–6 in two; more split into `_partN` of 6."""
+    from mne.channels.layout import _find_topomap_coords
     times = run["times_ms"]
     ch_names = run["ch_names"]
     run_dir = Path(spec["data"])
     W = float(spec.get("width_mm", 180))
-    left_m, right_m, top_m, bottom_m = 6.0, 14.0, 8.0, 18.0
-    map_mm, row_gap = 26.0, 12.0
-    row_pitch = map_mm + row_gap
-    wave_x = left_m + map_mm + row_gap
-    wave_w = W - right_m - wave_x
+    left_m, right_m, top_m, bottom_m, gap = 6.0, 14.0, 8.0, 18.0, 14.0
+    peak_window = spec.get("peak_window_ms")
     negative_up = spec.get("polarity", "negative_up") == "negative_up"
     outs = []
     ids = stem_ids([x["slug"] for x in tests])
     for ti, t in enumerate(tests):
         a, b, _, _ = pairs_of(run, t, run_dir)
-        tt, waves, _ = cluster_waves(run, t, run_dir)
-        maps = maps_of(t, times, ch_names, "clusters", [], True)
+        tchans = chans[t["slug"]]
+        tt, waves, _ = cluster_waves(run, t, run_dir, tchans)
+        maps = [peak_map(t, c, times, ch_names, window=peak_window) for c in t["clusters"]]
         vt, tlo, thi, tcmap, sensor, interp = topo_limits(maps, True, info, sphere)
         lo = min(float((w[i] - w[i + 1]).min()) for w in waves.values() for i in (0, 2))
         hi = max(float((w[i] + w[i + 1]).max()) for w in waves.values() for i in (0, 2))
         pad = 0.05 * (hi - lo)
         ylo, yhi = lo - pad, hi + pad
-        n_rows = len(t["clusters"])
-        H = float(spec["height_mm"]) if spec.get("height_mm") else top_m + n_rows * row_pitch - row_gap + bottom_m
-        fig = plt.figure(figsize=(W * ep.MM, H * ep.MM))
-        axes = []
-        for r in range(n_rows):
-            y_top = top_m + r * row_pitch
-            axes.append(fig.add_axes([wave_x / W, (H - y_top - map_mm) / H, wave_w / W, map_mm / H]))
-        xt, labs, _ = ep.x_ticks(axes[-1], fig, tt[0], tt[-1], zero=True)
-        last_im = None
-        for r, ax in enumerate(axes):
-            y_top = top_m + r * row_pitch
-            c = t["clusters"][r]
-            mean_a, ci_a, mean_b, ci_b = waves[c["cluster_id"]]
-            ax.axvspan(c["time_start_ms"], c["time_end_ms"], color="0.88", lw=0, zorder=0)
-            ax.fill_between(tt, mean_a - ci_a, mean_a + ci_a, color=ep.LANCET[0], alpha=0.15, lw=0)
-            ax.fill_between(tt, mean_b - ci_b, mean_b + ci_b, color=ep.LANCET[1], alpha=0.15, lw=0)
-            ax.plot(tt, mean_a, color=ep.LANCET[0], lw=0.9, label=a)
-            ax.plot(tt, mean_b, color=ep.LANCET[1], lw=0.9, label=b)
-            ax.axvline(0.0, color="0.5", lw=0.4, ls="--")
-            ax.axhline(0.0, color="0.5", lw=0.4)
-            ax.set_ylim(ylo, yhi)
-            if negative_up:
-                ax.invert_yaxis()
-            ax.set_ylabel("µV")
-            ax.set_xticks(xt)
-            ax.set_xticklabels(labs if r == n_rows - 1 else [])
-            if r == n_rows - 1:
-                ax.set_xlabel("Time (ms)")
-            if r == 0:
-                handles = ax.get_legend_handles_labels()[0]
-            vec, marked, lab = maps[r]
-            last_im = draw_map(fig, [left_m, H - y_top - map_mm, map_mm, map_mm], vec, marked, lab,
-                               tcmap, tlo, thi, info, sphere, W, H)
-            ep.letter(last_im.axes, r)
-            fig.text(wave_x / W, (H - (y_top - 2.0)) / H,
-                     f"Cluster {c['cluster_id']} · p = {c['p_cluster']:g} · {len(c['channels'])} channels · "
-                     f"{c['time_start_ms']:g}–{c['time_end_ms']:g} ms", ha="left", va="bottom", fontsize=6)
-        fig.legend(handles, [a, b], ncol=2, frameon=False, fontsize=5, loc="upper center",
-                   bbox_to_anchor=((wave_x + wave_w / 2) / W, (bottom_m - 8.0) / H))
-        bar_h = (n_rows - 1) * row_pitch + map_mm
-        colorbar(fig, [W - right_m + 3.0, H - top_m - bar_h, 2.0, bar_h], last_im, [-vt, 0.0, vt], "µV", W, H)
+        xlo, xhi = (tt[0], tt[-1]) if spec.get("waves_xlim", "epoch") == "epoch" else (times[0], times[-1])
+        clusters_rec = [dict(cluster_id=c["cluster_id"], channels=c["channels"],
+                             time_start_ms=c["time_start_ms"], time_end_ms=c["time_end_ms"],
+                             peak_ms=maps[i][4], window_ms=list(maps[i][3]),
+                             waves_channels=tchans[c["cluster_id"]])
+                        for i, c in enumerate(t["clusters"])]
+        parts = waves_parts(len(t["clusters"]))
+        offset = 0
+        for pi, (k, ncols) in enumerate(parts):
+            if ncols == 1:
+                map_mm, gap_x, pitch, col_w, cols_x = 26.0, 12.0, 26.0 + gap, W - right_m - left_m, [left_m]
+            else:
+                map_mm, gap_x, pitch = 20.0, 10.0, 20.0 + gap
+                col_w = (W - left_m - right_m - 8.0) / 2
+                cols_x = [left_m, left_m + col_w + 8.0]
+            nrows = -(-k // ncols)
+            H = float(spec["height_mm"]) if spec.get("height_mm") else top_m + nrows * pitch - gap + bottom_m
+            fig = plt.figure(figsize=(W * ep.MM, H * ep.MM))
+            axes, geo = [], []
+            for j in range(k):
+                r, cc = divmod(j, ncols)
+                y_top, map_x = top_m + r * pitch, cols_x[cc]
+                wave_x = map_x + map_mm + gap_x
+                axes.append(fig.add_axes([wave_x / W, (H - y_top - map_mm) / H,
+                                          (cols_x[cc] + col_w - wave_x) / W, map_mm / H]))
+                geo.append((y_top, map_x))
+            for ax in axes:
+                ax.set_xlim(xlo, xhi)
+            xt, labs, _ = ep.x_ticks(axes[0], fig, xlo, xhi, zero=True)
+            handles, last_im = None, None
+            for j, ax in enumerate(axes):
+                y_top, map_x = geo[j]
+                c = t["clusters"][offset + j]
+                cid = c["cluster_id"]
+                mean_a, ci_a, mean_b, ci_b = waves[cid]
+                ax.axvspan(c["time_start_ms"], c["time_end_ms"], color="0.88", lw=0, zorder=0)
+                ax.fill_between(tt, mean_a - ci_a, mean_a + ci_a, color=ep.LANCET[0], alpha=0.15, lw=0)
+                ax.fill_between(tt, mean_b - ci_b, mean_b + ci_b, color=ep.LANCET[1], alpha=0.15, lw=0)
+                ax.plot(tt, mean_a, color=ep.LANCET[0], lw=0.9, label=a)
+                ax.plot(tt, mean_b, color=ep.LANCET[1], lw=0.9, label=b)
+                ax.axvline(0.0, color="0.5", lw=0.4, ls="--")
+                ax.axhline(0.0, color="0.5", lw=0.4)
+                ax.set_ylim(ylo, yhi)
+                if negative_up:
+                    ax.invert_yaxis()
+                ax.set_ylabel("µV")
+                ax.set_xticks(xt)
+                bottom = j + ncols >= k
+                ax.set_xticklabels(labs if bottom else [])
+                if bottom:
+                    ax.set_xlabel("Time (ms)")
+                if handles is None:
+                    handles = ax.get_legend_handles_labels()[0]
+                vec, marked, lab, _, _ = maps[offset + j]
+                ring = _find_topomap_coords(info, picks=[info.ch_names.index(n) for n in tchans[cid]],
+                                            sphere=sphere)
+                last_im = draw_map(fig, [map_x, H - y_top - map_mm, map_mm, map_mm], vec, marked, lab,
+                                   tcmap, tlo, thi, info, sphere, W, H, ring=ring)
+                ep.letter(last_im.axes, j)
+                ptxt = f"p = {c['p_cluster']:.3f}" if c["p_cluster"] >= 0.001 else "p < 0.001"
+                fig.text(map_x / W, (H - (y_top - 2.0)) / H,
+                         f"Cluster {cid}: {c['time_start_ms']:g}–{c['time_end_ms']:g} ms, {ptxt}, "
+                         f"{len(c['channels'])} channels", ha="left", va="bottom", fontsize=6)
+            fig.legend(handles, [a, b], ncol=2, frameon=False, fontsize=5, loc="upper center",
+                       bbox_to_anchor=((W - right_m + left_m) / 2 / W, (bottom_m - 8.0) / H))
+            bar_h = (nrows - 1) * pitch + map_mm
+            colorbar(fig, [W - right_m + 3.0, H - top_m - bar_h, 2.0, bar_h], last_im, [-vt, 0.0, vt], "µV", W, H)
 
-        record = dict(metadata=t["meta"], n_subjects=t["n_subj"],
-                      topo=dict(v=vt, vmin=tlo, vmax=thi, cmap=tcmap, sensor_max=sensor, interp_max=interp),
-                      y_limits=[ylo, yhi],
-                      clusters=[dict(cluster_id=c["cluster_id"], channels=c["channels"],
-                                     time_start_ms=c["time_start_ms"], time_end_ms=c["time_end_ms"])
-                                for c in t["clusters"]])
-        stem = f"cluster_waves_t{ids[ti]}"
-        if spec.get("time_locked_to"):
-            stem += f"_lock-{ep.safe(spec['time_locked_to'])}"
-        out = ep.versioned(ep.out_root(spec) / "cluster", stem)
-        issues = ep.report_layout(fig, out.name)
-        fig.savefig(f"{out}.png", dpi=600)
-        fig.savefig(f"{out}.svg")
-        plt.close(fig)
-        write_run_json(out, spec, {t["slug"]: record}, issues, [W, H], layout="waves")
-        write_caption(out, spec, run, [t], waves=True)
-        with open(f"{out}_caption.md", "a", encoding="utf8") as fh:
-            fh.write("Waveforms: mean over each cluster's channels; bands = 95% CI across subjects (t, df = n − 1); "
-                     "gray = cluster window\n")
-        ep.archive(out)
-        print("wrote", f"{out}.png/.svg")
-        outs.append(out)
+            record = dict(metadata=t["meta"], n_subjects=t["n_subj"],
+                          topo=dict(v=vt, vmin=tlo, vmax=thi, cmap=tcmap, sensor_max=sensor, interp_max=interp),
+                          y_limits=[ylo, yhi], clusters=clusters_rec)
+            stem = f"cluster_waves_t{ids[ti]}" + (f"_part{pi + 1}" if len(parts) > 1 else "")
+            if spec.get("time_locked_to"):
+                stem += f"_lock-{ep.safe(spec['time_locked_to'])}"
+            out = ep.versioned(ep.out_root(spec) / "cluster", stem)
+            issues = ep.report_layout(fig, out.name)
+            fig.savefig(f"{out}.png", dpi=600)
+            fig.savefig(f"{out}.svg")
+            plt.close(fig)
+            write_run_json(out, spec, {t["slug"]: record}, issues, [W, H], layout="waves",
+                           extra={"waves_skipped": skipped})
+            write_caption(out, spec, run, [t], waves=True)
+            with open(f"{out}_caption.md", "a", encoding="utf8") as fh:
+                fh.write("Waveforms: mean over the user-chosen channels ("
+                         + "; ".join(f"Cluster {c['cluster_id']}: {', '.join(tchans[c['cluster_id']])}"
+                                     for c in t["clusters"])
+                         + "); bands = 95% CI across subjects (t, df = n − 1); gray = cluster window\n")
+                fh.write("The cluster is inferred as a whole (Sassenhagen & Draschkow 2019); channels, windows and "
+                         "waveforms are descriptive, not a second test\n")
+            ep.archive(out)
+            print("wrote", f"{out}.png/.svg")
+            outs.append(out)
+            offset += k
     return outs
 
 
