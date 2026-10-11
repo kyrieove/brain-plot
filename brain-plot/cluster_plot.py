@@ -362,7 +362,7 @@ def write_caption(out, spec, run, tests, waves=False):
     order (the `side` layout passes a single test). `waves`: the waves layout has no raster and its maps are the cluster
     windows."""
     display = spec.get("display", "masked")
-    mode = ("only samples in significant clusters are coloured" if display == "masked"
+    mode = ("only samples in significant clusters are coloured and outlined" if display == "masked"
             else "full map, significant samples outlined")
     topo_mode = spec.get("topo", "bins")
     topo_txt = (f"{spec.get('topo_bin_ms', 100):g} ms bins" if topo_mode == "bins"
@@ -372,8 +372,11 @@ def write_caption(out, spec, run, tests, waves=False):
         lines += ["- **Topomaps**: one µV map per significant cluster, mean over the cluster window",
                   "- **Channel marker**: white dots: the channels of that cluster"]
     else:
+        marker = ("white dots: channels significant in at least half of the samples of the map's time bin"
+                  if topo_mode == "bins"
+                  else "white dots: channels in a significant cluster within the map's time range")
         lines += [f"- **Display**: {mode}", f"- **Topomaps**: {topo_txt}",
-                  "- **Channel marker**: white dots: channels in a significant cluster within the map's time range"]
+                  f"- **Channel marker**: {marker}"]
     for test in tests:
         m = test["meta"]
         if test["clusters"]:
@@ -393,6 +396,22 @@ def write_caption(out, spec, run, tests, waves=False):
     Path(f"{out}_caption.md").write_text("\n".join(lines), encoding="utf8")
 
 
+def cluster_notes(t, cap=5):
+    """Captions under a test column's raster: one line per significant cluster (`Cluster <id>: <start>–<end> ms, p`), at
+    most `cap` of them (the rest collapse into `+ N more (see caption)`), or `no significant cluster` when there is
+    none. A p below 0.001 reads `p < 0.001`."""
+    if not t["clusters"]:
+        return ["no significant cluster"]
+    lines = []
+    for c in t["clusters"][:cap]:
+        p = c["p_cluster"]
+        ptxt = f"p = {p:.3f}" if p >= 0.001 else "p < 0.001"
+        lines.append(f"Cluster {c['cluster_id']}: {c['time_start_ms']:g}–{c['time_end_ms']:g} ms, {ptxt}")
+    if len(t["clusters"]) > cap:
+        lines.append(f"+ {len(t['clusters']) - cap} more (see caption)")
+    return lines
+
+
 def bins_of_times(times, step):
     """Half-open sample masks [a, a + step) of the result time axis (the last bin closed at the last sample)."""
     nbins = int(np.ceil((times[-1] - times[0]) / step))
@@ -407,14 +426,18 @@ def bins_of_times(times, step):
     return masks
 
 
+MARK_FRAC = 0.5  # a bin marks a channel when it is significant in at least this fraction of the bin's samples
+
+
 def maps_of(t, times, ch_names, topo_mode, bins, uv):
     """(vector, marked channels, time label) per topomap of one test: mean over each time bin, or over each significant
-    cluster window. `uv` picks the µV difference where it exists, else the statistic."""
+    cluster window. `uv` picks the µV difference where it exists, else the statistic. Marked channels: significant in at
+    least half of the bin's samples, or the cluster's channels."""
     q = t["uv"] if uv else t["stat"]
     out = []
     if topo_mode == "bins":
         for m in bins:
-            out.append((q[m].mean(0), t["mask"][m].any(0), f"{times[m][0]:.0f}–{times[m][-1]:.0f} ms"))
+            out.append((q[m].mean(0), t["mask"][m].mean(0) >= MARK_FRAC, f"{times[m][0]:.0f}–{times[m][-1]:.0f} ms"))
     else:
         for c in t["clusters"]:
             m = ep.sample_mask(times, c["time_start_ms"], c["time_end_ms"])
@@ -447,8 +470,8 @@ def raster_array(t, rows, values):
 
 
 def draw_raster(ax, arr, sig, display, times, cmap, vmin, vmax):
-    """Raster image of one block on ax (masked colours significant samples only, contour outlines them on the full map);
-    returns the image."""
+    """Raster image of one block on ax (masked colours significant samples only); both displays outline the significant
+    region in black; returns the image."""
     n_rows = arr.shape[0]
     dt = float(times[1] - times[0]) if len(times) > 1 else 1.0
     extent = [times[0] - dt / 2, times[-1] + dt / 2, n_rows - 0.5, -0.5]
@@ -458,6 +481,7 @@ def draw_raster(ax, arr, sig, display, times, cmap, vmin, vmax):
     else:
         im = ax.imshow(arr, aspect="auto", origin="upper", extent=extent, interpolation="nearest",
                        cmap=cmap, vmin=vmin, vmax=vmax, rasterized=True)
+    if sig.any() and not sig.all():
         ax.contour(times, np.arange(n_rows), sig.astype(float), levels=[0.5], colors="black", linewidths=0.4)
     return im
 
@@ -672,6 +696,8 @@ def plot_columns(spec, run, tests, rows, info, sphere, color, display, topo_part
     h = 1.2 * max(len(gr) for _, gr in groups)
     sub_h = [h] * len(groups)
     raster_block = sum(sub_h) + 2.5 * (len(groups) - 1)
+    notes = [cluster_notes(t) for t in tests]
+    ann_h = 2.4 * max(len(x) for x in notes) + 1.0
 
     rlims = [raster_limits(t, color, display) for t in tests]
     rv = max(lim[0] for lim in rlims)
@@ -686,7 +712,7 @@ def plot_columns(spec, run, tests, rows, info, sphere, color, display, topo_part
     map_mm = min(20.0, (W - left_m - right_m - (n_maps - 1) * 2.0) / n_maps) if n_maps else 0.0
 
     H = (float(spec["height_mm"]) if spec.get("height_mm")
-         else top_m + raster_block + 10.0 + 6.0 + n * (map_mm + 11.0) + 4.0)
+         else top_m + raster_block + 10.0 + 6.0 + n * (map_mm + 11.0) + 4.0 + ann_h)
     fig = plt.figure(figsize=(W * ep.MM, H * ep.MM))
 
     def rect(x, y_top, w, h):  # [x, y_top, w, h] mm from the top -> figure fractions (bottom origin)
@@ -723,10 +749,15 @@ def plot_columns(spec, run, tests, rows, info, sphere, color, display, topo_part
                 yc = gtop[gi] + sub_h[gi] / 2.0
                 fig.text((left_m - 12.0) / W, (H - yc) / H, gname, rotation=90, ha="center", va="center", fontsize=6)
 
+    for c in range(n):
+        for j, line in enumerate(notes[c]):
+            fig.text((left_m + c * (cw + 8.0)) / W, (H - (top_m + raster_block + 10.0 + 2.4 * j)) / H, line,
+                     ha="left", va="top", fontsize=5)
+
     colorbar(fig, [W - right_m + 3.0, H - top_m - raster_block, 2.0, raster_block], raster_im,
              [0.0, rv] if rcmap == "Reds" else [-rv, 0.0, rv], stat_name, W, H)
 
-    topo_top = top_m + raster_block + 10.0 + 6.0
+    topo_top = top_m + raster_block + 10.0 + 6.0 + ann_h
     map_bar_im = None
     for r, t in enumerate(tests):
         y_top = topo_top + r * (map_mm + 11.0)

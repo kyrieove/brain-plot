@@ -72,7 +72,8 @@ Visual QA: first look at the changed region with `python brain-plot/test/qa_crop
 3. **Maps ≥ 15 mm, every other channel labelled, group names readable**: the map grid sits beside the raster with
    maps at least 15 mm across.
 4. **Colour bar per side**: one bar beside the raster and one beside the map grid, the statistic (t/F) or µV named.
-5. **White dots**: significant channels are marked on the maps (a map with no significant channel is bare).
+5. **White dots**: significant channels are marked on the maps (a map with no significant channel is bare); under
+   `topo: "bins"` a channel is marked only when it is significant in at least half of the bin's samples.
 6. **Run record**: `layout_issues` in `_run.json` must be empty.
 
 `layout: "columns"` also:
@@ -83,3 +84,5 @@ Visual QA: first look at the changed region with `python brain-plot/test/qa_crop
    spanning the map block; a test with no maps shows "no significant cluster" in its row.
 9. **Map labels readable**: the row label (test title) sits left of each row's first map, every map carries its time
    label, and the panel letters run across the columns and then down the rows.
+10. **Cluster notes and outline**: each column lists its significant clusters (cluster id, time window, p) under its
+    raster (at most 5 lines, then `+ N more (see caption)`); the masked raster outlines each significant region in black.

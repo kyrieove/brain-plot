@@ -251,6 +251,26 @@ def run_tests():
         assert_stops({**spec, "tests": [T01]}, "missing the column")
         print("cluster stops: time_axis.csv without time_index")
 
+        # (q) the bins marker needs a channel significant in at least half of the bin's samples
+        times5 = np.arange(5.0)
+        m5 = np.zeros((5, 2), dtype=bool)
+        m5[:3, 0] = True   # channel A significant in 3 of the 5 samples
+        m5[:1, 1] = True   # channel B significant in 1 of the 5 samples
+        maps5 = cluster_plot.maps_of({"stat": np.zeros((5, 2)), "uv": None, "mask": m5, "clusters": []}, times5,
+                                     ["A", "B"], "bins", cluster_plot.bins_of_times(times5, 5.0), False)
+        assert maps5[0][1].tolist() == [True, False], maps5[0][1]
+        print("cluster bins marker: a channel significant in 3/5 samples is marked, 1/5 is not")
+
+        # (r) cluster_notes lists a cluster, caps at 5, and reads p < 0.001
+        seven = dict(clusters=[dict(cluster_id=i, p_cluster=0.01, time_start_ms=100.0 * i, time_end_ms=100.0 * i + 50,
+                                       channels=[]) for i in range(1, 8)])
+        notes7 = cluster_plot.cluster_notes(seven)
+        assert len(notes7) == 6 and notes7[5] == "+ 2 more (see caption)", notes7
+        one = dict(clusters=[dict(cluster_id=1, p_cluster=0.0004, time_start_ms=100, time_end_ms=200, channels=[])])
+        assert cluster_plot.cluster_notes(one) == ["Cluster 1: 100–200 ms, p < 0.001"]
+        assert cluster_plot.cluster_notes(dict(clusters=[])) == ["no significant cluster"]
+        print("cluster notes: first 5 listed, '+ 2 more (see caption)', p < 0.001, no-cluster line")
+
     print("OK")
 
 
