@@ -2,6 +2,9 @@
 
 Replaces the waves layout of card `docs/orch/2026-10-11-cluster-waves`. Prototypes: `docs/cluster-waves-candidates/`.
 
+## Status
+Approved as house style by the user, 2026-10-11 (render `cluster_waves_t01_v05.png`: shared colour scale, 2 + 1 layout, small colour bar per map).
+
 ## Purpose
 Describe where (topomap) and when / what shape (ERP) a significant cluster is. Descriptive only: channels and window were
 selected by the test itself, so the figure is not a second test. The caption says so.
