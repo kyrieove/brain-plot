@@ -1,4 +1,5 @@
-"""Check research/cluster-figures/survey.md: enough rows, every figure image present and readable."""
+"""Check a survey table (default survey.md; arg 1 = file name, arg 2 = min rows): enough rows, every figure image present and readable.
+A file named survey-besa.md / survey-mne.md must name BESA / MNE in every row."""
 import re
 import sys
 from pathlib import Path
@@ -6,9 +7,10 @@ from pathlib import Path
 from PIL import Image
 
 HERE = Path(__file__).parent
-MIN_ROWS = 12
+SURVEY = sys.argv[1] if len(sys.argv) > 1 else "survey.md"
+MIN_ROWS = int(sys.argv[2]) if len(sys.argv) > 2 else 12
 
-text = (HERE / "survey.md").read_text(encoding="utf-8")
+text = (HERE / SURVEY).read_text(encoding="utf-8")
 rows = [l for l in text.splitlines() if re.match(r"\|\s*\d+\s*\|", l)]
 problems = []
 if len(rows) < MIN_ROWS:
@@ -16,6 +18,9 @@ if len(rows) < MIN_ROWS:
 for row in rows:
     cells = [c.strip() for c in row.strip("|").split("|")]
     num = cells[0]
+    for tool in ("BESA", "MNE"):
+        if tool.lower() in SURVEY and tool.lower() not in row.lower():
+            problems.append(f"row {num}: {tool} not named")
     if not re.search(r"10\.\d{4,9}/\S+|https?://", row):
         problems.append(f"row {num}: no DOI or URL")
     imgs = re.findall(r"figures/[^\s)|`]+", row)
