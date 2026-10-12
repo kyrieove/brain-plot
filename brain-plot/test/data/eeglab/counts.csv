@@ -1,0 +1,9 @@
+subject,type_at_latency_0,n_epochs
+sub01,rt,12
+sub01,square,8
+sub02,rt,9
+sub02,square,11
+sub03,rt,11
+sub03,square,9
+sub04,rt,10
+sub04,square,10
