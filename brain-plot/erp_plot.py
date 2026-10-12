@@ -486,8 +486,7 @@ def groups_from_metadata(found, col):
         try:
             md = read_epochs_any(f, preload=False, verbose="error").metadata
         except Exception as e:
-            print(f"WARNING: skipping unreadable/incomplete file {f.name}: {e}")
-            continue
+            die(f"{f.name}: unreadable or incomplete ({e}); fix the file or list its subject in exclude")
         if md is None or col not in md:
             die(f"{f.name}: no metadata column {col!r}")
         vals = md[col].dropna().unique()

@@ -25,6 +25,13 @@ Three modules (ERP, microstate, time-frequency), tests pass, everything committe
   (88 mm single column for erp/topo only), ≤ 230 mm tall; slides 180 × 100 (half 90 × 100), scaled ×1.8 in
   PowerPoint. `SKILL.md` "Canvas" (all modules) + ERP size table in `references/erp.md`. Every ERP size in the table
   rendered with empty layout_issues in cross and box axes (synthetic data).
+- Layout checks in two layers (`d5e99ae`): `layout_issues` = errors; `layout_notes` = advisories (stretched map
+  cells, canvas outside the standard) that the agent judges by eye (SKILL.md step 5; house rules are defaults).
+- sol whole-repo audit (8 fixes, all tests pass): group_by stops on an unreadable file; BESA checks each condition
+  mean; source subjects+exclude; pymatreader declared; TFR and cluster side stop / adapt instead of cutting panels
+  at a short height_mm; cluster t maps symmetric (Reds only for F); erp.md "first group black" removed.
+  **Open (deferred):** `file_stamp()` only stamps `<name>.fdt`; a .set whose EEG.data names another .fdt keeps a
+  stale cache when that file changes (rare; needs reading EEG.data from the .set header).
 
 ## 2026-10-12: BESA and EEGLAB input (committed; cards `docs/orch/2026-10-12-besa-to-run/`, `-eeglab-set-input/`)
 - `brain-plot/besa_to_run.py convert` turns a BESA Statistics paired-t cluster project (Results.dat + cluster summary csv + .avr +

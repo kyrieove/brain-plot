@@ -284,10 +284,10 @@ def verify(res, summ, names, times, data, cond_a, cond_b, threshold):
         if np.abs(t[m]).min() < threshold - 1e-3:
             ep.die(f"cluster {k}: holds a sample below the cluster-forming threshold {threshold:.5f} "
                    f"(smallest |t| {np.abs(t[m]).min():.5f})")
-        diff = data[cond_a][:, m.T].mean() - data[cond_b][:, m.T].mean()  # data: (subjects, n_t, n_ch), m: (n_ch, n_t)
-        if abs(diff - (row["mean_a"] - row["mean_b"])) > 1e-3:
-            ep.die(f"cluster {k}: the .avr files give a mean {cond_a} − {cond_b} of {diff} µV, the summary "
-                   f"{row['mean_a'] - row['mean_b']} µV")
+        for cond, key in ((cond_a, "mean_a"), (cond_b, "mean_b")):  # each side, so a shared offset is caught too
+            mean = data[cond][:, m.T].mean()  # data: (subjects, n_t, n_ch), m: (n_ch, n_t)
+            if abs(mean - row[key]) > 1e-3:
+                ep.die(f"cluster {k}: the .avr files give a mean {cond} of {mean} µV, the summary {row[key]} µV")
 
 
 def main(argv=None):

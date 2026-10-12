@@ -4,4 +4,5 @@ matplotlib>=3.8
 numpy
 scipy
 pandas  # only for `query` / `group_by` on Epochs metadata
+pymatreader  # only for epoched EEGLAB .set input
 # source maps only: pyvista (3D rendering) and the fsaverage template (mne.datasets.fetch_fsaverage())

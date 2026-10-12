@@ -117,7 +117,7 @@ def select_source_files(spec):
         if not isinstance(req_subs, list) or not all(isinstance(x, str) for x in req_subs):
             ep.die("spec 'subjects' must be a list of subject IDs")
         for s in req_subs:
-            if s not in by_id:
+            if s not in by_id and s not in excl:  # select_files already dropped the excluded ones
                 ep.die(f"requested subject {s!r} not found in data files")
         active_ids = [s for s in req_subs if s not in excl]
     else:

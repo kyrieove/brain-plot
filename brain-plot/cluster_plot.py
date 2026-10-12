@@ -562,13 +562,13 @@ def colorbar(fig, rect_mm, im, ticks, title, W, H):
     return cb
 
 
-def topo_limits(maps, has_uv, info, sphere):
+def topo_limits(maps, has_uv, info, sphere, statistic="t"):
     """Shared topomap colour scale over `maps` (list of (vector, marked, label)): (vt, vmin, vmax, cmap, sensor peak,
-    interpolated peak), µV (RdBu_r) when `has_uv` else the statistic (Reds)."""
+    interpolated peak); RdBu_r ±vt for µV and t, Reds 0..vt for F (as raster_limits)."""
     sensor = max(float(np.abs(m[0]).max()) for m in maps)
     interp = max(ep.interp_peak(m[0], info, sphere) for m in maps)
     vt = float(np.ceil(max(sensor, interp) * 10) / 10) or 1.0
-    cmap, lo, hi = ("RdBu_r", -vt, vt) if has_uv else ("Reds", 0.0, vt)
+    cmap, lo, hi = ("Reds", 0.0, vt) if not has_uv and statistic == "F" else ("RdBu_r", -vt, vt)
     return vt, lo, hi, cmap, sensor, interp
 
 
@@ -699,7 +699,10 @@ def plot_side(spec, run, tests, rows, info, sphere, color, display, topo_part):
     """Today's layout, byte-for-byte unchanged: one figure per test (raster left, 2-column map grid right)."""
     times, ch_names = run["times_ms"], run["ch_names"]
     W = float(spec.get("width_mm", 180))
-    raster_h, top_m, bottom_m = 100.0, 12.0, 14.0
+    top_m, bottom_m = 12.0, 14.0
+    raster_h = float(spec["height_mm"]) - top_m - bottom_m if spec.get("height_mm") else 100.0
+    if raster_h < 40:
+        ep.die(f"height_mm {spec['height_mm']} leaves a {raster_h:.0f}-mm raster; use height_mm {40 + top_m + bottom_m:g} or more")
     n_rows = len(rows)
     outs = []
     ids = stem_ids([x["slug"] for x in tests])
@@ -710,6 +713,9 @@ def plot_side(spec, run, tests, rows, info, sphere, color, display, topo_part):
             n_cols = 1 if len(maps) == 1 else 2
             n_grid_rows = -(-len(maps) // n_cols)
             map_mm = min(24.0, (raster_h - n_grid_rows * 6.0) / n_grid_rows)
+            if map_mm < 8:
+                ep.die(f"{len(maps)} topomaps leave {map_mm:.1f}-mm maps beside the raster; use a larger topo_bin_ms, "
+                       "topo 'clusters', or a taller height_mm")
             maps_w = n_cols * map_mm + (n_cols - 1) * 3.0
         else:
             n_cols, n_grid_rows, map_mm, maps_w = 1, 0, 0.0, 0.0
@@ -750,7 +756,7 @@ def plot_side(spec, run, tests, rows, info, sphere, color, display, topo_part):
                  "µV" if color == "uv" else stat_name, W, H)
 
         if maps:
-            vt, tlo, thi, tcmap, sensor, interp = topo_limits(maps, has_uv, info, sphere)
+            vt, tlo, thi, tcmap, sensor, interp = topo_limits(maps, has_uv, info, sphere, stat_name)
             last_im = None
             for k, (vec, marked, lab) in enumerate(maps):
                 r, c = divmod(k, n_cols)
@@ -809,7 +815,7 @@ def plot_columns(spec, run, tests, rows, info, sphere, color, display, topo_part
 
     all_maps = [mp for t in tests for mp in t["maps"]]
     has_uv = all(t["uv"] is not None for t in tests)
-    tlims = topo_limits(all_maps, has_uv, info, sphere) if all_maps else None
+    tlims = topo_limits(all_maps, has_uv, info, sphere, tests[0]["meta"]["statistic"]) if all_maps else None
     n_maps = max((len(t["maps"]) for t in tests), default=0)
     map_mm = min(20.0, (W - left_m - right_m - (n_maps - 1) * 2.0) / n_maps) if n_maps else 0.0
 

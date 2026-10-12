@@ -338,6 +338,9 @@ def plot(spec):
     tf_h = top_mm + nr * ph + (nr - 1) * hspace_mm + 16.0
     topo_h = 26.0 * nw
     H = float(spec.get("height_mm", tf_h + topo_h))
+    if H < tf_h + topo_h - 0.5:  # panels keep 1.4:1, so a short canvas would cut them off
+        ep.die(f"height_mm {H:g} cannot hold {nr} × {nc} panels at width_mm {W:g} (panels keep 1.4:1): use height_mm "
+               f"{np.ceil(tf_h + topo_h):g} or more, a smaller width_mm, or fewer panels per figure")
 
     roi_idx = [info.ch_names.index(ch) for ch in spec["channels"]]
     sphere = ep.common_sphere(info)

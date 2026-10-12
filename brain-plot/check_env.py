@@ -11,6 +11,7 @@ import sys
 NEED = {"mne": (1, 7), "matplotlib": (3, 8), "numpy": (1, 23), "scipy": (1, 9)}
 OPTIONAL = {
     "pandas": "only for `query` / `group_by` on Epochs metadata",
+    "pymatreader": "only for epoched EEGLAB .set input",
     "pyvista": "only for source maps (3D brain rendering); also needs the fsaverage template",
 }
 
