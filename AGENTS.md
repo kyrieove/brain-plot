@@ -10,6 +10,12 @@
 ## Map
 - Skill router: `brain-plot/SKILL.md`; per-module docs: `brain-plot/references/*.md`; the only rule list: `docs/rules.md`.
 - Run the test for the module you touched.
+- Subject inputs are `*-epo.fif`, `*-ave.fif` or epoched EEGLAB `*.set` (+ `.fdt`). Read them only through `erp_plot.read_epochs_any`,
+  `read_info_any` and `is_epochs`; never call `mne.read_epochs` / `mne.io.read_info` on a subject file. For `.set` the condition is the
+  event at latency 0 (MNE joins multi-event epochs as `a/b`), and baseline / filter are `None` (captions say "not recorded").
+- `cluster_plot.py` reads a run folder; `brain-plot/besa_to_run.py convert` builds one from a BESA Statistics result (test: `test/test_besa.py`).
+- `brain-plot/test/data/eeglab/` holds real EEGLAB-authored fixtures: read-only; regenerate with `make_eeglab_fixture.m`
+  (`D:\1\application\matlab_eeglab\bin\matlab.exe -batch "run('<path>')"`, EEGLAB in `D:\1\application\eeglab\eeglab2025.0.0`).
 - Python = conda env `mne` (Python 3.12, MNE dev main; pyvistaqt pinned 0.12.0 — 0.13.1 renders black 3D screenshots). MNE needs a writable `~/.mne`; in a sandbox set `_MNE_FAKE_HOME_DIR` to a temp dir.
 
 ## Hard rules
