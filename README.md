@@ -1,8 +1,9 @@
 # brain-plot
 
-Paper-ready **ERP** and **EEG microstate** figures from MNE files, in one fixed house style.
+Paper-ready **ERP**, **EEG microstate**, **time-frequency**, **cluster-permutation result** and **source** figures
+from MNE files, in one fixed house style.
 
-brain-plot is a [Claude Code](https://claude.com/claude-code) skill plus two plain Python scripts. The agent reads
+brain-plot is a [Claude Code](https://claude.com/claude-code) skill plus five plain Python scripts. The agent reads
 your data, asks you a short series of questions (what the reader should see, which comparison, which components),
 writes the answers into a JSON spec, gets your confirmation, draws the figure and then checks the rendered PNG. The
 scripts also run on their own from the command line.
@@ -30,11 +31,15 @@ This is a personal tool shared with a few colleagues for testing; expect changes
 | Candidate windows | `erp_plot.py windows` | Heuristic suggestions only; you decide |
 | Microstate states | `microstate_plot.py plot`, `figure: "states"` | Template maps, butterfly or GFP panel, segmentation ribbon per condition (from your saved templates) |
 | Microstate across K | `figure: "by-K"` | One row of templates per K, coloured by template identity |
+| Time-frequency | `tfr_plot.py plot` | Power (dB, log-ratio baseline) or ITC per condition over an ROI, optional window boxes with topomap rows |
+| Cluster-permutation results | `cluster_plot.py plot`, `layout: "side"` / `"columns"` / `"waves"` | From a saved cluster run: channel × time t/F raster with µV topomaps, or per cluster a peak topomap beside the two conditions' waveforms (95 % CI) |
+| Source maps | `source_plot.py plot`, `figure: "windows"` / `"timeline"` | dSPM (or sLORETA / eLORETA) cortical maps on fsaverage per window or time point |
 
 Every figure is written as PNG (600 dpi) and SVG with editable text, plus `_caption.md` (the facts to write a caption
 from, per panel) and `_run.json` (spec, subject IDs, sample bounds, versions — everything needed to reproduce it).
 
-**It only draws.** No statistics, preprocessing, microstate clustering, source or time–frequency plots. Not supported
+**It only draws.** No statistics (cluster figures read a saved run; no test, threshold or p-value is computed),
+preprocessing or microstate clustering. Not supported
 (the script stops): difference waves, lateralised components (N2pc, LRP), CSD, significance marks, more than 7
 overlaid lines.
 
@@ -47,6 +52,8 @@ git clone https://github.com/kyrieove/brain-plot.git
 cd brain-plot
 pip install -r requirements.txt          # mne, matplotlib, numpy, scipy, pandas
 ```
+
+Source maps also need `pyvista` (3D rendering) and the fsaverage template (`mne.datasets.fetch_fsaverage()`).
 
 Check the environment (works even before MNE is installed): `python brain-plot/check_env.py` → versions, fonts, "OK".
 Arial or Helvetica gives the intended typography; without them matplotlib falls back to DejaVu Sans.
@@ -103,6 +110,9 @@ python brain-plot/erp_plot.py explore  explore.json      # overview figures
 python brain-plot/erp_plot.py windows  spec.json         # candidate windows (optional)
 python brain-plot/erp_plot.py plot     spec.json         # the figure
 python brain-plot/microstate_plot.py plot microstate.json
+python brain-plot/tfr_plot.py plot tfr.json
+python brain-plot/cluster_plot.py plot cluster.json
+python brain-plot/source_plot.py plot source.json
 ```
 
 A minimal ERP spec:
@@ -117,7 +127,8 @@ A minimal ERP spec:
 ```
 
 Relative `data` and `templates` paths are taken from the spec file's folder. All keys:
-[`brain-plot/references/spec.md`](brain-plot/references/spec.md).
+[`brain-plot/references/spec.md`](brain-plot/references/spec.md); per-module guides in
+[`brain-plot/references/`](brain-plot/references/) (`tfr.md`, `cluster.md`, `source.md`, …).
 
 ## Input data
 
@@ -145,9 +156,10 @@ recently used, each can be tens of MB) makes later runs fast and is rebuilt when
   reference enforced by the scripts. What the agent itself follows (interview, stops, QA checklists) is in
   [`brain-plot/references/erp.md`](brain-plot/references/erp.md) and
   [`brain-plot/references/microstate.md`](brain-plot/references/microstate.md).
-- Tests on synthetic data: `python brain-plot/test/test_erp_plot.py`, `python brain-plot/test/test_microstate.py` and
-  `python brain-plot/test/test_layout.py` (realistic density: 64 channels, 7 conditions, 3 groups; each prints `OK`;
-  tested with MNE 1.13 and matplotlib 3.10/3.11).
+- Tests on synthetic data, one per module: `python brain-plot/test/test_<module>.py` (`erp_plot`, `layout`,
+  `microstate`, `tfr`, `cluster`, `source`; `test_layout` uses realistic density: 64 channels, 7 conditions, 3 groups;
+  each prints `OK`; tested with MNE 1.13 and matplotlib 3.10/3.11).
+- A pre-commit hook runs the tests of the modules a commit touches: `git config core.hooksPath .githooks`.
 - `docs/`, `HANDOFF.md` and `research/` are the project's development notes and review history.
 
 ## License

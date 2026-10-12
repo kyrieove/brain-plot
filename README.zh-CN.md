@@ -1,8 +1,8 @@
 # brain-plot
 
-用 MNE 文件画可直接投稿的 **ERP** 和 **EEG 微状态**图，风格统一固定。
+用 MNE 文件画可直接投稿的 **ERP**、**EEG 微状态**、**时频**、**cluster permutation 结果**和**源定位**图，风格统一固定。
 
-brain-plot 是一个 [Claude Code](https://claude.com/claude-code) 技能，外加两个普通的 Python 脚本。智能体先读你的数据，
+brain-plot 是一个 [Claude Code](https://claude.com/claude-code) 技能，外加五个普通的 Python 脚本。智能体先读你的数据，
 再分几轮问你几个问题（读者首先要看到什么、比较什么、画哪些成分），把答案写成一份 JSON spec，你确认后画图，
 最后自己检查出图的 PNG。脚本也可以脱离智能体、直接在命令行运行。
 
@@ -29,11 +29,14 @@ brain-plot 是一个 [Claude Code](https://claude.com/claude-code) 技能，外�
 | 候选时间窗 | `erp_plot.py windows` | 只给启发式建议，由你决定 |
 | 微状态 | `microstate_plot.py plot`，`figure: "states"` | 模板地形图、butterfly 或 GFP 图、每个条件的分段色带（用你已保存的模板） |
 | 跨 K 对比 | `figure: "by-K"` | 每个 K 一行模板，按模板身份着色 |
+| 时频图 | `tfr_plot.py plot` | 每个条件 ROI 上的功率（dB，log-ratio 基线）或 ITC，可加时频窗方框和下方地形图行 |
+| cluster permutation 结果 | `cluster_plot.py plot`，`layout: "side"` / `"columns"` / `"waves"` | 读已保存的 cluster 结果：通道 × 时间 t/F 栅格 + µV 地形图，或每个 cluster 一块（峰值地形图 + 两条件波形及 95 % CI） |
+| 源定位图 | `source_plot.py plot`，`figure: "windows"` / `"timeline"` | fsaverage 上的 dSPM（或 sLORETA / eLORETA）皮层图，按时间窗或时间点 |
 
 每张图输出 PNG（600 dpi）和文字可编辑的 SVG，另有 `_caption.md`（按分图列出写图注用的事实）和 `_run.json`
 （spec、被试 ID、采样点边界、软件版本，足以复现）。
 
-**只负责画图。** 不做统计、预处理、微状态聚类、源定位或时频图。不支持（脚本会停下）：差异波、偏侧化成分
+**只负责画图。** 不做统计（cluster 图读已保存的结果，不计算检验、阈值或 p 值）、预处理和微状态聚类。不支持（脚本会停下）：差异波、偏侧化成分
 （N2pc、LRP）、CSD、显著性标记、超过 7 条叠加线。
 
 ## 安装
@@ -45,6 +48,8 @@ git clone https://github.com/kyrieove/brain-plot.git
 cd brain-plot
 pip install -r requirements.txt
 ```
+
+源定位图另需 `pyvista`（3D 渲染）和 fsaverage 模板（`mne.datasets.fetch_fsaverage()`）。
 
 检查环境（没装 MNE 也能运行）：`python brain-plot/check_env.py`，会列出版本和字体，最后显示 "OK" 或缺什么。
 装有 Arial 或 Helvetica 字体时效果最好；没有的话 matplotlib 会用 DejaVu Sans 代替。
@@ -96,6 +101,9 @@ python brain-plot/erp_plot.py explore  explore.json
 python brain-plot/erp_plot.py windows  spec.json
 python brain-plot/erp_plot.py plot     spec.json
 python brain-plot/microstate_plot.py plot microstate.json
+python brain-plot/tfr_plot.py plot tfr.json
+python brain-plot/cluster_plot.py plot cluster.json
+python brain-plot/source_plot.py plot source.json
 ```
 
 spec 里的相对路径（`data`、`templates`）按 spec 文件所在文件夹解析。全部字段见
@@ -121,8 +129,10 @@ spec 里的相对路径（`data`、`templates`）按 spec 文件所在文件夹�
 ## 规则和测试
 
 - [`docs/rules.md`](docs/rules.md)：完整规则（科学、版面、风格、输出、微状态），开发参考，由脚本执行。agent 自己要遵守的部分（访谈、脚本停下时怎么办、QA 清单）在 [`brain-plot/references/erp.md`](brain-plot/references/erp.md) 和 [`brain-plot/references/microstate.md`](brain-plot/references/microstate.md)。
-- 测试：`python brain-plot/test/test_erp_plot.py`、`python brain-plot/test/test_microstate.py` 和
-  `python brain-plot/test/test_layout.py`（接近真实规模：64 导、7 个条件、3 组；都应输出 `OK`）。
+- 测试（合成数据，每个模块一个）：`python brain-plot/test/test_<module>.py`（`erp_plot`、`layout`、`microstate`、
+  `tfr`、`cluster`、`source`；`test_layout` 接近真实规模：64 导、7 个条件、3 组；都应输出 `OK`）。
+- pre-commit hook 会跑本次提交涉及模块的测试：`git config core.hooksPath .githooks`。
+- 各模块说明在 [`brain-plot/references/`](brain-plot/references/)（`tfr.md`、`cluster.md`、`source.md` 等）。
 - `docs/`、`HANDOFF.md`、`research/` 是开发笔记和审查记录。
 
 ## 许可
