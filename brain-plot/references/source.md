@@ -14,7 +14,7 @@ Read the study's own notes and preprocessing logs first (epoch bounds, reference
 
 | Round | Decide |
 |---|---|
-| 1 | Figure type (`figure`: `"windows"` for discrete component windows or `"timeline"` for timecourses), maximum canvas width (`width_mm`, default 180 mm). The canvas fits its content and may be narrower. |
+| 1 | Figure type (`figure`: `"windows"` for discrete component windows or `"timeline"` for timecourses), paper or slides (`SKILL.md`, Canvas; `width_mm` is the maximum width). The canvas fits its content and may be narrower. |
 | 2 | Conditions (`conditions`: `{key: label}` mapping), trial selection (`query`, e.g. `"acc == 1"`), exclusions (`exclude`). All subjects pooled without groups (`group_by` ignored). |
 | 3 | If `figure: "windows"`: windows (`windows`: list of `{name, tmin_ms, tmax_ms}`). If unknown, localize via `erp_plot.py windows` using `region` + `polarity` to obtain candidate FWHP windows.<br>If `figure: "timeline"`: time points (`times_ms`, default `[100, 200, ..., 800]`), window half width (`half_width_ms`, default 50 ms). |
 
@@ -36,7 +36,7 @@ Never ask (settled by house conventions; leave out or use default):
 - **Template anatomy** — fsaverage template brain, ico-5 source space, 3-layer BEM (`5120-5120-5120-bem-sol.fif`).
 - **Style** — inflated lateral views per hemisphere at 16 mm wide (12–20 mm), original aspect ratio, 3 mm between hemispheres, 6 mm between columns, 3 mm between condition rows; left hemisphere on the left, labels "L" / "R" once per column pair at the top, hot colormap with grey cortex below threshold, 2 mm horizontal colour bar as wide as its brain pair, Arial house style with all text at least 7 pt.
 - **Statistics** — no significance marks or p-values exist; figures are purely descriptive grand averages.
-- **Journal** — ask width in mm instead (`width_mm`).
+- **Journal or width** — ask paper or slides instead (`SKILL.md`, Canvas).
 
 ## When the script stops
 

@@ -14,7 +14,7 @@ Read the study's own notes and preprocessing logs first (epoch bounds, reference
 
 | Round | Decide |
 |---|---|
-| 1 | ROI channels (`channels`: e.g. `["Fz", "Cz"]`), measure (`measure`: `"power"` or `"itc"`), canvas width (`width_mm`, default 180 mm). |
+| 1 | ROI channels (`channels`: e.g. `["Fz", "Cz"]`), measure (`measure`: `"power"` or `"itc"`), paper or slides (`SKILL.md`, Canvas). |
 | 2 | Condition arrangement (`grid`: rows of condition keys, e.g. `[["Hmet","Hlit","Hrep"],["Lmet","Llit","Lrep"]]`; default: up to 3 per row); groups (`groups` and `group_by`, one figure per group); trial selection (`query`, e.g. `"acc == 1"`). |
 | 3 | Windows (`windows`: list of `{name, fmin, fmax, tmin_ms, tmax_ms}`; optional, default none) for dashed ROI boxes and topomap rows underneath the panel grid. Windows come from the user's hypothesis or analysis; if the user has none, offer bands (theta 4–8, alpha 8–13, beta 13–30 Hz) × time spans cut at the trial's own events (stimulus on/offsets from the timeline) — never spans read off the grand average (circular). |
 
@@ -33,7 +33,7 @@ TF computation parameters (`freqs`, `n_cycles`, `decim`, `baseline_ms`, `baselin
 Never ask (settled by house conventions; leave out or use default):
 - **Style** — log-frequency axis with standard band-edge ticks (4, 8, 13, 30 Hz), outward box ticks, dotted vertical line at 0 ms, panel aspect ratio (~1.4 : 1), condition names bold 7.5 pt, panel letters `a`, `b`, ..., shared colour scale (`RdBu_r` symmetric ±v for power, `Reds` 0..v for ITC), right-edge colorbar.
 - **Statistics** — no significance marks or p-values exist; figures are purely descriptive grand averages.
-- **Journal** — ask width in mm instead (`width_mm`).
+- **Journal or width** — ask paper or slides instead (`SKILL.md`, Canvas).
 
 ## When the script stops
 

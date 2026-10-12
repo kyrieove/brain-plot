@@ -32,6 +32,21 @@ say "not supported".
 - The style is fixed in code. You (the agent) never restyle or edit a figure by hand or with
   ad-hoc matplotlib — change the spec. The SVG is editable so that the user can make final manual adjustments.
 
+## Canvas: paper or slides (all modules)
+
+Ask once, in round 1, whether the figure is for a paper or a slide; never ask for a journal or a width. Then
+(user decision, 2026-10-12):
+- **Paper** — draw at the printed size, never scaled: 180 mm wide (double column); 88 mm (single column) only for
+  `erp` or `topo` figures, never `combo` or cluster figures; at most 230 mm tall. ERP heights by figure type:
+  `references/erp.md`.
+- **Slides (16:9)** — 180 × 100 mm for a full slide, 90 × 100 mm for half a slide next to text (`erp`/`topo` only).
+  The user scales the PNG/SVG about × 1.8 in PowerPoint, so the 6–7.5-pt house text reads 11–13 pt. Content that
+  does not fit 100 mm (e.g. 3 stacked panels) → split into one figure per slide, never a taller slide figure.
+- Modules whose height follows the content (tfr, cluster, source): paper sets only the width; slides set
+  `height_mm` 100 where the module takes it, and split when the script says it does not fit.
+- A size the user gives is used as given; above 183 mm wide, say once that the text will print small (the house
+  fonts are sized for the final print).
+
 ## Workflow (all modules)
 
 1. **Inspect — facts are your job, not the user's.** Read the data (`inspect`) and the study's own notes and

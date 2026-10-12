@@ -17,6 +17,15 @@ Three modules (ERP, microstate, time-frequency), tests pass, everything committe
   2026-09-30 — two data sets in one parent overwrote each other) → `ERP/`, `topo/`, `ERP_topo/`, `TFR/`,
   `microstate/`, `specs/`, `.cache/`; names say what the figure is; re-renders get `_vNN+1`, old versions move to `_history/`.
 
+## 2026-10-12: adaptive combo maps + paper / slide canvas standard (committed)
+- A classmate's 300 × 150 mm single-panel combo had 19-mm heads at the top and bottom of a 127-mm map column.
+  Fix (card `docs/orch/2026-10-12-combo-side-adaptive/`, `3122f83`): side-layout head size follows the panel
+  height (≤ 40 mm, map column ≤ 45 % of the usable width), block centred on its panel; test 4b2.
+- Canvas standard (user decision): round 1 asks paper or slides, never a journal or width. Paper 180 mm wide
+  (88 mm single column for erp/topo only), ≤ 230 mm tall; slides 180 × 100 (half 90 × 100), scaled ×1.8 in
+  PowerPoint. `SKILL.md` "Canvas" (all modules) + ERP size table in `references/erp.md`. Every ERP size in the table
+  rendered with empty layout_issues in cross and box axes (synthetic data).
+
 ## 2026-10-12: BESA and EEGLAB input (committed; cards `docs/orch/2026-10-12-besa-to-run/`, `-eeglab-set-input/`)
 - `brain-plot/besa_to_run.py convert` turns a BESA Statistics paired-t cluster project (Results.dat + cluster summary csv + .avr +
   channels.elp) into the run folder `cluster_plot.py` reads. GN check: t equals scipy / MNE t to 9e-5; mask agrees with MNE on 99.78 %.

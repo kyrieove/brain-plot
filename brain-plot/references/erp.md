@@ -28,7 +28,7 @@ components and windows, exclusions, reference and stimulus timing.
 
 | Round | Decide |
 |---|---|
-| 1 | Figure type: `combo` (waveforms + maps, one figure per component), `topo` (maps only), or `erp` (waveforms by channel: `layout` `roi` mean, `single` one figure per channel incl. `channels: "all"`, or `grid`; channels asked here). For `combo`, the maps go beside each waveform panel (default `map_placement: "side"`); when the user wants the maps inside the waveforms, in one multi-panel figure, use `"inset"` with a `grid` for the design (e.g. a 2 × 3 design as 2 rows of 3; not asked by default). Width (`width_mm`, e.g. 180 for double column). What the reader must see first (one sentence → `claim`; always ask — it decides the figure type, components and channels). |
+| 1 | Figure type: `combo` (waveforms + maps, one figure per component), `topo` (maps only), or `erp` (waveforms by channel: `layout` `roi` mean, `single` one figure per channel incl. `channels: "all"`, or `grid`; channels asked here). For `combo`, the maps go beside each waveform panel (default `map_placement: "side"`); when the user wants the maps inside the waveforms, in one multi-panel figure, use `"inset"` with a `grid` for the design (e.g. a 2 × 3 design as 2 rows of 3; not asked by default). Paper or slides (canvas from the table below; `SKILL.md`, Canvas). What the reader must see first (one sentence → `claim`; always ask — it decides the figure type, components and channels). |
 | 2 | Key comparison → `key_comparison` (always ask), which decides `overlay` (the compared variable goes in the same panel) and how lines pair up in `colors`/`linestyles` (e.g. colour = task, line style = level); groups and order (first = reference, drawn black); exclusions; trial selection (all trials or e.g. correct only → `query`, epochs only). |
 | 3 | Components (one figure each); channels per component (ROI); windows. `kind: "erp"`: gray component bands only if the user wants them once windows are confirmed — default none. |
 
@@ -43,7 +43,7 @@ Never ask (settled by the user; leave out or use the default):
   levels viridis), line styles, fonts, colour map (RdBu_r), SEM band (none): house defaults; change only when the
   user asks (`polarity`, `colors`, `linestyles`, `cmap`, `error: "sem"`). Line pairing from round 2 is part of the
   key comparison, not a style question.
-- **Journal** — ask the width instead.
+- **Journal or width** — ask paper or slides instead (`SKILL.md`, Canvas).
 
 Caption-only fields (`claim`, `key_comparison`, `time_locked_to`, `reference`, `window_source`, `stats_note`,
 exclusion reasons) are optional: unknown → leave the key out, never "to be confirmed". Never put n in labels or
@@ -54,6 +54,21 @@ Candidate windows, only if the user wants help: `windows` needs a spec whose com
 `tmin_ms`/`tmax_ms`. With `region`, it localizes peak channel, latency, amplitude, FWHP window, and ROI (deflection from the peak's base >= 80 % of its prominence; peak channel always included), prints a GFP cross-check, and outputs a `WINDOWS_JSON` line. A `kind: "erp"` spec without channels or region
 is refused — tell the user so, don't guess an ROI. Its output is heuristic candidates; the user names components and
 fixes windows.
+
+## Canvas sizes (`width_mm` × `height_mm`)
+
+| Use | Figure | Size |
+|---|---|---|
+| Paper | `combo`, 1 panel | 180 × 90 |
+| Paper | `combo`, 2 panels (e.g. two groups stacked) | 180 × 150 |
+| Paper | `combo`, 3 panels | 180 × 210 |
+| Paper | `erp` grid 3 × 3 | 180 × 150 |
+| Paper | `erp` / `topo`, single column | 88 × 70 |
+| Slides | full slide, 1–2 panels | 180 × 100 |
+| Slides | half slide, `erp` / `topo` | 90 × 100 |
+
+Other figures: paper 180 mm wide, at most 230 mm tall; slides at most 100 mm tall (more panels → one figure per
+slide). `combo` never goes single column (the waveform would be ~26 mm wide).
 
 ## When the script stops
 

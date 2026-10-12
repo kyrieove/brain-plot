@@ -40,7 +40,7 @@ Outputs go to `brain_plot_<data folder name>/` next to the data folder (rules O1
 | `key_comparison` | none | Caption only: the comparison the layout serves (e.g. "groups within each condition"). |
 | `time_locked_to` | none | Event at 0 ms, as it should read in the caption; also appended to every output name as `_lock-<event>` (rule O3), so datasets locked to different events never share a name. ERP, explore and TFR specs. |
 | `reference` | none | Caption only: reference scheme (files often don't store it). |
-| `width_mm` / `height_mm` | 180 / 120 | Fixed final canvas (rule T6); content is fitted inside. Stacked waveform panels (and erp grid cells) need ≥ 15 mm each; the script stops and names the `height_mm` that works (rule L3). |
+| `width_mm` / `height_mm` | 180 / 120 | Fixed final canvas (rule T6); content is fitted inside. Stacked waveform panels (and erp grid cells) need ≥ 15 mm each; the script stops and names the `height_mm` that works (rule L3). Sizes for paper and slides: `SKILL.md`, Canvas; ERP sizes by figure type: `erp.md`. |
 | `cmap` | `"RdBu_r"` | Topomap colour map (a diverging map). |
 | `error` | `"none"` | `"sem"` adds a between-subject ± SEM band. |
 | `stats_note` | none | The author's statistical statement, copied into the caption facts. |
