@@ -21,8 +21,9 @@ Three modules (ERP, microstate, time-frequency), tests pass, everything committe
 **Applied (wb card `docs/orch/2026-10-11-cluster-waves-v2-rv/`, review luna PASS, 0 real findings):** uv colour no longer
 stops on `layout: "waves"`; `peak_window_ms` must lie inside the result time axis and hold a sample; a repeated channel in
 `waves_channels` stops; the caption says "user-given window lo–hi ms" when the spec sets `peak_window_ms`; `waves_parts` and
-the legend handles simplified. Each fix has a `(t)` assert in `test/test_cluster.py`. Not done: the waves figures were not
-re-rendered on GN after the fixes (synthetic run only). Deferred P3 (not fixed): `cluster_waves` needs `chans` for every
+the legend handles simplified. Each fix has a `(t)` assert in `test/test_cluster.py`. GN re-rendered after the fixes
+(2026-10-12): `cluster_waves_t01_v06.png`, `_t03_v06.png` are pixel-identical to v05, captions identical, `layout_issues`
+empty. Deferred P3 (not fixed): `cluster_waves` needs `chans` for every
 cluster of the test.
 
 State: `layout: "waves"` v2 is the user-approved house style (commits 9c90894, de23bf7, 94b9588; spec `docs/plan-waves-v2.md`,
