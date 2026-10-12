@@ -108,7 +108,7 @@ def select_source_files(spec):
     for units in groups.values():
         for unit in units:
             for f in ep.unit_files(unit):
-                if not f.name.endswith("-epo.fif"):
+                if not ep.is_epochs(f):
                     ep.die(f"{f.name}: source reconstruction requires epochs files")
                 by_id[ep.uid(unit)] = f
 
@@ -247,13 +247,13 @@ def load_and_compute(spec, subjects_dir=None, src=None, bem=None, fwd=None):
     ep.prune_cache_dirs(cache_dir.parent, cache_dir)
 
     try:
-        first_info = mne.io.read_info(active_files[s_ids[0]], verbose="error")
+        first_info = ep.read_info_any(active_files[s_ids[0]])
     except Exception as e:
         ep.die(f"cannot read subject {s_ids[0]} ({active_files[s_ids[0]].name}): {e}; fix the file or list the subject in 'exclude'")
     geom = geometry_key(first_info)
     for s_id in s_ids[1:]:
         try:
-            info_s = mne.io.read_info(active_files[s_id], verbose="error")
+            info_s = ep.read_info_any(active_files[s_id])
         except Exception as e:
             ep.die(f"cannot read subject {s_id} ({active_files[s_id].name}): {e}; fix the file or list the subject in 'exclude'")
         if geometry_key(info_s) != geom:
@@ -329,12 +329,12 @@ def load_and_compute(spec, subjects_dir=None, src=None, bem=None, fwd=None):
 
         if not cache_valid:
             try:
-                ep_sub = mne.read_epochs(f, proj=False, verbose="error")
+                ep_sub = ep.read_epochs_any(f, proj=False, verbose="error")
             except Exception as e:
                 ep.die(f"cannot read subject {s_id} ({f.name}): {e}; fix the file or list the subject in 'exclude'")
             if ep_sub.info["bads"]:
                 ep.die(f"{f.name}: bad channels {ep_sub.info['bads']} are still marked; resolve them before plotting")
-            k = json.loads(json.dumps(ep.contract(ep_sub)))
+            k = json.loads(json.dumps(ep.contract(ep_sub, eeglab=f.suffix.lower() == ".set")))
 
             ep_sub = ep.query_epochs(ep_sub, f, cond_keys, spec.get("query"))
             t_epoch_min = ep_sub.times[0] * 1000.0
@@ -398,7 +398,7 @@ def load_and_compute(spec, subjects_dir=None, src=None, bem=None, fwd=None):
                    f"({len(times_sub)} samples from {times_sub[0] * 1000:.0f} ms vs {len(first_times)} from {first_times[0] * 1000:.0f} ms); "
                    "use the same sampling rate, lowpass and epoch window for all subjects")
 
-        info_sub = mne.io.read_info(f, verbose="error")
+        info_sub = ep.read_info_any(f)
         with info_sub._unlock():
             info_sub["sfreq"] = sfreq_sub
         ev_proto = mne.EvokedArray(evoked_data[0], info_sub, tmin=times_sub[0], nave=nave[0])

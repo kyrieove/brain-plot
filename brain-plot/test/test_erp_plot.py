@@ -2,6 +2,7 @@
 import contextlib
 import io
 import json
+import os
 import sys
 import tempfile
 from pathlib import Path
@@ -456,5 +457,123 @@ with tempfile.TemporaryDirectory() as d:
     for scale in ("global", "component"):
         ep.explore(dict(ex, differences=[["A", "A"]], topo_scale=scale, height_mm=180))
         inside_canvas(SAVED[-2])  # the topomap table (saved png then svg)
+
+# 10. EEGLAB .set input: an epoched .set works like an -epo.fif, its conditions are the time-locking event types, and
+#     captions do not invent a baseline or filter; a continuous .set and a subject given as both .set and .fif stop
+import csv
+import shutil
+
+N_T = 601  # -0.2 to 1.0 s at 500 Hz
+FIX = Path(__file__).resolve().parent / "data" / "eeglab"
+
+# Part A: synthetic round trip (.set written by MNE's own EEGLAB export)
+with tempfile.TemporaryDirectory() as d:
+    rootF, rootS = Path(d) / "fif", Path(d) / "set"
+    info = mne.create_info(CH, 500.0, "eeg")
+    info.set_montage(MONTAGE)
+    made = {}
+    for gi, g in enumerate(("G1", "G2")):
+        (rootF / g).mkdir(parents=True)
+        (rootS / g).mkdir(parents=True)
+        for i in range(2):
+            ev = np.repeat([1, 2], 5)
+            epo = mne.EpochsArray(np.random.default_rng(gi * 2 + i).normal(0, 2e-6, (10, len(CH), N_T)), info, tmin=-0.2,
+                                  events=np.c_[np.arange(10) * 400, np.zeros(10, int), ev], event_id=dict(A=1, B=2),
+                                  baseline=(None, 0), verbose="error")
+            epo.save(rootF / g / f"{g}s{i}-epo.fif", verbose="error")
+            epo.export(rootS / g / f"{g}s{i}.set", fmt="eeglab")
+            made[g, i] = epo
+
+    # a. discovery and the conditions of a .set unit
+    disc = ep.discover(rootS)
+    assert {g: len(v) for g, v in disc.items()} == {"G1": 2, "G2": 2}, disc
+    f_set = disc["G1"][0]
+    f_fif = rootF / "G1" / (f_set.stem + "-epo.fif")
+    assert ep.available_conditions({"data": str(rootS)}, f_set) == ["A", "B"]
+
+    # b. the same evokeds as its -epo.fif twin
+    ev_set, nave_set = ep.read_conditions(f_set, ["A", "B"], None)
+    ev_fif, nave_fif = ep.read_conditions(f_fif, ["A", "B"], None)
+    for a, b in zip(ev_set, ev_fif):
+        assert np.allclose(a.data, b.data, atol=1e-10), "evoked data differ from the -epo.fif twin"
+    assert nave_set == nave_fif
+
+    # c. loaded arrays and contract: the .set records no baseline and no filter
+    data_s, _, _, meta_s = ep.load(spec(rootS, conditions={"A": "A", "B": "B"}))
+    data_f, _, _, meta_f = ep.load(spec(rootF, conditions={"A": "A", "B": "B"}))
+    for g in ("G1", "G2"):
+        assert np.allclose(data_s[g], data_f[g], atol=1e-4), f"{g}: arrays differ from the -epo.fif root"
+    assert meta_s["contract"]["filter"] is None and meta_s["contract"]["baseline"] is None
+    assert isinstance(meta_f["contract"]["baseline"], list) and isinstance(meta_f["contract"]["filter"], list)
+
+    # d. one subject given as both .set and .fif stops
+    both = Path(d) / "both"
+    both.mkdir()
+    made["G1", 0].save(both / "s1-epo.fif", verbose="error")
+    made["G1", 0].export(both / "s1.set", fmt="eeglab")
+    try:
+        ep.select_files(spec(both, conditions={"A": "A"}))
+        raise AssertionError("a folder with .set and .fif of one subject was accepted")
+    except SystemExit as e:
+        assert "subject IDs appear more than once" in str(e), e
+
+# Part B: the real EEGLAB fixtures, with MATLAB's own count of the epochs by the event at latency 0
+counts = {}
+with open(FIX / "counts.csv", encoding="utf8") as fh:
+    for row in csv.DictReader(fh):
+        counts.setdefault(row["subject"], {})[row["type_at_latency_0"]] = int(row["n_epochs"])
+
+# e. layout and the time-locking event types of the four subjects
+disc = ep.discover(FIX)
+assert {g: len(v) for g, v in disc.items()} == {"G1": 2, "G2": 2}, disc
+fixed = [f for units in disc.values() for f in units]
+assert sorted(ep.subject_id(f) for f in fixed) == ["sub01", "sub02", "sub03", "sub04"]
+for f in fixed:
+    assert ep.available_conditions({"data": str(FIX)}, f) == ["rt", "square"], f
+
+# f. the trial counts equal MATLAB's count of the epochs by the event at latency 0
+for f in fixed:
+    n = ep.read_conditions(f, ["rt", "square"], None)[1]
+    c = counts[ep.subject_id(f)]
+    assert n == [c["rt"], c["square"]], (f.name, n, c)
+    assert sum(n) == 20
+
+# g/h. a figure from the fixtures: copy them first, so nothing is written next to the read-only data
+with tempfile.TemporaryDirectory() as d:
+    fixt = Path(d) / "eeglab"
+    shutil.copytree(FIX, fixt)
+    ch = ["Cz", "Pz"]  # both exist in the sample data (its other channels include two EOG channels)
+    s = spec(fixt, conditions={"rt": "RT", "square": "Square"}, reference="average",
+             components=[dict(name="P3", channels=ch, tmin_ms=250, tmax_ms=350, window_source="test")])
+    data, _, _, meta = ep.load(s)
+    assert len(data) == 2 and all(x.shape[0] == 2 for x in data.values())
+    assert meta["contract"]["filter"] is None and meta["contract"]["baseline"] is None
+
+    ep.plot(s)
+    cap = latest(fixt, "ERP_topo", "*_caption.md").read_text(encoding="utf8")
+    assert "baseline and filter not recorded (eeglab .set)" in cap.lower(), cap  # "Baseline" opens the line without time_locked_to
+    sub02 = fixt / "G1" / "sub02.set"  # .set + .fdt: the cache identity must follow the .fdt too
+    before = ep.file_stamp(sub02)
+    os.utime(sub02.with_suffix(".fdt"), ns=(1, 1))
+    assert ep.file_stamp(sub02) != before
+    assert ep.baseline_filter_text({"baseline": [-0.2, 0.0], "filter": [0.1, 40.0]}, "; ").startswith("baseline [")
+
+# i. inspect reports no filter and no baseline for a .set folder, with a note
+with contextlib.redirect_stdout(io.StringIO()) as o:
+    ep.inspect(FIX)
+insp = json.loads(o.getvalue())
+assert insp["filter_hz"] is None and insp["baseline"] is None and insp.get("note"), insp
+
+# j. a continuous .set stops with a clear message
+with tempfile.TemporaryDirectory() as d:
+    cont = Path(d) / "cont.set"
+    info = mne.create_info(CH, 500.0, "eeg")
+    info.set_montage(MONTAGE)
+    mne.io.RawArray(np.zeros((len(CH), 1000)), info, verbose="error").export(cont, fmt="eeglab")
+    try:
+        ep.read_epochs_any(cont)
+        raise AssertionError("a continuous .set was accepted")
+    except SystemExit as e:
+        assert "not an epoched EEGLAB file" in str(e), e
 
 print("OK")

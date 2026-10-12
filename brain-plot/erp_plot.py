@@ -5,7 +5,7 @@
     python erp_plot.py plot    <spec.json>     # one figure per component: .png/.svg + _caption.md + _run.json
     python erp_plot.py explore <spec.json>     # overview before windows are known
 
-<data_dir> holds one *-epo.fif or *-ave.fif per subject; sub-folders are groups. The subject ID is the file
+<data_dir> holds one *-epo.fif, *-ave.fif or epoched EEGLAB *.set per subject; sub-folders are groups. The subject ID is the file
 name up to the first "_", "-" or "." (BIDS: sub-01_… → sub-01). Input must be preprocessed EEG potentials (no bad channels left, one common
 channel set, time grid, baseline, filter and reference); the loader stops on any mismatch. The spec format and
 the rules this script enforces are in references/spec.md and docs/rules.md (repository root). Outputs go to brain_plot_<data folder>/ next to
@@ -354,6 +354,53 @@ def archive(out):
 
 
 # ---------- data ----------
+def is_epochs(f):
+    """An epochs file: MNE `*-epo.fif` or an epoched EEGLAB `.set`."""
+    return f.name.endswith("-epo.fif") or f.suffix.lower() == ".set"
+
+
+def eeglab_locking_types(f):
+    """Per epoch of an EEGLAB `.set`, the event type at latency 0 (EEGLAB's time-locking event). MNE names an epoch
+    holding several events `a/b` and its '/' tag matching then makes conditions overlap, so MNE's names are not used."""
+    from pymatreader import read_mat
+    m = read_mat(str(f))
+    eeg = m["EEG"] if "EEG" in m else m
+    epoch = eeg.get("epoch")
+    if not epoch:
+        die(f"{f.name}: not an epoched EEGLAB file (no EEG.epoch); epoch the data in EEGLAB first")
+    out = []
+    for types, lats in zip(epoch["eventtype"], epoch["eventlatency"]):
+        types = [types] if isinstance(types, (str, int, float)) else list(types)
+        lats = np.atleast_1d(np.asarray(lats, dtype=float))
+        i = int(np.argmin(np.abs(lats)))
+        if abs(lats[i]) > 1.0:
+            die(f"{f.name}: an epoch has no event at latency 0 (nearest {lats[i]:g} ms); the time-locking event is missing")
+        out.append(str(types[i]))
+    return out
+
+
+def read_info_any(f):
+    """Measurement info of an input file; an EEGLAB `.set` has no fiff header, so it is read through its epochs."""
+    if f.suffix.lower() == ".set":
+        return read_epochs_any(f).info
+    return mne.io.read_info(f, verbose="error")
+
+
+def read_epochs_any(f, **kw):
+    """Epochs from `*-epo.fif` (kw go to mne.read_epochs) or an EEGLAB `.set` (read_epochs_eeglab takes no preload/proj);
+    the `.set` conditions are the time-locking event types."""
+    if f.suffix.lower() != ".set":
+        return mne.read_epochs(f, **kw)
+    labels = eeglab_locking_types(f)
+    epochs = mne.read_epochs_eeglab(f, verbose="error")
+    if len(labels) != len(epochs):
+        die(f"{f.name}: {len(labels)} epochs in EEG.epoch but {len(epochs)} read by MNE")
+    ids = {name: i + 1 for i, name in enumerate(sorted(set(labels)))}
+    epochs.events[:, 2] = [ids[x] for x in labels]
+    epochs.event_id = ids
+    return epochs
+
+
 def subject_id(f):
     """File name up to the first _, - or . ; BIDS names keep their label: sub-01_task-x-ave.fif → sub-01."""
     return re.match(r"sub-[^_.]+|[^_\-.]+", f.name).group(0)
@@ -361,7 +408,7 @@ def subject_id(f):
 
 def find_groups(data_dir):
     root = Path(data_dir)
-    pat = lambda d: sorted(list(d.glob("*-epo.fif")) + list(d.glob("*-ave.fif")))
+    pat = lambda d: sorted(list(d.glob("*-epo.fif")) + list(d.glob("*-ave.fif")) + list(d.glob("*.set")))
     groups = {d.name: pat(d) for d in sorted(root.iterdir()) if d.is_dir() and pat(d)}
     if groups and pat(root):
         die(f"{root} has both group sub-folders and subject files at the top level")
@@ -403,10 +450,10 @@ def groups_from_metadata(found, col):
         die("group_by needs one flat folder of subject files, not group sub-folders")
     by = {}
     for f in found["all"]:
-        if not f.name.endswith("-epo.fif"):
+        if not is_epochs(f):
             die(f"{f.name}: group_by needs epochs files with metadata")
         try:
-            md = mne.read_epochs(f, preload=False, verbose="error").metadata
+            md = read_epochs_any(f, preload=False, verbose="error").metadata
         except Exception as e:
             print(f"WARNING: skipping unreadable/incomplete file {f.name}: {e}")
             continue
@@ -454,8 +501,8 @@ def available_conditions(spec, unit):
     names of an epochs file, or the comments of an averaged file."""
     if isinstance(unit, dict):
         return sorted(d.name for d in Path(spec["data"]).iterdir() if d.is_dir() and any(d.glob("*/*-ave.fif")))
-    if unit.name.endswith("-epo.fif"):
-        return list(mne.read_epochs(unit, preload=False, proj=False, verbose="error").event_id)
+    if is_epochs(unit):
+        return list(read_epochs_any(unit, preload=False, proj=False, verbose="error").event_id)
     return [e.comment for e in mne.read_evokeds(unit, proj=False, verbose="error")]
 
 
@@ -507,8 +554,8 @@ def read_conditions(f, conditions, query):
             if len(e) != 1 or e[0].kind != "average":
                 die(f"{f[c].name}: needs exactly one Evoked of kind 'average'")
             evs.append(e[0])
-    elif f.name.endswith("-epo.fif"):
-        ep = query_epochs(mne.read_epochs(f, proj=False, verbose="error"), f, conditions, query)
+    elif is_epochs(f):
+        ep = query_epochs(read_epochs_any(f, proj=False, verbose="error"), f, conditions, query)
         evs = [ep[c].average() for c in conditions]
     else:
         if query:
@@ -526,15 +573,16 @@ def read_conditions(f, conditions, query):
     return evs, [e.nave for e in evs]
 
 
-def contract(ev):
-    """Everything that must be identical across subjects and conditions for averaging to be valid."""
+def contract(ev, eeglab=False):
+    """Everything that must be identical across subjects and conditions for averaging to be valid. An EEGLAB `.set`
+    stores neither a baseline nor filter settings, so those are None for it (captions then do not invent them)."""
     info = ev.info
     locs = np.round(np.array([ch["loc"][:3] for ch in info["chs"]]), 5)
     dig = np.round(np.array([d["r"] for d in info["dig"] or []]).reshape(-1, 3), 5)
     return dict(ch_names=list(info.ch_names), types=sorted(set(ev.get_channel_types())), sfreq=info["sfreq"],
                 units=sorted({int(ch["unit"]) for ch in info["chs"]}), coord_frames=sorted({int(ch["coord_frame"]) for ch in info["chs"]}),
-                baseline=None if ev.baseline is None else [round(b, 4) for b in ev.baseline],
-                filter=[info["highpass"], info["lowpass"]], custom_ref=bool(info["custom_ref_applied"]),
+                baseline=None if (eeglab or ev.baseline is None) else [round(b, 4) for b in ev.baseline],
+                filter=None if eeglab else [info["highpass"], info["lowpass"]], custom_ref=bool(info["custom_ref_applied"]),
                 projs_unapplied=[p["desc"] for p in info["projs"] if not p["active"]],
                 n_times=len(ev.times), t0=round(float(ev.times[0]), 6),
                 locs=hashlib.md5(locs.tobytes()).hexdigest(), locs_finite=bool(np.isfinite(locs).all() and locs.any()),
@@ -554,10 +602,21 @@ def check_contract(label, k, ref, ref_label):
         die(f"{label} differs from {ref_label} in {diff}; the loader does not re-reference, resample or interpolate")
 
 
+def baseline_filter_text(k, sep):
+    """Caption words for the baseline and the filter; EEGLAB .set files record neither (contract filter is None)."""
+    if k["filter"] is None:
+        return "baseline and filter not recorded (EEGLAB .set)"
+    return f"baseline {k['baseline']} s{sep}filter {k['filter'][0]:g}–{k['filter'][1]:g} Hz"
+
+
 def file_stamp(f):
     """Cache identity of an input file: path, size, modification time (a changed file invalidates its cache)."""
     st = Path(f).stat()
-    return [str(f), st.st_size, st.st_mtime_ns]
+    stamp = [str(f), st.st_size, st.st_mtime_ns]
+    fdt = Path(f).with_suffix(".fdt")
+    if Path(f).suffix.lower() == ".set" and fdt.exists():  # EEGLAB keeps the data of a .set in a sibling .fdt
+        stamp += [fdt.stat().st_size, fdt.stat().st_mtime_ns]
+    return stamp
 
 
 def load(spec):
@@ -572,7 +631,7 @@ def load(spec):
         cache.touch()  # most recently used: kept by prune_cache()
         z = np.load(cache, allow_pickle=True)
         meta = json.loads(str(z["meta"]))
-        info = mne.io.read_info(files[0], verbose="error")
+        info = read_info_any(files[0])
         if list(info.ch_names) == meta["contract"]["ch_names"]:
             data = {g: z[g] for g in groups}
             flat_check(spec, data, info.ch_names, meta)  # also on cached data: flat_channels may have changed
@@ -586,7 +645,7 @@ def load(spec):
             for c, ev in zip(conds, evs):
                 if ev.info["bads"]:
                     die(f"{f.name} [{c}]: bad channels {ev.info['bads']} are still marked; resolve them before plotting")
-                k = contract(ev)
+                k = contract(ev, eeglab=f.suffix.lower() == ".set")
                 if ref is None:
                     ref, ref_file, times, info = k, f.name, ev.times, ev.info
                 check_contract(f"{f.name} [{c}]", k, ref, ref_file)
@@ -651,7 +710,7 @@ def discover(data_dir):
     conds = sorted(d.name for d in root.iterdir() if d.is_dir() and any(d.glob("*/*-ave.fif")))
     if conds:
         return split_layout(root, conds)
-    die(f"no *-epo.fif or *-ave.fif in {root}, its group sub-folders, or <condition>/<group>/ folders")
+    die(f"no *-epo.fif or *-ave.fif (or EEGLAB *.set epochs) in {root}, its group sub-folders, or <condition>/<group>/ folders")
 
 
 def inspect(data_dir):
@@ -663,16 +722,16 @@ def inspect(data_dir):
             if isinstance(u, dict):
                 for c, f in u.items():
                     trials.setdefault(c, []).append(mne.read_evokeds(f, verbose="error")[0].nave)
-            elif u.name.endswith("-epo.fif"):
-                ep = mne.read_epochs(u, preload=False, verbose="error")
+            elif is_epochs(u):
+                ep = read_epochs_any(u, preload=False, verbose="error")
                 for c in ep.event_id:
                     trials.setdefault(c, []).append(len(ep[c]))
             else:
                 for e in mne.read_evokeds(u, verbose="error"):
                     trials.setdefault(e.comment, []).append(e.nave)
     f0 = unit_files(next(iter(groups.values()))[0])[0]
-    if f0.name.endswith("-epo.fif"):
-        ep = mne.read_epochs(f0, preload=False, verbose="error")
+    if is_epochs(f0):
+        ep = read_epochs_any(f0, preload=False, verbose="error")
         info, times, baseline, md = ep.info, ep.times, ep.baseline, ep.metadata
     else:
         ev = mne.read_evokeds(f0, verbose="error")
@@ -684,6 +743,10 @@ def inspect(data_dir):
     out["time_range_ms"] = [round(times[0] * 1000), round(times[-1] * 1000)]
     out["sfreq"], out["baseline"] = info["sfreq"], baseline
     out["filter_hz"] = [info["highpass"], info["lowpass"]]
+    if f0.suffix.lower() == ".set":
+        out["filter_hz"] = None
+        out["baseline"] = None
+        out["note"] = "EEGLAB .set stores neither the baseline nor the filter settings; conditions are the time-locking event types"
     out["custom_reference_applied"] = bool(info["custom_ref_applied"])
     out["bads"] = info["bads"]
     if md is not None:
@@ -1903,9 +1966,10 @@ def caption(spec, comp, meta, groups, conds, out, ms, v, sphere, kind, level=Non
         per = np.array([s[i] for g in gs for s in meta["nave"][g]])
         L.append(f"- {spec['conditions'][c]}: trials per subject mean {per.mean():.1f} (range {per.min()}–{per.max()})")
     L.append(f"- Trial selection: {spec.get('query') or 'as stored in the files (no further selection)'}")
-    L.append("- " + (f"Time-locked to: {spec['time_locked_to']}; baseline" if spec.get("time_locked_to") else "Baseline")
-             + f" {k['baseline']} s; filter {k['filter'][0]:g}–{k['filter'][1]:g} Hz"
-             + (f"; reference: {spec['reference']}" if spec.get("reference") else "") + " (identical in every panel, rule S1)")
+    bf = baseline_filter_text(k, "; ")
+    lead = f"Time-locked to: {spec['time_locked_to']}; {bf}" if spec.get("time_locked_to") else bf[0].upper() + bf[1:]
+    L.append("- " + lead + (f"; reference: {spec['reference']}" if spec.get("reference") else "")
+             + " (identical in every panel, rule S1)")
     if spec.get("flat_channels"):
         L.append(f"- Flat channels kept (spec flat_channels, e.g. the reference electrode): {', '.join(spec['flat_channels'])}")
     if kind == "erp":

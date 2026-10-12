@@ -1,4 +1,4 @@
-# brain-plot — handoff (2026-10-11)
+# brain-plot — handoff (2026-10-12)
 
 Start of every new session: read this file, then `docs/review-log.md` (newest entries at the bottom).
 
@@ -16,6 +16,16 @@ Three modules (ERP, microstate, time-frequency), tests pass, everything committe
 - Outputs (rules O1–O3): `brain_plot_<data folder name>/` next to the data folder (was `brain-plot/` until
   2026-09-30 — two data sets in one parent overwrote each other) → `ERP/`, `topo/`, `ERP_topo/`, `TFR/`,
   `microstate/`, `specs/`, `.cache/`; names say what the figure is; re-renders get `_vNN+1`, old versions move to `_history/`.
+
+## 2026-10-12: BESA and EEGLAB input (committed; cards `docs/orch/2026-10-12-besa-to-run/`, `-eeglab-set-input/`)
+- `brain-plot/besa_to_run.py convert` turns a BESA Statistics paired-t cluster project (Results.dat + cluster summary csv + .avr +
+  channels.elp) into the run folder `cluster_plot.py` reads. GN check: t equals scipy / MNE t to 9e-5; mask agrees with MNE on 99.78 %.
+  GN BESA figures: `besa_check/brain_plot_besa_run/cluster/`, specs `docs/besa-candidates/` (waves channels = module recommendation, not yet confirmed).
+- Epoched EEGLAB `.set` (+ `.fdt`) is accepted wherever `-epo.fif` is (ERP, TFR, source, microstate captions). Condition = event at latency 0
+  (MNE joins multi-event epochs as `a/b` and its `/` matching overlaps conditions). `.set` has no baseline/filter: contract None, caption "not recorded".
+  Real fixtures built with MATLAB + EEGLAB 2025.0.0: `brain-plot/test/data/eeglab/` (+ `make_eeglab_fixture.m`, MATLAB-side `counts.csv`).
+- Open: BESA p = 0 prints as `p=0` in the cluster caption (cluster_plot.py:413); the EEGLAB sample data has EOG1/EOG2 as `eeg` channels;
+  `.set` baseline/filter could be recovered from `EEG.history` (not done); continuous `.set` is refused.
 
 ## Next (start here) — 2026-10-11 night: waves v2 approved; the /rv fixes are applied (commit 8fc3ba6)
 **Applied (wb card `docs/orch/2026-10-11-cluster-waves-v2-rv/`, review luna PASS, 0 real findings):** uv colour no longer

@@ -99,7 +99,7 @@ def load_and_compute(spec):
     first_file = ep.unit_files(first_unit)[0]
 
     try:
-        ep_test = mne.read_epochs(first_file, preload=False, verbose="error")
+        ep_test = ep.read_epochs_any(first_file, preload=False, verbose="error")
     except Exception as e:
         ep.die(f"cannot read epochs file {first_file}: {e}")
 
@@ -188,12 +188,12 @@ def load_and_compute(spec):
                 times_s, data, nave = cached
             else:
                 try:
-                    ep_sub = mne.read_epochs(f, proj=False, verbose="error")
+                    ep_sub = ep.read_epochs_any(f, proj=False, verbose="error")
                 except Exception as e:
                     ep.die(f"cannot read {f.name}: {e}; fix the file or list the subject in 'exclude'")
                 if ep_sub.info["bads"]:
                     ep.die(f"{f.name}: bad channels {ep_sub.info['bads']} are still marked; resolve them before plotting")
-                k = json.loads(json.dumps(ep.contract(ep_sub)))
+                k = json.loads(json.dumps(ep.contract(ep_sub, eeglab=f.suffix.lower() == ".set")))
 
                 ep_sub = ep.query_epochs(ep_sub, f, spec["conditions"], spec.get("query"))
 

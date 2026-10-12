@@ -506,9 +506,8 @@ def caption(spec, meta, out, paths, facts):
          "- Groups: " + ", ".join(f"{g} (n = {len(v)})" for g, v in meta["ids"].items())]
     if spec.get("exclude"):
         L.append("- Excluded: " + ep.excluded(spec))
-    L.append(f"- Grand average: each subject's condition average, subjects weighted equally; baseline {k['baseline']} s, "
-             f"filter {k['filter'][0]:g}–{k['filter'][1]:g} Hz" + (f", reference: {spec['reference']}" if spec.get("reference") else "")
-             + " (identical in every panel, rule S1)")
+    L.append(f"- Grand average: each subject's condition average, subjects weighted equally; {ep.baseline_filter_text(k, ', ')}"
+             + (f", reference: {spec['reference']}" if spec.get("reference") else "") + " (identical in every panel, rule S1)")
     if spec.get("flat_channels"):
         L.append(f"- Flat channels kept (spec flat_channels, e.g. the reference electrode): {', '.join(spec['flat_channels'])}")
     L.append(f"- Segmentation: each sample of the grand average (average reference, unit norm) gets the template with the "

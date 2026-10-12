@@ -133,7 +133,9 @@ Relative `data` and `templates` paths are taken from the spec file's folder. All
 ## Input data
 
 - One MNE file per subject: `*-epo.fif` (Epochs; conditions are event names) or `*-ave.fif` (Evoked; conditions are
-  comments). Subject ID = file name up to the first `_`, `-` or `.` (BIDS: `sub-01_…` → `sub-01`).
+  comments), or an epoched EEGLAB `*.set` (+ `.fdt`; conditions are the time-locking event types, the event at latency 0;
+  a `.set` records no baseline or filter, so captions say "not recorded"). Subject ID = file name up to the first `_`, `-`
+  or `.` (BIDS: `sub-01_…` → `sub-01`).
 - Groups: sub-folders (`data/<group>/<subject>…`), a metadata column (`group_by`), or
   `data/<condition>/<group>/<subject>…-ave.fif`. A flat folder is one group.
 - EEG in volts with channel positions (montage set). All subjects must share channels, sampling rate, time grid,
