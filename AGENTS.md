@@ -8,11 +8,9 @@
 - Every new figure: open it in the chat for the user; give its full path as a footnote.
 
 ## Map
-- Plot modules: `brain-plot/erp_plot.py`, `microstate_plot.py`, `tfr_plot.py`, `source_plot.py`; skill router
-  `brain-plot/SKILL.md`; per-module docs `brain-plot/references/*.md`; the only rule list `docs/rules.md`.
-- Tests: `python brain-plot/test/test_<module>.py` (erp_plot, layout, microstate, tfr, source) — each prints OK.
-  Run the one for the module you touched; it is the fastest proof.
-- Python = conda env `mnedev`. MNE needs a writable `~/.mne`; in a sandbox set `_MNE_FAKE_HOME_DIR` to a temp dir.
+- Skill router: `brain-plot/SKILL.md`; per-module docs: `brain-plot/references/*.md`; the only rule list: `docs/rules.md`.
+- Run the test for the module you touched.
+- Python = conda env `mne` (Python 3.12, MNE dev main; pyvistaqt pinned 0.12.0 — 0.13.1 renders black 3D screenshots). MNE needs a writable `~/.mne`; in a sandbox set `_MNE_FAKE_HOME_DIR` to a temp dir.
 
 ## Hard rules
 - Reuse existing helpers in the module; never copy a block that already exists. Keep the house style

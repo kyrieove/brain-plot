@@ -1,0 +1,4 @@
+{"data": "C:/Users/ASUS/Dropbox/metaphor_production/gn_manuscript/03-ERP_topomap/03_cluster_inference/01_cluster_based_permutation_0000_0800ms",
+ "tests": ["01_condition_main_effect_all", "03_within_td_condition_effect"],
+ "labels": {"01_condition_main_effect_all": "All (N = 95): NoGO − GO", "03_within_td_condition_effect": "TD (N = 31): NoGO − GO"},
+ "layout": "columns"}
