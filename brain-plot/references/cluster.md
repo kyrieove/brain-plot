@@ -23,6 +23,17 @@ difference. Developer reference: `docs/rules.md`.
 |---|---|
 | `python cluster_plot.py plot <spec.json>` | Read a saved cluster run and draw one figure per test. |
 
+## BESA Statistics input
+
+`python besa_to_run.py convert --results R --summary S --avr-dir A --elp E --cond-a NoGO --cond-b GO --out O` turns one
+BESA Statistics paired-t cluster project into a run folder this module reads unchanged (`--group-dir`, `--slug` and
+`--alpha` are optional). It copies BESA's numbers — the t map, the cluster ids and the p-values exactly as written (a
+`p = 0` stays 0 and means `p < 1/permutations`) — and computes nothing except the cluster-forming threshold from the
+summary's Cluster Alpha and the pair count. It needs the project's `*_Results.dat` (its `IntermediateFiles`), the
+exported "Summary of Cluster Statistics" csv, the per-subject `.avr` files and `channels.elp`, and stops when those
+files disagree with each other. The per-subject `.fif` files are rebuilt from the `.avr` files, so their `nave` stays
+empty. Draw with the normal cluster spec, `data` = the new run folder.
+
 ## Interview rounds
 
 Read the run's own notes first (`run_metadata.json`, `test_metadata.json`): they settle the tests, the difference

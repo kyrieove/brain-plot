@@ -1,0 +1,7 @@
+{
+ "data": "C:/Users/ASUS/Dropbox/metaphor_production/gn_manuscript/10-ERP_stats/02_v2_cluster_three-groups/besa_check/besa_run",
+ "tests": ["01_cond_all"],
+ "labels": {"01_cond_all": "All (N = 130): NoGO − GO"},
+ "layout": "columns",
+ "channel_order": "lmr"
+}

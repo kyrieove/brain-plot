@@ -1,0 +1,11 @@
+{
+ "data": "C:/Users/ASUS/Dropbox/metaphor_production/gn_manuscript/10-ERP_stats/02_v2_cluster_three-groups/besa_check/besa_run",
+ "tests": ["01_cond_all"],
+ "labels": {"01_cond_all": "All (N = 130): NoGO − GO"},
+ "layout": "waves",
+ "waves_channels": {
+  "01_cond_all/1": ["C3", "FC3", "F5", "Fp1", "AF7", "FC5"],
+  "01_cond_all/2": ["PO8", "O2", "Oz", "P8", "O1", "Iz"],
+  "01_cond_all/3": ["Oz", "Iz", "O1", "O2", "PO3", "PO7"]
+ }
+}
