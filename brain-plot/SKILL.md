@@ -65,7 +65,14 @@ Ask once, in round 1, whether the figure is for a paper or a slide; never ask fo
    `_caption.md` (facts for the caption; not for source maps, by user decision), `_run.json`
    (spec, subjects, versions, checks), named by content and versioned `_vNN`. Later runs use a cache that is
    invalidated when any input file changes.
-5. **Check the PNG, then report.** Open each PNG and go through the module's QA list. Report every `layout_issues`
+5. **Check the PNG, then report.** Open each PNG and go through the module's QA list. Two layers: the script checks
+   what can be measured (`layout_issues`: overlaps, text off the canvas — errors to fix), and you look at what only
+   the eye can judge. Before judging, describe the figure in one sentence per region (what fills it, how much is
+   empty), then ask the reader's question: does anything look odd — proportions, empty bands, crowding, maps or
+   text too small for the canvas? `layout_notes` (and `NOTE:` lines) are the script's hints for this look: open the
+   region each names and decide — fix it, or say in `qa` why it is fine. The house rules are defaults, not walls:
+   when a rule produces an obviously odd figure, a layout key (size, `map_placement`, `grid`, `axes`) may change
+   without re-confirmation; tell the user what you changed and why. Report every `layout_issues`
    entry and fix what the spec can fix; write the QA result into the `qa` field of each `_run.json`; list every
    `open_items` field to the user as still open. Tell the user what you checked, what is still open, and where the
    files are. Hand the caption facts over as facts to write a caption from, not as a finished caption:

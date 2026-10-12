@@ -22,6 +22,7 @@ from pathlib import Path
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import matplotlib.transforms as mtransforms
 import mne
 import numpy as np
 from matplotlib.backends.backend_agg import FigureCanvasAgg
@@ -165,14 +166,6 @@ def layout_issues(fig):
     W, H = fig.bbox.width, fig.bbox.height
     boxes = [(t, t.get_window_extent(R).shrunk(0.9, 0.8)) for t in drawn_texts(fig)]
     out = []
-    for n, a in enumerate(fig.axes):  # rule L4: a stretched map column leaves its gridspec cell mostly empty
-        ss = a.get_subplotspec() if a.images else None
-        if ss is None:
-            continue
-        cell, box = ss.get_position(fig).transformed(fig.transFigure), a.get_window_extent(R)
-        if cell.height > 1.5 * box.height or cell.width > 1.5 * box.width:
-            pct = round(100 * (1 - box.width * box.height / (cell.width * cell.height)))
-            out.append(f"map cell {pct}% empty around {a.get_title() or a.get_label() or f'axes {n}'}; the map column is stretched (rule L4)")
     for t, b in boxes:
         if b.x0 < -0.5 or b.y0 < -0.5 or b.x1 > W + 0.5 or b.y1 > H + 0.5:
             out.append(f"text outside the canvas: {t.get_text()!r}")
@@ -197,18 +190,43 @@ def layout_issues(fig):
     return sorted(set(out))
 
 
-def canvas_notes(w_mm, h_mm):
-    """Canvas standard (SKILL.md Canvas): notes only, never stops a render."""
-    return ([f"wider than a journal double column (183 mm); text prints small — SKILL.md Canvas"] if w_mm > 183 else []) +            ([f"taller than a journal page (230 mm)"] if h_mm > 230 else [])
+def layout_notes(fig):
+    """Advisories, not errors (the agent looks at the figure and decides, SKILL.md step 5): map cells left mostly empty
+    by a stretched map area (rule L4), and a canvas outside the paper / slide sizes (SKILL.md Canvas). Call after
+    layout_issues (the figure is drawn)."""
+    R = fig.canvas.get_renderer()
+    empty = []
+    for a in fig.axes:
+        ss = a.get_subplotspec() if a.images else None
+        if ss is not None:
+            cell, box = ss.get_position(fig).transformed(fig.transFigure), a.get_window_extent(R)
+            empty.append(1 - box.width * box.height / (cell.width * cell.height))
+    out = []
+    big = [e for e in empty if e > 0.5]
+    if big:
+        out.append(f"{len(big)} of {len(empty)} map cells are {round(100 * min(big))}–{round(100 * max(big))} % empty: "
+                   "check that the maps fill their area (rule L4)")
+    w, h = fig.get_size_inches() * 25.4
+    if w > 183.5:
+        out.append(f"{w:.0f} mm wide: wider than a journal double column (183 mm), text prints small (SKILL.md Canvas)")
+    if h > 230.5:
+        out.append(f"{h:.0f} mm tall: taller than a journal page (230 mm) (SKILL.md Canvas)")
+    return out
 
 
-def report_layout(fig, what):
-    """Print the layout issues of a finished figure (rule QA 1) and return them for _run.json."""
+def report_layout(fig, what, notes=None):
+    """Print the layout issues (rule QA 1) and the advisory notes of a finished figure; return the issues for
+    _run.json. Pass a list as notes to receive the notes too."""
     issues = layout_issues(fig)
     for x in issues[:12]:
         print(f"WARNING: layout ({what}): {x}")
     if len(issues) > 12:
         print(f"WARNING: layout ({what}): … {len(issues) - 12} more in _run.json")
+    found = layout_notes(fig)
+    for x in found:
+        print(f"NOTE: layout ({what}): {x}")
+    if notes is not None:
+        notes.extend(found)
     return issues
 
 
@@ -1648,8 +1666,9 @@ def draw(spec, comp, panels, lines, colors, stats, topo, v, info, ms, t, lo, hi,
             tax.text(0.5, -0.04, lab, transform=tax.transAxes, ha="center", va="top", fontsize=6)
             n_maps += 1
         pos = area.get_position(fig)
-        fig.text((pos.x0 + pos.x1) / 2, pos.y1 + 0.01, f"{comp['name']}  {comp['tmin_ms']:g}–{comp['tmax_ms']:g} ms",
-                 ha="center", va="bottom", fontsize=6.5)  # rule S4: window stated in the figure
+        fig.text((pos.x0 + pos.x1) / 2, pos.y1, f"{comp['name']}  {comp['tmin_ms']:g}–{comp['tmax_ms']:g} ms",
+                 ha="center", va="bottom", fontsize=6.5,  # rule S4: window stated in the figure; 10 pt up clears
+                 transform=mtransforms.offset_copy(fig.transFigure, fig=fig, y=10, units="points"))  # the map letter
     for ax, p in axes:  # ticks last: a single-panel legend may have grown the shared y-range
         if spec.get("axes", "cross") == "box":
             box_axes(ax, fig, lo, hi, ylim, negative_up)
@@ -1890,13 +1909,14 @@ def plot(spec):
             stem = {"combo": f"ERP-topo{'-inset' if inset else ''}_{comp['name']}_{chans}_{win}",
                     "topo": f"topo_{comp['name']}_{win}"}[kind] + f"_{comparison(spec)}{subset}"
             out = versioned(out_root(spec) / KIND_DIR[kind], stem)
-        issues = report_layout(fig, out.name) + canvas_notes(*canvas_size(spec))  # rule QA 1, in code
+        notes = []
+        issues = report_layout(fig, out.name, notes)  # rule QA 1, in code
         for ext in ("svg", "png"):  # rule T5: PNG to view, SVG with editable text to adjust
             fig.savefig(f"{out}.{ext}", dpi=600 if ext == "png" else None)
         plt.close(fig)
         caption(spec, comp, meta, groups, conds, out, ms, v, sphere, kind)
         write_run(spec, meta, out, comp, ms, size, n_lines, n_maps, legend=placed, gap_mm=float(gap_mm),
-                  layout_issues=issues,
+                  layout_issues=issues, layout_notes=notes,
                   colour_distinctness=colour_check(colors[:len(lines)], "line colours", line_styles(spec, len(lines)))
                   if kind != "topo" else None,
                   colour_limit_uV=float(v), sensor_max_uV=float(v_sensor), interpolated_max_uV=float(peak),
@@ -1947,12 +1967,12 @@ def plot_grid(spec, data, info, meta, panels, lines, get, colors, labels, ms, t,
         stem = (f"ERP-grid-{len(rows)}x{max(len(r) for r in rows)}_{chans}_{what}_{safe(plabel)}{band_part(comps)}"
                 + subset_part(spec, meta, (what,)))  # rule O3: the facet level is named; a subset of the lines is too
         out = versioned(out_root(spec) / "ERP", stem)
-        n, issues = wave_grid(spec, "", grid, info, x, labels, colors, styles, ms, t, lo, hi, negative_up, plabel,
+        n, issues, notes = wave_grid(spec, "", grid, info, x, labels, colors, styles, ms, t, lo, hi, negative_up, plabel,
                               out, bands=comps, dpi=600)
         comp = dict(channels=sum(rows, []), bands=comps)
         caption(spec, comp, meta, list(data), list(spec["conditions"]), out, ms, 0, None, "erp", level=p)
         write_run(spec, meta, out, comp, ms, list(canvas_size(spec)), n, 0, legend="under the grid",
-                  layout_issues=issues,
+                  layout_issues=issues, layout_notes=notes,
                   colour_distinctness=colour_check(colors[:len(lines)], "line colours", styles))
         archive(out)
         outs.append(out)
@@ -2135,11 +2155,12 @@ def wave_grid(spec, title, grid, info, x, labels, colors, styles, ms, t, lo, hi,
     fig.legend(h, lab, loc="lower center", bbox_to_anchor=(0.5, 1 / H), ncol=leg_cols, **LEGEND_KW)
     fig.text(0.5, 1 - 3 / H, f"{title} · {facet}" if title else facet, ha="center", va="top", fontsize=8,
              fontweight="bold")
-    issues = report_layout(fig, out.name) + canvas_notes(W, H)  # rule QA 1, in code
+    notes = []
+    issues = report_layout(fig, out.name, notes)  # rule QA 1, in code
     fig.savefig(f"{out}.png", dpi=dpi)
     fig.savefig(f"{out}.svg")
     plt.close(fig)
-    return n, issues
+    return n, issues, notes
 
 
 def topo_table(spec, data, conds, labels, comps, info, ms, sphere, facet, out):

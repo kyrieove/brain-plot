@@ -270,12 +270,12 @@ with tempfile.TemporaryDirectory() as d:
     mid = (max(b.y1 for b in heads) + min(b.y0 for b in heads)) / 2
     assert abs(mid - (wave.y0 + wave.y1) / 2) * mm <= 3, (mid, wave)
     inside_canvas(fig)
-    wide = lambda: json.loads(latest(root, "ERP_topo", "ERP-topo_*_run.json").read_text(encoding="utf8"))["layout_issues"]
+    wide = lambda: json.loads(latest(root, "ERP_topo", "ERP-topo_*_run.json").read_text(encoding="utf8"))["layout_notes"]
     assert any("wider than a journal double column (183 mm)" in x for x in wide()), wide()  # canvas standard: a note, no stop
     ep.plot(spec(root, groups=["G1"], overlay="conditions", kind="erp", channels=["Cz", "Pz"], width_mm=180, height_mm=120,
                  components=[dict(name="P3", tmin_ms=100, tmax_ms=200, window_source="test")]))
     run180 = json.loads(latest(root, "ERP", "ERP-ROI_Cz-Pz_*_run.json").read_text(encoding="utf8"))
-    assert not any("wider than" in x for x in run180["layout_issues"]), run180["layout_issues"]  # 180 mm: no width note
+    assert not any("wider than" in x for x in run180["layout_notes"]), run180["layout_notes"]  # 180 mm: no width note
 
     # 4c. kind "erp" by channel (rule K1): all channels one file each in one versioned folder; grid per facet level;
     #     no band unless components are given; spec errors
