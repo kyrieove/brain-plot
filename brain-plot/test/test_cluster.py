@@ -236,6 +236,10 @@ def run_tests():
         expect = np.array(subj).mean(0)
         assert len(tt) == expect.shape[0], "cluster_waves time axis length"
         assert np.max(np.abs(waves[c0["cluster_id"]][0] - expect)) < 1e-9, "cluster_waves mean_a differs from numpy"
+        # (t) chans may name only some of the test's clusters; the others are not read
+        tw2 = dict(tw, clusters=tw["clusters"] + [dict(c0, cluster_id=-1)])
+        _, waves2, _ = cluster_plot.cluster_waves(read_w, tw2, run, {c0["cluster_id"]: sel})
+        assert list(waves2) == [c0["cluster_id"]], "cluster_waves needs chans for every cluster"
         print("cluster waves: mean_a matches a plain-numpy mean over the chosen channels and subjects")
 
         # (p) waves stops: only an interaction, no waves_channels (with a recommendation), an unknown channel

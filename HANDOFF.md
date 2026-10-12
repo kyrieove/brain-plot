@@ -23,8 +23,8 @@ stops on `layout: "waves"`; `peak_window_ms` must lie inside the result time axi
 `waves_channels` stops; the caption says "user-given window lo–hi ms" when the spec sets `peak_window_ms`; `waves_parts` and
 the legend handles simplified. Each fix has a `(t)` assert in `test/test_cluster.py`. GN re-rendered after the fixes
 (2026-10-12): `cluster_waves_t01_v06.png`, `_t03_v06.png` are pixel-identical to v05, captions identical, `layout_issues`
-empty. Deferred P3 (not fixed): `cluster_waves` needs `chans` for every
-cluster of the test.
+empty. Deferred P3 fixed (2026-10-12): `cluster_waves` reads only the cluster ids in `chans`
+(`(t)` assert in `test/test_cluster.py`; `plot_waves` passes every cluster, so figures are unchanged).
 
 State: `layout: "waves"` v2 is the user-approved house style (commits 9c90894, de23bf7, 94b9588; spec `docs/plan-waves-v2.md`,
 card `docs/orch/2026-10-11-cluster-waves-v2`, render `cluster_waves_t01_v05.png`, GN spec `docs/cluster-waves-candidates/spec_gn_waves.json`).

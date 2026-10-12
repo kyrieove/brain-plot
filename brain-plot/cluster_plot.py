@@ -276,14 +276,14 @@ def diff_uv(run, test, run_dir):
 
 
 def cluster_waves(run, test, run_dir, chans):
-    """Per significant cluster of one test: the grand average over subjects of condition A and of condition B (µV, mean
-    over `chans[cluster id]`) on the evoked time axis, each with its 95 % CI. Returns the time axis in ms, a
+    """Per cluster id in `chans` (the test's other clusters are not read): the grand average over subjects of condition
+    A and of condition B (µV, mean over `chans[cluster id]`) on the evoked time axis, each with its 95 % CI. Returns the time axis in ms, a
     {cluster id: (mean_a, ci_a, mean_b, ci_b)} mapping (the ci values are half-widths) and the subject count."""
     _, _, pairs, root = pairs_of(run, test, run_dir)
     ch_names = run["ch_names"]
-    want = list(dict.fromkeys(ch_names + [ch for c in test["clusters"] for ch in chans[c["cluster_id"]]]))
+    want = list(dict.fromkeys(ch_names + [ch for sel in chans.values() for ch in sel]))
     ref = None
-    acc = {c["cluster_id"]: ([], []) for c in test["clusters"]}
+    acc = {cid: ([], []) for cid in chans}
     for file_a, file_b in pairs:
         ev_a = mne.read_evokeds(root / file_a, verbose="error")[0]
         ev_b = mne.read_evokeds(root / file_b, verbose="error")[0]
@@ -297,11 +297,11 @@ def cluster_waves(run, test, run_dir, chans):
             elif not np.allclose(ev.times, ref):
                 ep.die(f"{fname}: its evoked time axis differs from the first file's; cluster waveforms need one "
                        "shared time axis")
-        for c in test["clusters"]:
-            ia = [ev_a.ch_names.index(ch) for ch in chans[c["cluster_id"]]]
-            ib = [ev_b.ch_names.index(ch) for ch in chans[c["cluster_id"]]]
-            acc[c["cluster_id"]][0].append(ev_a.data[ia].mean(0) * 1e6)
-            acc[c["cluster_id"]][1].append(ev_b.data[ib].mean(0) * 1e6)
+        for cid, sel in chans.items():
+            ia = [ev_a.ch_names.index(ch) for ch in sel]
+            ib = [ev_b.ch_names.index(ch) for ch in sel]
+            acc[cid][0].append(ev_a.data[ia].mean(0) * 1e6)
+            acc[cid][1].append(ev_b.data[ib].mean(0) * 1e6)
     n = len(pairs)
     half = stats.t.ppf(0.975, n - 1)
     waves = {}
