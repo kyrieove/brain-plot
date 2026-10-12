@@ -536,3 +536,4 @@ final rules read as they do.
 - 2026-10-11 cluster-waves-v2-rv: In `brain-plot/cluster_plot.py`, with `layout: "waves"`, after the change: (docs/orch/2026-10-11-cluster-waves-v2-rv/card.md)
 - 2026-10-12 besa-to-run: new `brain-plot/besa_to_run.py` converts a BESA Statistics paired-t cluster result (+ .avr, channels.elp) into the run folder cluster_plot.py reads; test `test/test_besa.py` (docs/orch/2026-10-12-besa-to-run/card.md)
 - 2026-10-12 eeglab-set-input: epoched EEGLAB .set (+ .fdt) read wherever -epo.fif is; condition = event at latency 0; no baseline/filter in captions; real fixtures in brain-plot/test/data/eeglab (docs/orch/2026-10-12-eeglab-set-input/card.md)
+- 2026-10-12 combo-side-adaptive: In `kind: "combo"`, `map_placement: "side"`, the topomap head size follows the waveform panel height and the canvas (docs/orch/2026-10-12-combo-side-adaptive/card.md)

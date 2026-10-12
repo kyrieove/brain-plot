@@ -1138,6 +1138,7 @@ def topo_grid(n_lines):
 
 
 MIN_WAVE_MM = 15.0  # a waveform panel shorter than this cannot hold legible ticks, labels and lines (rule L3)
+SIDE_MAP_SHARE, SIDE_HEAD_MAX_MM = 0.45, 40.0  # rule L4: side map column ≤ 45 % of the usable width; head ≤ 40 mm
 
 
 def wave_panel_mm(H, n, box=False):
@@ -1156,7 +1157,7 @@ def inset_mode(spec):
 
 def canvas(spec, n, n_lines, gap=GAP_MM, maps=True):
     """Fixed physical canvas, all widths in mm (wspace 0): waveforms | gap (8 mm, widened for the legend by rule L7)
-    | topomaps (~19 mm per head column, at most 55 % of what is left) | spacer | colour bar. Stops when the stacked
+    | topomaps (head side from the panel height, at most 40 mm and 45 % of what is left) | spacer | colour bar. Stops when the stacked
     panels would be shorter than MIN_WAVE_MM (rule L3), naming a height_mm that works."""
     W, H = canvas_size(spec)
     is_box = spec.get("axes", "cross") == "box"
@@ -1175,7 +1176,11 @@ def canvas(spec, n, n_lines, gap=GAP_MM, maps=True):
     top_m = 9.0
     bot_m = 14.0 if is_box else 9.0
     usable = W - left_m - right_m - gap - pad - bar  # side margins
-    topo_mm = min(19 * topo_grid(n_lines)[1], 0.55 * usable) if maps else tiny
+    nrow_t, ncol_t = topo_grid(n_lines)
+    cols = ncol_t + 0.02 * (ncol_t - 1)  # columns + the subgrid's wspace 0.02 in draw()
+    head = min((wave_panel_mm(H, n, is_box) - (nrow_t - 1) * MAP_GAP_MM) / nrow_t,  # rows fill the panel height
+               SIDE_HEAD_MAX_MM, SIDE_MAP_SHARE * usable / cols)
+    topo_mm = head * cols if maps else tiny
     avail, need = H - top_m - bot_m, 18.0 if is_box else 13.0  # facet label + ROI title + letter need 13 mm (18 mm in box mode)
     hspace = 0.55 if n < 2 or 0.55 * avail / (n + 0.55 * (n - 1)) >= need else need / ((avail - (n - 1) * need) / n)
     gs = GridSpec(n, 5, figure=fig, width_ratios=[usable - topo_mm, gap, topo_mm, pad, bar],
@@ -1607,9 +1612,14 @@ def draw(spec, comp, panels, lines, colors, stats, topo, v, info, ms, t, lo, hi,
             continue
         # rule L4: topomaps to the right, one per line, near-square grid, black labels
         nrow_t, ncol_t = topo_grid(len(lines))
-        sub = gs[r_i, 2].subgridspec(nrow_t, ncol_t, wspace=0.02,
-                                     hspace=map_hspace(gs[r_i, 2].get_position(fig).height * canvas_size(spec)[1],
-                                                       nrow_t, 0.25))
+        W, H = canvas_size(spec)
+        cell = gs[r_i, 2].get_position(fig)
+        cell_w, cell_h = cell.width * W, cell.height * H
+        head = min(cell_w / (ncol_t + 0.02 * (ncol_t - 1)), (cell_h - (nrow_t - 1) * MAP_GAP_MM) / nrow_t)
+        block = nrow_t * head + (nrow_t - 1) * MAP_GAP_MM
+        pad = (cell_h - block) / 2
+        area = gs[r_i, 2].subgridspec(3, 1, height_ratios=[pad, block, pad], hspace=0)[1] if pad > 0.5 else gs[r_i, 2]
+        sub = area.subgridspec(nrow_t, ncol_t, wspace=0.02, hspace=MAP_GAP_MM / head if nrow_t > 1 else 0)
         for j, (l, lab) in enumerate(lines):
             tax = fig.add_subplot(sub[j // ncol_t, j % ncol_t])
             if j == 0:
@@ -1624,7 +1634,7 @@ def draw(spec, comp, panels, lines, colors, stats, topo, v, info, ms, t, lo, hi,
                 peak = max(peak, float(np.ma.abs(a).max()))
             tax.text(0.5, -0.04, lab, transform=tax.transAxes, ha="center", va="top", fontsize=6)
             n_maps += 1
-        pos = gs[r_i, 2].get_position(fig)
+        pos = area.get_position(fig)
         fig.text((pos.x0 + pos.x1) / 2, pos.y1 + 0.01, f"{comp['name']}  {comp['tmin_ms']:g}–{comp['tmax_ms']:g} ms",
                  ha="center", va="bottom", fontsize=6.5)  # rule S4: window stated in the figure
     for ax, p in axes:  # ticks last: a single-panel legend may have grown the shared y-range

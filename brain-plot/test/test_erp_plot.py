@@ -256,6 +256,21 @@ with tempfile.TemporaryDirectory() as d:
     inside_canvas(SAVED[-1])
     assert any(t == "a" for t, _ in texts_of(SAVED[-1]))
 
+    # 4b2. side combo (rule L4): map size follows the panel height, block centred on its panel (user, 2026-10-12:
+    #      a 300 × 150 mm single panel left 19-mm heads at the top and bottom of a 127-mm column)
+    ep.plot(spec(root, groups=["G1"], overlay="conditions", axes="box", width_mm=300, height_mm=150))
+    fig = SAVED[-1]
+    R, mm = ep.renderer(fig), 25.4 / fig.dpi
+    heads = [a.get_window_extent(R) for a in fig.axes if a.images]
+    wave = next(a for a in fig.axes if a.lines and not a.images).get_window_extent(R)
+    assert len(heads) == 3 and min(b.width for b in heads) * mm >= 30, [round(b.width * mm, 1) for b in heads]
+    top = max(b.y0 for b in heads)
+    gap = top - max(b.y1 for b in heads if b.y0 < top - 1)
+    assert gap * mm <= 6, gap * mm
+    mid = (max(b.y1 for b in heads) + min(b.y0 for b in heads)) / 2
+    assert abs(mid - (wave.y0 + wave.y1) / 2) * mm <= 3, (mid, wave)
+    inside_canvas(fig)
+
     # 4c. kind "erp" by channel (rule K1): all channels one file each in one versioned folder; grid per facet level;
     #     no band unless components are given; spec errors
     ep.plot(spec(root, groups=["G1", "G2"], kind="erp", layout="single", channels="all", components=[]))
