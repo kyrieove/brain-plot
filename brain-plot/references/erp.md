@@ -101,3 +101,5 @@ Fix the cause, never work around it; tell the user when the fix changes the figu
 8. `_run.json`: `lines`/`maps` fit the kind (combo: both = expected; erp: maps 0; topo: lines 0); `size_mm` equals
    the spec canvas; `legend` says where the legend went; then replace its `qa` field with the result ("passed" or the
    open problems).
+9. The map block fills its column: no large empty band between the waveform and the maps or between map rows. A stretched
+   column is a layout fix (canvas size from the Canvas table), not something to pass.

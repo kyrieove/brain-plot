@@ -165,6 +165,14 @@ def layout_issues(fig):
     W, H = fig.bbox.width, fig.bbox.height
     boxes = [(t, t.get_window_extent(R).shrunk(0.9, 0.8)) for t in drawn_texts(fig)]
     out = []
+    for n, a in enumerate(fig.axes):  # rule L4: a stretched map column leaves its gridspec cell mostly empty
+        ss = a.get_subplotspec() if a.images else None
+        if ss is None:
+            continue
+        cell, box = ss.get_position(fig).transformed(fig.transFigure), a.get_window_extent(R)
+        if cell.height > 1.5 * box.height or cell.width > 1.5 * box.width:
+            pct = round(100 * (1 - box.width * box.height / (cell.width * cell.height)))
+            out.append(f"map cell {pct}% empty around {a.get_title() or a.get_label() or f'axes {n}'}; the map column is stretched (rule L4)")
     for t, b in boxes:
         if b.x0 < -0.5 or b.y0 < -0.5 or b.x1 > W + 0.5 or b.y1 > H + 0.5:
             out.append(f"text outside the canvas: {t.get_text()!r}")
@@ -187,6 +195,11 @@ def layout_issues(fig):
             if ((pts[:, 0] > b.x0) & (pts[:, 0] < b.x1) & (pts[:, 1] > b.y0) & (pts[:, 1] < b.y1)).any():
                 out.append(f"a data line runs under {name}")
     return sorted(set(out))
+
+
+def canvas_notes(w_mm, h_mm):
+    """Canvas standard (SKILL.md Canvas): notes only, never stops a render."""
+    return ([f"wider than a journal double column (183 mm); text prints small — SKILL.md Canvas"] if w_mm > 183 else []) +            ([f"taller than a journal page (230 mm)"] if h_mm > 230 else [])
 
 
 def report_layout(fig, what):
@@ -1877,7 +1890,7 @@ def plot(spec):
             stem = {"combo": f"ERP-topo{'-inset' if inset else ''}_{comp['name']}_{chans}_{win}",
                     "topo": f"topo_{comp['name']}_{win}"}[kind] + f"_{comparison(spec)}{subset}"
             out = versioned(out_root(spec) / KIND_DIR[kind], stem)
-        issues = report_layout(fig, out.name)  # rule QA 1, in code
+        issues = report_layout(fig, out.name) + canvas_notes(*canvas_size(spec))  # rule QA 1, in code
         for ext in ("svg", "png"):  # rule T5: PNG to view, SVG with editable text to adjust
             fig.savefig(f"{out}.{ext}", dpi=600 if ext == "png" else None)
         plt.close(fig)
@@ -2122,7 +2135,7 @@ def wave_grid(spec, title, grid, info, x, labels, colors, styles, ms, t, lo, hi,
     fig.legend(h, lab, loc="lower center", bbox_to_anchor=(0.5, 1 / H), ncol=leg_cols, **LEGEND_KW)
     fig.text(0.5, 1 - 3 / H, f"{title} · {facet}" if title else facet, ha="center", va="top", fontsize=8,
              fontweight="bold")
-    issues = report_layout(fig, out.name)  # rule QA 1, in code
+    issues = report_layout(fig, out.name) + canvas_notes(W, H)  # rule QA 1, in code
     fig.savefig(f"{out}.png", dpi=dpi)
     fig.savefig(f"{out}.svg")
     plt.close(fig)
